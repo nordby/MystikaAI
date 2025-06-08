@@ -1,12 +1,12 @@
 // client/src/pages/Premium/Premium.jsx
 import React, { useState, useEffect } from 'react';
-import { useAuthStore } from '../../store/authStore';
-import { useUserStore } from '../../store/userStore';
+import  useAuthStore  from '../../store/authStore';
+import  useUserStore  from '../../store/userStore';
 import { getPremiumStatus, createPaymentIntent } from '../../services/api';
 import { PREMIUM_FEATURES, FEATURE_ACCESS } from '../../utils/constants';
 import Button from '../../components/common/Button';
 import Loading from '../../components/common/Loading';
-import Modal from '../../components/common/Modal';
+import { Modal } from '../../components/common/Modal';
 import PaymentModal from '../../components/payments/PaymentModal';
 import './Premium.css';
 

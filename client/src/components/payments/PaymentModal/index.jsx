@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import Modal from '../../common/Modal';
+import  { Modal }  from '../../common/Modal';
 import Button from '../../common/Button';
 
 const PaymentModal = ({ isOpen, onClose, plan }) => {

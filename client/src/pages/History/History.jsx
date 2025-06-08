@@ -1,12 +1,12 @@
 // client/src/pages/History/History.jsx
 import React, { useState, useEffect } from 'react';
-import { useAuthStore } from '../../store/authStore';
-import { getReadingHistory, saveReading } from '../../services/api';
+import  useAuthStore  from '../../store/authStore';
+import apiService from '../../services/api';
 import { formatDate, formatTime } from '../../utils/helpers';
 import { READING_TYPES, SUCCESS_MESSAGES } from '../../utils/constants';
 import Button from '../../components/common/Button';
 import Loading from '../../components/common/Loading';
-import Modal from '../../components/common/Modal';
+import { Modal } from '../../components/common/Modal';
 import TarotCard from '../../components/cards/TarotCard';
 import './History.css';
 
@@ -32,7 +32,7 @@ const History = () => {
   const loadHistory = async () => {
     try {
       setLoading(true);
-      const history = await getReadingHistory();
+      const history = await apiService.getReadingHistory();
       setReadings(history);
     } catch (error) {
       console.error('Ошибка загрузки истории:', error);

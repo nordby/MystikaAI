@@ -1,12 +1,12 @@
 // client/src/pages/Friends/Friends.jsx
 import React, { useState, useEffect } from 'react';
-import { useAuthStore } from '../../store/authStore';
-import { getUserFriends, sendFriendRequest } from '../../services/api';
+import  useAuthStore  from '../../store/authStore';
+import apiService from '../../services/api';
 import { FRIEND_STATUS, SUCCESS_MESSAGES } from '../../utils/constants';
 import { generateInviteLink, copyToClipboard } from '../../utils/helpers';
 import Button from '../../components/common/Button';
 import Loading from '../../components/common/Loading';
-import Modal from '../../components/common/Modal';
+import { Modal } from '../../components/common/Modal';
 import './Friends.css';
 
 const Friends = () => {
@@ -70,7 +70,7 @@ const Friends = () => {
 
   const handleSendFriendRequest = async (username) => {
     try {
-      await sendFriendRequest(username);
+      await apiService.sendFriendRequest(username);
       addNotification('Запрос дружбы отправлен!', 'success');
       setSearchQuery('');
     } catch (error) {
