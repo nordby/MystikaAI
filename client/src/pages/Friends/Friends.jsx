@@ -1,13 +1,12 @@
 // client/src/pages/Friends/Friends.jsx
 import React, { useState, useEffect } from 'react';
-import  useAuthStore  from '../store/authStore';
-import  useUserStore  from '../store/authStore';
-import { shareReading, getFriends, sendFriendRequest } from '@services/api';
-import { ROUTES, ERROR_MESSAGES, SUCCESS_MESSAGES } from '@utils/constants';
-import { copyToClipboard } from '@utils/helpers';
-import Button from '@components/common/Button';
-import Loading from '@components/common/Loading';
-import Modal from '@components/common/Modal';
+import { useAuthStore } from '../../store/authStore';
+import { getUserFriends, sendFriendRequest } from '../../services/api';
+import { FRIEND_STATUS, SUCCESS_MESSAGES } from '../../utils/constants';
+import { generateInviteLink, copyToClipboard } from '../../utils/helpers';
+import Button from '../../components/common/Button';
+import Loading from '../../components/common/Loading';
+import Modal from '../../components/common/Modal';
 import './Friends.css';
 
 const Friends = () => {

@@ -1,14 +1,14 @@
 // client/src/pages/Profile/Profile.jsx
 import React, { useState, useEffect } from 'react';
-import { useAuthStore } from '@store/authStore';
-import { useUserStore } from '@store/userStore';
-import { useSettingsStore } from '@store/settingsStore';
-import { updateProfile, deleteAccount, exportUserData, uploadAvatar } from '@services/api';
-import { formatDate, isValidEmail } from '@utils/helpers';
-import { ROUTES, ERROR_MESSAGES, SUCCESS_MESSAGES, THEME_CONFIG, LOCALES } from '@utils/constants';
-import Button from '@components/common/Button';
-import Loading from '@components/common/Loading';
-import Modal from '@components/common/Modal';
+import { useAuthStore } from '../../store/authStore';
+import { useUserStore } from '../../store/userStore';
+import { useSettingsStore } from '../../store/settingsStore';
+import { getUserProfile, updateUserProfile } from '../../services/api';
+import { formatDate, isValidEmail } from '../../utils/helpers';
+import { THEMES, LANGUAGES, SUCCESS_MESSAGES } from '../../utils/constants';
+import Button from '../../components/common/Button';
+import Loading from '../../components/common/Loading';
+import Modal from '../../components/common/Modal';
 import './Profile.css';
 
 const Profile = () => {

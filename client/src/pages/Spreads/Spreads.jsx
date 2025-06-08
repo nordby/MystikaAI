@@ -1,16 +1,16 @@
 // client/src/pages/Spreads/Spreads.jsx
 import React, { useState, useEffect } from 'react';
-import { useAuthStore } from '@store/authStore';
-import { useCardsStore } from '@store/cardsStore';
-import { getAvailableSpreads, createReading } from '@services/api';
-import { READING_TYPES, FEATURE_ACCESS, USER_LIMITS, ROUTES } from '@utils/constants';
-import Button from '@components/common/Button';
-import Loading from '@components/common/Loading';
-import Modal from '@components/common/Modal';
-import OneCardSpread from '@components/spreads/OneCardSpread';
-import ThreeCardSpread from '@components/spreads/ThreeCardSpread';
-import CelticCross from '@components/spreads/CelticCross';
-import CustomSpread from '@components/spreads/CustomSpread';
+import { useAuthStore } from '../../store/authStore';
+import { useCardsStore } from '../../store/cardsStore';
+import { getAvailableSpreads } from '../../services/api';
+import { SPREAD_TYPES, SPREAD_NAMES } from '../../utils/constants';
+import Button from '../../components/common/Button';
+import Loading from '../../components/common/Loading';
+import Modal from '../../components/common/Modal';
+import OneCardSpread from '../../components/spreads/OneCardSpread';
+import ThreeCardSpread from '../../components/spreads/ThreeCardSpread';
+import CelticCross from '../../components/spreads/CelticCross';
+import CustomSpread from '../../components/spreads/CustomSpread';
 import './Spreads.css';
 
 const Spreads = () => {

@@ -1,14 +1,13 @@
 // client/src/pages/History/History.jsx
 import React, { useState, useEffect } from 'react';
-import  useAuthStore  from '../store/authStore';
-import  useCardsStore  from '../store/authStore';
-import { getReadingHistory, deleteReading, exportHistory } from '@services/api';
-import { formatDate, formatDateTime } from '@utils/helpers';
-import { READING_TYPES, ROUTES, ERROR_MESSAGES, SUCCESS_MESSAGES } from '@utils/constants';
-import Button from '@components/common/Button';
-import Loading from '@components/common/Loading';
-import Modal from '@components/common/Modal';
-import TarotCard from '@components/cards/TarotCard';
+import { useAuthStore } from '../../store/authStore';
+import { getReadingHistory, saveReading } from '../../services/api';
+import { formatDate, formatTime } from '../../utils/helpers';
+import { READING_TYPES, SUCCESS_MESSAGES } from '../../utils/constants';
+import Button from '../../components/common/Button';
+import Loading from '../../components/common/Loading';
+import Modal from '../../components/common/Modal';
+import TarotCard from '../../components/cards/TarotCard';
 import './History.css';
 
 const History = () => {
