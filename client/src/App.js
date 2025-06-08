@@ -5,9 +5,9 @@ import { Toaster } from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 
 // Stores
-import { useAuthStore } from './store/authStore';
-import { useUserStore } from './store/userStore';
-import { useSettingsStore } from './store/settingsStore';
+import useAuthStore from './store/authStore';
+import useUserStore from './store/userStore';
+import useSettingsStore from './store/settingsStore';
 
 // Hooks
 import { useTelegram } from './hooks/useTelegram';

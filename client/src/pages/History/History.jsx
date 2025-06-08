@@ -1,7 +1,7 @@
 // client/src/pages/History/History.jsx
 import React, { useState, useEffect } from 'react';
-import { useAuthStore } from '@store/authStore';
-import  useCardsStore  from '@store/cardsStore';
+import  useAuthStore  from '../store/authStore';
+import  useCardsStore  from '../store/authStore';
 import { getReadingHistory, deleteReading, exportHistory } from '@services/api';
 import { formatDate, formatDateTime } from '@utils/helpers';
 import { READING_TYPES, ROUTES, ERROR_MESSAGES, SUCCESS_MESSAGES } from '@utils/constants';

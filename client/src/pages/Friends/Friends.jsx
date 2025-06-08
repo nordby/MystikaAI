@@ -1,7 +1,7 @@
 // client/src/pages/Friends/Friends.jsx
 import React, { useState, useEffect } from 'react';
-import  useAuthStore  from '@store/authStore';
-import  useUserStore  from '@store/userStore';
+import  useAuthStore  from '../store/authStore';
+import  useUserStore  from '../store/authStore';
 import { shareReading, getFriends, sendFriendRequest } from '@services/api';
 import { ROUTES, ERROR_MESSAGES, SUCCESS_MESSAGES } from '@utils/constants';
 import { copyToClipboard } from '@utils/helpers';
