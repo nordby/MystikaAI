@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    
+    <!-- Telegram WebApp -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    
+    <!-- Meta теги -->
+    <meta name="description" content="MISTIKA - Революционный эзотерический ИИ-советник. Персональные гадания на картах Таро с искусственным интеллектом." />
+    <meta name="keywords" content="таро, гадание, мистика, нумерология, лунный календарь, telegram, ai" />
+    <meta name="author" content="MISTIKA Team" />
+    
+    <!-- Open Graph -->
+    <meta property="og:title" content="🔮 MISTIKA - Твой мистический ИИ" />
+    <meta property="og:description" content="Персональные гадания на картах Таро с искусственным интеллектом" />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="/og-image.png" />
+    
+    <!-- PWA -->
+    <meta name="theme-color" content="#8b5cf6" />
+    <link rel="manifest" href="/manifest.json" />
+    
+    <!-- Шрифты -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@400;700&family=Cinzel:wght@400;600&display=swap" rel="stylesheet">
+    
+    <title>MISTIKA - Мистический ИИ-советник</title>
+    
+    <style>
+      /* Начальные стили для плавной загрузки */
+      body {
+        margin: 0;
+        padding: 0;
+        overflow-x: hidden;
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+        min-height: 100vh;
+      }
+      
+      #root {
+        min-height: 100vh;
+      }
+      
+      /* Кастомный скроллбар */
+      ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+      }
+      
+      ::-webkit-scrollbar-track {
+        background: rgba(255, 255, 255, 0.05);
+      }
+      
+      ::-webkit-scrollbar-thumb {
+        background: rgba(139, 92, 246, 0.5);
+        border-radius: 4px;
+      }
+      
+      ::-webkit-scrollbar-thumb:hover {
+        background: rgba(139, 92, 246, 0.7);
+      }
+      
+      /* Отключение выделения текста в Telegram WebApp */
+      body.telegram-webapp {
+        -webkit-user-select: none;
+        -webkit-touch-callout: none;
+        user-select: none;
+      }
+      
+      /* Анимация загрузки */
+      .loading-spinner {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 60px;
+        height: 60px;
+      }
+      
+      .loading-spinner::before {
+        content: '';
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        border-radius: 50%;
+        border: 3px solid transparent;
+        border-top-color: #8b5cf6;
+        animation: spin 1s linear infinite;
+      }
+      
+      @keyframes spin {
+        to { transform: rotate(360deg); }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root">
+      <!-- Начальный экран загрузки -->
+      <div class="loading-spinner"></div>
+    </div>
+    
+    <script type="module" src="/src/index.js"></script>
+    
+    <script>
+      // Определение окружения Telegram
+      if (window.Telegram?.WebApp) {
+        document.body.classList.add('telegram-webapp');
+      }
+      
+      // Предотвращение масштабирования на iOS
+      document.addEventListener('gesturestart', function(e) {
+        e.preventDefault();
+      });
+      
+      // Обработка ошибок загрузки
+      window.addEventListener('error', function(e) {
+        console.error('Global error:', e);
+      });
+      
+      window.addEventListener('unhandledrejection', function(e) {
+        console.error('Unhandled promise rejection:', e);
+      });
+    </script>
+  </body>
+</html>

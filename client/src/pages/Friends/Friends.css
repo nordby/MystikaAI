@@ -1,0 +1,481 @@
+/* client/src/pages/Friends/Friends.css */
+
+.friends-page {
+  padding: var(--spacing-lg);
+  max-width: 1200px;
+  margin: 0 auto;
+  min-height: 100vh;
+}
+
+/* Уведомления */
+.notifications {
+  position: fixed;
+  top: var(--spacing-lg);
+  right: var(--spacing-lg);
+  z-index: var(--z-notification);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.notification {
+  padding: var(--spacing-md);
+  border-radius: var(--border-radius-lg);
+  color: var(--text-on-accent);
+  font-weight: var(--font-weight-medium);
+  min-width: 250px;
+  animation: var(--animation-slide-in);
+}
+
+.notification-success {
+  background: var(--success);
+}
+
+.notification-error {
+  background: var(--error);
+}
+
+.notification-warning {
+  background: var(--warning);
+}
+
+.notification-info {
+  background: var(--info);
+}
+
+/* Заголовок */
+.friends-header {
+  text-align: center;
+  margin-bottom: var(--spacing-2xl);
+}
+
+.friends-header h1 {
+  font-size: var(--font-size-3xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--text-primary);
+  margin-bottom: var(--spacing-sm);
+}
+
+.friends-header p {
+  font-size: var(--font-size-lg);
+  color: var(--text-secondary);
+}
+
+/* Секция приглашений */
+.invite-section {
+  margin-bottom: var(--spacing-2xl);
+}
+
+.invite-card {
+  background: var(--mystic-gradient);
+  border-radius: var(--border-radius-xl);
+  padding: var(--spacing-xl);
+  text-align: center;
+  color: var(--text-on-accent);
+  position: relative;
+  overflow: hidden;
+}
+
+.invite-card::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: linear-gradient(45deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+  animation: var(--animation-mystic-shimmer) 3s infinite;
+}
+
+.invite-icon {
+  font-size: 3rem;
+  margin-bottom: var(--spacing-md);
+}
+
+.invite-card h3 {
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+  margin-bottom: var(--spacing-sm);
+}
+
+.invite-card p {
+  font-size: var(--font-size-lg);
+  margin-bottom: var(--spacing-lg);
+  opacity: 0.9;
+}
+
+.invite-link {
+  display: flex;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-lg);
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: var(--border-radius-lg);
+  padding: var(--spacing-sm);
+}
+
+.invite-input {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  border-radius: var(--border-radius-md);
+  padding: var(--spacing-md);
+  color: var(--text-on-accent);
+  font-size: var(--font-size-base);
+}
+
+.invite-input::placeholder {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.copy-button {
+  background: rgba(255, 255, 255, 0.2);
+  color: var(--text-on-accent);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  font-weight: var(--font-weight-medium);
+}
+
+.copy-button:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.invite-stats {
+  display: flex;
+  justify-content: center;
+  gap: var(--spacing-lg);
+  font-size: var(--font-size-sm);
+  opacity: 0.8;
+}
+
+/* Поиск */
+.search-section {
+  margin-bottom: var(--spacing-xl);
+}
+
+.search-input-container {
+  position: relative;
+  max-width: 400px;
+  margin: 0 auto;
+}
+
+.search-input {
+  width: 100%;
+  padding: var(--spacing-md) var(--spacing-xl) var(--spacing-md) var(--spacing-md);
+  border: var(--border-card);
+  border-radius: var(--border-radius-lg);
+  background: var(--background-secondary);
+  color: var(--text-primary);
+  font-size: var(--font-size-base);
+  transition: var(--transition-standard);
+}
+
+.search-input:focus {
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.1);
+}
+
+.search-input::placeholder {
+  color: var(--text-muted);
+}
+
+.search-icon {
+  position: absolute;
+  right: var(--spacing-md);
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+/* Секция друзей */
+.friends-section {
+  margin-bottom: var(--spacing-2xl);
+}
+
+.friends-section h2 {
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+  margin-bottom: var(--spacing-lg);
+}
+
+.friends-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: var(--spacing-lg);
+}
+
+.friend-card {
+  background: var(--background-secondary);
+  border: var(--border-card);
+  border-radius: var(--border-radius-lg);
+  padding: var(--spacing-lg);
+  transition: var(--transition-standard);
+  position: relative;
+}
+
+.friend-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-elevated);
+  border-color: var(--accent-primary);
+}
+
+.friend-avatar {
+  position: relative;
+  width: 60px;
+  height: 60px;
+  margin: 0 auto var(--spacing-md);
+}
+
+.friend-avatar img,
+.avatar-placeholder {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.avatar-placeholder {
+  background: var(--accent-gradient);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--text-on-accent);
+}
+
+.status-indicator {
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid var(--background-secondary);
+}
+
+.status-indicator.online {
+  background: var(--success);
+}
+
+.status-indicator.offline {
+  background: var(--text-muted);
+}
+
+.friend-info {
+  text-align: center;
+  margin-bottom: var(--spacing-md);
+}
+
+.friend-info h4 {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+  margin-bottom: var(--spacing-xs);
+}
+
+.friend-status {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  margin-bottom: var(--spacing-sm);
+}
+
+.friend-stats {
+  font-size: var(--font-size-sm);
+  color: var(--text-muted);
+}
+
+.friend-actions {
+  display: flex;
+  justify-content: center;
+}
+
+/* Пустое состояние */
+.empty-state {
+  text-align: center;
+  padding: var(--spacing-3xl) var(--spacing-lg);
+}
+
+.empty-icon {
+  font-size: 4rem;
+  margin-bottom: var(--spacing-lg);
+  opacity: 0.5;
+}
+
+.empty-state h3 {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+  margin-bottom: var(--spacing-sm);
+}
+
+.empty-state p {
+  font-size: var(--font-size-base);
+  color: var(--text-secondary);
+  max-width: 400px;
+  margin: 0 auto;
+}
+
+/* Рекомендации */
+.recommendations-section h2 {
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+  margin-bottom: var(--spacing-lg);
+}
+
+.recommendations-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: var(--spacing-lg);
+}
+
+.recommendation-card {
+  background: var(--background-secondary);
+  border: 2px dashed var(--border-color);
+  border-radius: var(--border-radius-lg);
+  padding: var(--spacing-lg);
+  text-align: center;
+  transition: var(--transition-standard);
+}
+
+.recommendation-card:hover {
+  border-color: var(--accent-primary);
+  background: var(--accent-gradient-subtle);
+}
+
+.recommendation-icon {
+  font-size: 2rem;
+  margin-bottom: var(--spacing-md);
+}
+
+.recommendation-content h4 {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+  margin-bottom: var(--spacing-sm);
+}
+
+.recommendation-content p {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  margin-bottom: var(--spacing-md);
+}
+
+/* Модальное окно шаринга */
+.share-modal-content {
+  text-align: center;
+}
+
+.reading-preview {
+  background: var(--background-tertiary);
+  border-radius: var(--border-radius-md);
+  padding: var(--spacing-md);
+  margin: var(--spacing-lg) 0;
+}
+
+.reading-preview h4 {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+  margin-bottom: var(--spacing-xs);
+}
+
+.reading-preview p {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+
+.modal-actions {
+  display: flex;
+  gap: var(--spacing-md);
+  justify-content: center;
+  margin-top: var(--spacing-lg);
+}
+
+/* Требуется авторизация */
+.auth-required {
+  text-align: center;
+  padding: var(--spacing-3xl) var(--spacing-lg);
+}
+
+.auth-required h2 {
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+  margin-bottom: var(--spacing-md);
+}
+
+.auth-required p {
+  font-size: var(--font-size-lg);
+  color: var(--text-secondary);
+  margin-bottom: var(--spacing-xl);
+  max-width: 400px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* Адаптивность */
+@media (max-width: 768px) {
+  .friends-page {
+    padding: var(--spacing-md);
+  }
+
+  .friends-header h1 {
+    font-size: var(--font-size-2xl);
+  }
+
+  .invite-card {
+    padding: var(--spacing-lg);
+  }
+
+  .invite-link {
+    flex-direction: column;
+  }
+
+  .invite-stats {
+    flex-direction: column;
+    gap: var(--spacing-sm);
+  }
+
+  .friends-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .recommendations-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .modal-actions {
+    flex-direction: column;
+  }
+
+  .notifications {
+    top: var(--spacing-sm);
+    right: var(--spacing-sm);
+    left: var(--spacing-sm);
+  }
+
+  .notification {
+    min-width: auto;
+  }
+}
+
+@media (max-width: 480px) {
+  .friend-card {
+    padding: var(--spacing-md);
+  }
+
+  .friend-avatar {
+    width: 50px;
+    height: 50px;
+  }
+
+  .invite-icon {
+    font-size: 2rem;
+  }
+
+  .empty-icon {
+    font-size: 3rem;
+  }
+}

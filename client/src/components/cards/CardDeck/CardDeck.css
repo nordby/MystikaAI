@@ -1,0 +1,337 @@
+.card-deck {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px;
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  min-width: 300px;
+}
+
+.deck-info {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.deck-info h3 {
+  margin: 0 0 5px 0;
+  color: #fff;
+  font-size: 1.2rem;
+}
+
+.deck-info p {
+  margin: 2px 0;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.9rem;
+}
+
+.deck-design {
+  color: #ffd700 !important;
+  font-style: italic;
+}
+
+.deck-container {
+  position: relative;
+  width: 120px;
+  height: 180px;
+  margin: 20px 0;
+}
+
+.deck-stack {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.deck-card {
+  position: absolute;
+  width: 80px;
+  height: 120px;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+
+.deck-card.top-card {
+  z-index: 100 !important;
+}
+
+.deck-card.dragging {
+  z-index: 200 !important;
+  filter: brightness(1.2);
+}
+
+.empty-deck {
+  width: 80px;
+  height: 120px;
+  border: 2px dashed rgba(255, 255, 255, 0.3);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.empty-deck-content {
+  text-align: center;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.empty-icon {
+  font-size: 2rem;
+  display: block;
+  margin-bottom: 8px;
+}
+
+.empty-deck p {
+  margin: 0 0 10px 0;
+  font-size: 0.8rem;
+}
+
+.reset-deck-btn {
+  background: #4a5568;
+  color: white;
+  border: none;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.reset-deck-btn:hover {
+  background: #2d3748;
+}
+
+.deck-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  width: 100%;
+  margin-top: 20px;
+}
+
+.draw-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  justify-content: center;
+}
+
+.draw-controls label {
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 0.9rem;
+}
+
+.draw-controls select {
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  padding: 5px 8px;
+  font-size: 0.9rem;
+}
+
+.draw-controls select:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.draw-btn,
+.shuffle-btn,
+.reset-btn {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-weight: 500;
+}
+
+.draw-btn:hover,
+.shuffle-btn:hover,
+.reset-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.draw-btn:disabled,
+.shuffle-btn:disabled,
+.reset-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.deck-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+
+.shuffle-btn {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+}
+
+.reset-btn {
+  background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+}
+
+.deck-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 20px;
+  padding: 15px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 8px;
+  width: 100%;
+}
+
+.stat {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.stat-label {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.8rem;
+}
+
+.stat-value {
+  color: #ffd700;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.shuffle-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.8);
+  border-radius: 12px;
+  z-index: 1000;
+}
+
+.shuffle-effect {
+  text-align: center;
+  color: white;
+}
+
+.shuffle-particles {
+  position: relative;
+  width: 100px;
+  height: 100px;
+  margin: 0 auto 20px;
+}
+
+.particle {
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  background: #ffd700;
+  border-radius: 50%;
+  top: 50%;
+  left: 50%;
+}
+
+.shuffle-effect p {
+  margin: 0;
+  font-size: 1rem;
+  color: #ffd700;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .card-deck {
+    padding: 15px;
+    min-width: 250px;
+  }
+  
+  .deck-container {
+    width: 100px;
+    height: 150px;
+  }
+  
+  .deck-card {
+    width: 70px;
+    height: 105px;
+  }
+  
+  .draw-controls {
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .deck-actions {
+    flex-direction: column;
+  }
+  
+  .draw-btn,
+  .shuffle-btn,
+  .reset-btn {
+    padding: 8px 16px;
+    font-size: 0.8rem;
+  }
+}
+
+/* Theme variations */
+[data-theme="light"] .card-deck {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] .deck-info h3,
+[data-theme="light"] .stat-label {
+  color: #333;
+}
+
+[data-theme="light"] .deck-info p {
+  color: rgba(0, 0, 0, 0.7);
+}
+
+[data-theme="light"] .draw-controls label {
+  color: rgba(0, 0, 0, 0.8);
+}
+
+[data-theme="light"] .draw-controls select {
+  background: rgba(0, 0, 0, 0.1);
+  color: #333;
+  border-color: rgba(0, 0, 0, 0.2);
+}
+
+[data-theme="light"] .deck-stats {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+[data-theme="light"] .empty-deck {
+  border-color: rgba(0, 0, 0, 0.3);
+  background: rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="light"] .empty-deck-content {
+  color: rgba(0, 0, 0, 0.5);
+}
+
+[data-theme="mystic"] .card-deck {
+  background: linear-gradient(135deg, rgba(138, 43, 226, 0.1) 0%, rgba(75, 0, 130, 0.1) 100%);
+  border-color: rgba(138, 43, 226, 0.3);
+}
+
+[data-theme="celestial"] .card-deck {
+  background: linear-gradient(135deg, rgba(25, 25, 112, 0.1) 0%, rgba(72, 61, 139, 0.1) 100%);
+  border-color: rgba(72, 61, 139, 0.3);
+}

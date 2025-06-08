@@ -1,0 +1,75 @@
+{
+  "name": "mistika-telegram-bot",
+  "version": "1.0.0",
+  "description": "MISTIKA Telegram Bot for Tarot, Numerology and Lunar Calendar",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "lint": "eslint src/ --ext .js",
+    "lint:fix": "eslint src/ --ext .js --fix",
+    "docker:build": "docker build -t mistika-bot .",
+    "docker:run": "docker run -d --name mistika-bot mistika-bot",
+    "docker:stop": "docker stop mistika-bot && docker rm mistika-bot"
+  },
+  "keywords": [
+    "telegram",
+    "bot",
+    "tarot",
+    "numerology",
+    "lunar",
+    "astrology",
+    "mysticism"
+  ],
+  "author": "MISTIKA Team",
+  "license": "MIT",
+  "dependencies": {
+    "node-telegram-bot-api": "^0.64.0",
+    "axios": "^1.6.0",
+    "winston": "^3.11.0",
+    "winston-daily-rotate-file": "^4.7.1",
+    "node-schedule": "^2.1.1",
+    "express": "^4.18.2",
+    "body-parser": "^1.20.2",
+    "helmet": "^7.1.0",
+    "cors": "^2.8.5",
+    "compression": "^1.7.4",
+    "rate-limiter-flexible": "^3.0.8",
+    "uuid": "^9.0.1",
+    "moment": "^2.29.4",
+    "moment-timezone": "^0.5.43",
+    "validator": "^13.11.0",
+    "crypto-js": "^4.2.0",
+    "sharp": "^0.32.6",
+    "file-type": "^18.7.0",
+    "multer": "^1.4.5-lts.1",
+    "pg": "^8.11.3",
+    "redis": "^4.6.10",
+    "sequelize": "^6.35.0",
+    "dotenv": "^16.3.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2",
+    "jest": "^29.7.0",
+    "supertest": "^6.3.3",
+    "eslint": "^8.55.0",
+    "eslint-config-airbnb-base": "^15.0.0",
+    "eslint-plugin-import": "^2.29.0",
+    "@types/node": "^20.10.4"
+  },
+  "engines": {
+    "node": ">=16.0.0",
+    "npm": ">=8.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-org/mistika.git"
+  },
+  "bugs": {
+    "url": "https://github.com/your-org/mistika/issues"
+  },
+  "homepage": "https://mistika.com"
+}

@@ -1,0 +1,51 @@
+.tarot-card {
+    perspective: 1000px;
+}
+
+.card-container {
+    transform-style: preserve-3d;
+    transition: transform 0.6s;
+}
+
+.card-back,
+.card-front {
+    backface-visibility: hidden;
+}
+
+.card-front {
+    transform: rotateY(180deg);
+}
+
+.tarot-card.reversed .card-front img {
+    transform: rotate(180deg);
+}
+
+.gold-500 {
+    border-color: #d4af37;
+}
+
+.text-gold-400 {
+    color: #fbbf24;
+}
+
+.border-gold-400 {
+    border-color: #fbbf24;
+}
+
+.bg-gradient-radial {
+    background: radial-gradient(circle, var(--tw-gradient-stops));
+}
+
+/* Анимации свечения */
+@keyframes mystic-glow {
+    0%, 100% {
+        box-shadow: 0 0 20px rgba(139, 69, 19, 0.5);
+    }
+    50% {
+        box-shadow: 0 0 40px rgba(139, 69, 19, 0.8);
+    }
+}
+
+.tarot-card:hover {
+    animation: mystic-glow 2s ease-in-out infinite;
+}

@@ -1,0 +1,288 @@
+/* client/src/styles/variables.css */
+
+:root {
+  /* Цветовая палитра */
+  --primary-50: #faf5ff;
+  --primary-100: #f3e8ff;
+  --primary-200: #e9d5ff;
+  --primary-300: #d8b4fe;
+  --primary-400: #c084fc;
+  --primary-500: #a855f7;
+  --primary-600: #9333ea;
+  --primary-700: #7c3aed;
+  --primary-800: #6b21a8;
+  --primary-900: #581c87;
+
+  --secondary-50: #ecfdf5;
+  --secondary-100: #d1fae5;
+  --secondary-200: #a7f3d0;
+  --secondary-300: #6ee7b7;
+  --secondary-400: #34d399;
+  --secondary-500: #10b981;
+  --secondary-600: #059669;
+  --secondary-700: #047857;
+  --secondary-800: #065f46;
+  --secondary-900: #064e3b;
+
+  --accent-50: #fff7ed;
+  --accent-100: #ffedd5;
+  --accent-200: #fed7aa;
+  --accent-300: #fdba74;
+  --accent-400: #fb923c;
+  --accent-500: #f97316;
+  --accent-600: #ea580c;
+  --accent-700: #c2410c;
+  --accent-800: #9a3412;
+  --accent-900: #7c2d12;
+
+  --neutral-50: #fafafa;
+  --neutral-100: #f5f5f5;
+  --neutral-200: #e5e5e5;
+  --neutral-300: #d4d4d4;
+  --neutral-400: #a3a3a3;
+  --neutral-500: #737373;
+  --neutral-600: #525252;
+  --neutral-700: #404040;
+  --neutral-800: #262626;
+  --neutral-900: #171717;
+
+  /* Мистические цвета */
+  --mystic-purple: #6b46c1;
+  --mystic-gold: #f59e0b;
+  --mystic-silver: #9ca3af;
+  --mystic-deep: #1e1b4b;
+  --mystic-glow: #a78bfa;
+
+  /* Основные цвета темы */
+  --background-primary: var(--neutral-900);
+  --background-secondary: var(--neutral-800);
+  --background-tertiary: var(--neutral-700);
+  
+  --text-primary: var(--neutral-50);
+  --text-secondary: var(--neutral-300);
+  --text-muted: var(--neutral-500);
+  --text-on-accent: var(--neutral-900);
+
+  --accent-primary: var(--primary-600);
+  --accent-secondary: var(--secondary-500);
+  --accent-tertiary: var(--accent-500);
+
+  /* Состояния */
+  --success: var(--secondary-500);
+  --warning: var(--accent-500);
+  --error: #ef4444;
+  --info: #3b82f6;
+
+  /* Границы */
+  --border-color: var(--neutral-700);
+  --border-light: var(--neutral-600);
+  --border-card: 1px solid var(--neutral-700);
+  --border-accent: 1px solid var(--accent-primary);
+
+  /* Тени */
+  --shadow-subtle: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-standard: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-elevated: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --shadow-mystic: 0 10px 25px rgba(167, 139, 250, 0.3);
+
+  /* Градиенты */
+  --mystic-gradient: linear-gradient(135deg, var(--mystic-purple) 0%, var(--mystic-deep) 100%);
+  --accent-gradient: linear-gradient(135deg, var(--accent-primary) 0%, var(--primary-700) 100%);
+  --accent-gradient-subtle: linear-gradient(135deg, var(--primary-50) 0%, var(--accent-50) 100%);
+  --gold-gradient: linear-gradient(135deg, var(--mystic-gold) 0%, var(--accent-600) 100%);
+
+  /* Отступы */
+  --spacing-xs: 0.25rem;   /* 4px */
+  --spacing-sm: 0.5rem;    /* 8px */
+  --spacing-md: 1rem;      /* 16px */
+  --spacing-lg: 1.5rem;    /* 24px */
+  --spacing-xl: 2rem;      /* 32px */
+  --spacing-2xl: 3rem;     /* 48px */
+  --spacing-3xl: 4rem;     /* 64px */
+
+  /* Радиусы скругления */
+  --border-radius-sm: 0.25rem;  /* 4px */
+  --border-radius-md: 0.375rem; /* 6px */
+  --border-radius-lg: 0.5rem;   /* 8px */
+  --border-radius-xl: 0.75rem;  /* 12px */
+  --border-radius-2xl: 1rem;    /* 16px */
+  --border-radius-full: 9999px;
+
+  /* Переходы */
+  --transition-fast: 150ms ease-in-out;
+  --transition-standard: 250ms ease-in-out;
+  --transition-slow: 400ms ease-in-out;
+
+  /* Анимации */
+  --animation-spin: spin 1s linear infinite;
+  --animation-bounce: bounce 1s infinite;
+  --animation-pulse: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  --animation-fade-in: fadeIn 0.3s ease-in-out;
+  --animation-slide-in: slideIn 0.3s ease-out;
+  --animation-card-flip: cardFlip 0.6s ease-in-out;
+  --animation-mystic-pulse: mysticPulse 3s ease-in-out infinite;
+
+  /* Шрифты */
+  --font-size-xs: 0.75rem;    /* 12px */
+  --font-size-sm: 0.875rem;   /* 14px */
+  --font-size-base: 1rem;     /* 16px */
+  --font-size-lg: 1.125rem;   /* 18px */
+  --font-size-xl: 1.25rem;    /* 20px */
+  --font-size-2xl: 1.5rem;    /* 24px */
+  --font-size-3xl: 1.875rem;  /* 30px */
+  --font-size-4xl: 2.25rem;   /* 36px */
+
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+
+  --line-height-tight: 1.25;
+  --line-height-snug: 1.375;
+  --line-height-normal: 1.5;
+  --line-height-relaxed: 1.625;
+
+  /* Z-индексы */
+  --z-dropdown: 10;
+  --z-sticky: 20;
+  --z-fixed: 30;
+  --z-modal-backdrop: 40;
+  --z-modal: 50;
+  --z-popover: 60;
+  --z-tooltip: 70;
+  --z-notification: 80;
+
+  /* Карты Таро */
+  --card-width-sm: 80px;
+  --card-width-md: 120px;
+  --card-width-lg: 160px;
+  --card-aspect-ratio: 2/3;
+  --card-background: var(--background-secondary);
+  --card-border: var(--border-card);
+  --card-shadow: var(--shadow-standard);
+
+  /* Лунные фазы */
+  --moon-color: var(--mystic-silver);
+  --moon-shadow: var(--mystic-glow);
+
+  /* Нумерология */
+  --number-size-sm: 32px;
+  --number-size-md: 48px;
+  --number-size-lg: 64px;
+
+  /* Telegram WebApp переменные */
+  --tg-viewport-height: var(--tg-viewport-height, 100vh);
+  --tg-viewport-stable-height: var(--tg-viewport-stable-height, 100vh);
+}
+
+/* Светлая тема (для переключения) */
+@media (prefers-color-scheme: light) {
+  :root {
+    --background-primary: var(--neutral-50);
+    --background-secondary: var(--neutral-100);
+    --background-tertiary: var(--neutral-200);
+    
+    --text-primary: var(--neutral-900);
+    --text-secondary: var(--neutral-700);
+    --text-muted: var(--neutral-500);
+    --text-on-accent: var(--neutral-50);
+
+    --border-color: var(--neutral-300);
+    --border-light: var(--neutral-200);
+    --border-card: 1px solid var(--neutral-300);
+
+    --card-background: var(--neutral-50);
+    --shadow-mystic: 0 10px 25px rgba(107, 70, 193, 0.2);
+
+    --accent-gradient-subtle: linear-gradient(135deg, var(--primary-100) 0%, var(--accent-100) 100%);
+  }
+}
+
+/* Telegram WebApp темы */
+[data-theme="telegram"] {
+  --background-primary: var(--tg-theme-bg-color, var(--neutral-900));
+  --background-secondary: var(--tg-theme-secondary-bg-color, var(--neutral-800));
+  --text-primary: var(--tg-theme-text-color, var(--neutral-50));
+  --text-secondary: var(--tg-theme-hint-color, var(--neutral-300));
+  --accent-primary: var(--tg-theme-button-color, var(--primary-600));
+  --accent-secondary: var(--tg-theme-link-color, var(--secondary-500));
+}
+
+/* Большие экраны */
+@media (min-width: 1024px) {
+  :root {
+    --spacing-xs: 0.5rem;   /* 8px */
+    --spacing-sm: 0.75rem;  /* 12px */
+    --spacing-md: 1.25rem;  /* 20px */
+    --spacing-lg: 2rem;     /* 32px */
+    --spacing-xl: 2.5rem;   /* 40px */
+    --spacing-2xl: 3.5rem;  /* 56px */
+    --spacing-3xl: 5rem;    /* 80px */
+
+    --card-width-sm: 100px;
+    --card-width-md: 140px;
+    --card-width-lg: 180px;
+  }
+}
+
+/* Мобильные устройства */
+@media (max-width: 768px) {
+  :root {
+    --card-width-sm: 60px;
+    --card-width-md: 90px;
+    --card-width-lg: 120px;
+    
+    --font-size-xs: 0.7rem;   /* 11px */
+    --font-size-sm: 0.8rem;   /* 13px */
+    --font-size-base: 0.9rem; /* 14px */
+    --font-size-lg: 1rem;     /* 16px */
+    --font-size-xl: 1.1rem;   /* 18px */
+    --font-size-2xl: 1.3rem;  /* 21px */
+    --font-size-3xl: 1.6rem;  /* 25px */
+    --font-size-4xl: 2rem;    /* 32px */
+  }
+}
+
+/* Высокий контраст для доступности */
+@media (prefers-contrast: high) {
+  :root {
+    --border-color: var(--neutral-200);
+    --text-secondary: var(--neutral-100);
+    --shadow-subtle: 0 2px 4px 0 rgba(0, 0, 0, 0.2);
+    --shadow-standard: 0 6px 8px -1px rgba(0, 0, 0, 0.2);
+  }
+}
+
+/* Уменьшенная анимация */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --transition-fast: none;
+    --transition-standard: none;
+    --transition-slow: none;
+    --animation-spin: none;
+    --animation-bounce: none;
+    --animation-pulse: none;
+    --animation-mystic-pulse: none;
+  }
+}
+
+/* Пользовательские свойства для конкретных компонентов */
+.light-theme {
+  --background-primary: var(--neutral-50);
+  --background-secondary: var(--neutral-100);
+  --text-primary: var(--neutral-900);
+  --text-secondary: var(--neutral-700);
+  --border-color: var(--neutral-300);
+  --card-background: var(--neutral-50);
+  --shadow-mystic: 0 10px 25px rgba(107, 70, 193, 0.15);
+}
+
+.dark-theme {
+  --background-primary: var(--neutral-900);
+  --background-secondary: var(--neutral-800);
+  --text-primary: var(--neutral-50);
+  --text-secondary: var(--neutral-300);
+  --border-color: var(--neutral-700);
+  --card-background: var(--neutral-800);
+  --shadow-mystic: 0 10px 25px rgba(167, 139, 250, 0.3);
+}

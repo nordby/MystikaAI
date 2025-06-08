@@ -1,0 +1,225 @@
+.card-spread {
+  position: relative;
+  width: 100%;
+  min-height: 400px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px;
+}
+
+.spread-container {
+  position: relative;
+  width: 100%;
+  min-height: 300px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.spread-card-container {
+  position: relative;
+  transition: all 0.3s ease;
+  z-index: 1;
+}
+
+.spread-card-container.selected {
+  z-index: 10;
+}
+
+.position-label {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  white-space: nowrap;
+  margin-top: 8px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.position-label.visible {
+  opacity: 1;
+}
+
+.spread-guide {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.position-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  opacity: 0.3;
+}
+
+.placeholder-card {
+  width: 80px;
+  height: 120px;
+  border: 2px dashed rgba(255, 255, 255, 0.3);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.05);
+  margin-bottom: 8px;
+}
+
+.position-number {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.position-name {
+  font-size: 0.8rem;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.7);
+  max-width: 100px;
+}
+
+.card-details-panel {
+  position: fixed;
+  top: 50%;
+  right: 20px;
+  transform: translateY(-50%);
+  width: 300px;
+  max-height: 70vh;
+  background: rgba(0, 0, 0, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  padding: 20px;
+  overflow-y: auto;
+  z-index: 1000;
+  backdrop-filter: blur(10px);
+}
+
+.card-details h3 {
+  margin: 0 0 10px 0;
+  color: #fff;
+  font-size: 1.2rem;
+}
+
+.position-context {
+  margin-bottom: 15px;
+  color: #ffd700;
+  font-size: 0.9rem;
+}
+
+.card-meaning {
+  margin-bottom: 15px;
+}
+
+.card-meaning p {
+  color: rgba(255, 255, 255, 0.9);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.card-interpretation {
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+  padding-top: 15px;
+}
+
+.card-interpretation h4 {
+  margin: 0 0 10px 0;
+  color: #ffd700;
+  font-size: 1rem;
+}
+
+.card-interpretation p {
+  color: rgba(255, 255, 255, 0.9);
+  line-height: 1.5;
+  margin: 0;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .card-spread {
+    padding: 10px;
+  }
+  
+  .spread-container {
+    min-height: 250px;
+  }
+  
+  .card-details-panel {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    top: auto;
+    transform: none;
+    width: 100%;
+    max-height: 50vh;
+    border-radius: 12px 12px 0 0;
+  }
+  
+  .position-label {
+    font-size: 0.7rem;
+    padding: 2px 6px;
+  }
+}
+
+/* Dark theme adjustments */
+[data-theme="dark"] .card-details-panel {
+  background: rgba(20, 20, 20, 0.95);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="dark"] .placeholder-card {
+  border-color: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+/* Light theme adjustments */
+[data-theme="light"] .card-details-panel {
+  background: rgba(255, 255, 255, 0.95);
+  border-color: rgba(0, 0, 0, 0.1);
+  color: #333;
+}
+
+[data-theme="light"] .card-details h3,
+[data-theme="light"] .card-interpretation h4 {
+  color: #333;
+}
+
+[data-theme="light"] .position-context {
+  color: #8b6914;
+}
+
+[data-theme="light"] .card-meaning p,
+[data-theme="light"] .card-interpretation p {
+  color: rgba(0, 0, 0, 0.8);
+}
+
+[data-theme="light"] .position-label {
+  background: rgba(255, 255, 255, 0.9);
+  color: #333;
+}
+
+[data-theme="light"] .placeholder-card {
+  border-color: rgba(0, 0, 0, 0.2);
+  background: rgba(0, 0, 0, 0.02);
+}
+
+[data-theme="light"] .position-number {
+  color: rgba(0, 0, 0, 0.5);
+}
+
+[data-theme="light"] .position-name {
+  color: rgba(0, 0, 0, 0.7);
+}

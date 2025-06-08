@@ -1,0 +1,296 @@
+/* client/src/styles/globals.css */
+
+@import 'variables.css';
+@import 'animations.css';
+
+/* Базовые стили для всего приложения */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  height: 100%;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--background-primary);
+  color: var(--text-primary);
+  overflow-x: hidden;
+}
+
+#root {
+  height: 100%;
+  width: 100%;
+}
+
+/* Скроллбары */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--background-secondary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--accent-primary);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-secondary);
+}
+
+/* Фокус */
+*:focus {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+}
+
+*:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* Disabled элементы */
+*:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Кнопки */
+button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+/* Ссылки */
+a {
+  color: var(--accent-primary);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+/* Формы */
+input, textarea, select {
+  font-family: inherit;
+  font-size: inherit;
+}
+
+/* Telegram WebApp стили */
+.twa-layout {
+  background: var(--tg-theme-bg-color, var(--background-primary));
+  color: var(--tg-theme-text-color, var(--text-primary));
+  min-height: 100vh;
+}
+
+.twa-button {
+  background: var(--tg-theme-button-color, var(--accent-primary));
+  color: var(--tg-theme-button-text-color, var(--text-on-accent));
+}
+
+/* Мистические эффекты */
+.mystic-glow {
+  box-shadow: 0 0 20px var(--mystic-glow);
+  animation: var(--animation-mystic-pulse);
+}
+
+.mystic-bg {
+  background: var(--mystic-gradient);
+}
+
+/* Карты Таро */
+.tarot-card {
+  aspect-ratio: 2/3;
+  border-radius: var(--border-radius-lg);
+  background: var(--card-background);
+  border: var(--border-card);
+  transition: var(--transition-standard);
+  cursor: pointer;
+}
+
+.tarot-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-mystic);
+}
+
+.tarot-card.flipped {
+  animation: var(--animation-card-flip);
+}
+
+/* Расклады */
+.spread-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-md);
+  justify-content: center;
+  align-items: center;
+  min-height: 60vh;
+  padding: var(--spacing-lg);
+}
+
+/* Модальные окна */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: var(--animation-fade-in);
+}
+
+.modal-content {
+  background: var(--background-primary);
+  border-radius: var(--border-radius-xl);
+  padding: var(--spacing-xl);
+  margin: var(--spacing-md);
+  max-width: 90vw;
+  max-height: 90vh;
+  overflow-y: auto;
+  animation: var(--animation-slide-in);
+}
+
+/* Загрузка */
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid var(--border-color);
+  border-top: 3px solid var(--accent-primary);
+  border-radius: 50%;
+  animation: var(--animation-spin);
+}
+
+.loading-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-xl);
+}
+
+/* Лунный календарь */
+.lunar-phase {
+  display: inline-block;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--moon-color);
+  position: relative;
+}
+
+.lunar-phase::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: var(--background-primary);
+  transform-origin: center;
+}
+
+.lunar-phase.new-moon::after {
+  transform: scale(1);
+}
+
+.lunar-phase.full-moon::after {
+  transform: scale(0);
+}
+
+/* Нумерология */
+.numerology-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--accent-gradient);
+  color: var(--text-on-accent);
+  font-weight: 700;
+  font-size: 18px;
+}
+
+/* Платежи */
+.pricing-card {
+  background: var(--card-background);
+  border: var(--border-card);
+  border-radius: var(--border-radius-lg);
+  padding: var(--spacing-lg);
+  text-align: center;
+  transition: var(--transition-standard);
+}
+
+.pricing-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-elevated);
+}
+
+.pricing-card.featured {
+  border-color: var(--accent-primary);
+  background: var(--accent-gradient-subtle);
+}
+
+/* Адаптивность */
+@media (max-width: 768px) {
+  .modal-content {
+    margin: var(--spacing-xs);
+    padding: var(--spacing-lg);
+  }
+  
+  .spread-container {
+    padding: var(--spacing-md);
+  }
+  
+  .tarot-card {
+    max-width: 120px;
+  }
+}
+
+/* Утилитарные классы */
+.text-center { text-align: center; }
+.text-left { text-align: left; }
+.text-right { text-align: right; }
+
+.flex { display: flex; }
+.flex-col { flex-direction: column; }
+.flex-row { flex-direction: row; }
+.items-center { align-items: center; }
+.justify-center { justify-content: center; }
+.justify-between { justify-content: space-between; }
+
+.hidden { display: none; }
+.visible { visibility: visible; }
+.invisible { visibility: hidden; }
+
+.w-full { width: 100%; }
+.h-full { height: 100%; }
+
+.p-xs { padding: var(--spacing-xs); }
+.p-sm { padding: var(--spacing-sm); }
+.p-md { padding: var(--spacing-md); }
+.p-lg { padding: var(--spacing-lg); }
+.p-xl { padding: var(--spacing-xl); }
+
+.m-xs { margin: var(--spacing-xs); }
+.m-sm { margin: var(--spacing-sm); }
+.m-md { margin: var(--spacing-md); }
+.m-lg { margin: var(--spacing-lg); }
+.m-xl { margin: var(--spacing-xl); }
+
+.rounded { border-radius: var(--border-radius-md); }
+.rounded-lg { border-radius: var(--border-radius-lg); }
+.rounded-xl { border-radius: var(--border-radius-xl); }
+
+.shadow { box-shadow: var(--shadow-subtle); }
+.shadow-md { box-shadow: var(--shadow-standard); }
+.shadow-lg { box-shadow: var(--shadow-elevated); }
