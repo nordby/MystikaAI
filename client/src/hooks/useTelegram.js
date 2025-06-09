@@ -14,16 +14,38 @@ export const useTelegram = () => {
             if (tgWebApp.initDataUnsafe?.user) {
                 setUser(tgWebApp.initDataUnsafe.user);
             }
+        } 
+        // РЕЖИМ РАЗРАБОТКИ - для тестирования в браузере
+        else if (process.env.NODE_ENV === 'development') {
+            // Создаем моковые данные пользователя для разработки
+            const mockUser = {
+                id: 123456789,
+                first_name: 'Test',
+                last_name: 'User',
+                username: 'testuser',
+                language_code: 'ru'
+            };
+            setUser(mockUser);
         }
     }, []);
 
     const showAlert = (message) => {
-        webApp?.showAlert(message);
+        if (webApp) {
+            webApp?.showAlert(message);
+        } else {
+            // Fallback для браузера
+            alert(message);
+        }
     };
 
     const showConfirm = (message) => {
         return new Promise((resolve) => {
-            webApp?.showConfirm(message, resolve);
+            if (webApp) {
+                webApp?.showConfirm(message, resolve);
+            } else {
+                // Fallback для браузера
+                resolve(confirm(message));
+            }
         });
     };
 
@@ -47,6 +69,8 @@ export const useTelegram = () => {
         hapticFeedback,
         openInvoice,
         close,
-        isSupported: !!window.Telegram?.WebApp
+        isSupported: !!window.Telegram?.WebApp,
+        // Добавляем флаг режима разработки
+        isDevelopment: process.env.NODE_ENV === 'development' && !window.Telegram?.WebApp
     };
 };
