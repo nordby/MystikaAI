@@ -32,7 +32,7 @@ const LunarCalendar = lazy(() => import('./pages/LunarCalendar'));
 import { ROUTES } from './utils/constants';
 
 function App() {
-  const { tg, user: telegramUser } = useTelegram();
+  const { tg, user: telegramUser, isDevelopment } = useTelegram();
   const { login, isAuthenticated, isLoading: authLoading } = useAuthStore();
   const { fetchUserProfile } = useUserStore();
   const { theme, loadSettings } = useSettingsStore();
@@ -84,13 +84,23 @@ function App() {
     );
   }
 
+  // Проверяем авторизацию ИЛИ режим разработки
+  const shouldRenderApp = isAuthenticated || isDevelopment;
+
   return (
     <ErrorBoundary>
       <Router>
         <div className="min-h-screen bg-gradient-to-br from-purple-900 via-indigo-900 to-blue-900 text-white">
           <AnimatePresence mode="wait">
-            {isAuthenticated ? (
+            {shouldRenderApp ? (
               <Layout>
+                {/* Уведомление для режима разработки */}
+                {isDevelopment && (
+                  <div className="bg-yellow-600 text-black text-center p-2 text-sm font-medium">
+                    🚧 РЕЖИМ РАЗРАБОТКИ - Тестирование вне Telegram
+                  </div>
+                )}
+                
                 <Suspense 
                   fallback={
                     <motion.div
