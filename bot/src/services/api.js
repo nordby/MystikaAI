@@ -6,7 +6,7 @@ const logger = require('../utils/logger');
 class ApiService {
   constructor() {
     this.baseURL = config.serverUrl;
-    this.timeout = 10000;
+    this.timeout = 60000;
     this.retries = 3;
     
     this.client = axios.create({

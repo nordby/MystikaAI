@@ -38,7 +38,7 @@ class BotDatabase {
    */
   async makeRequest(method, endpoint, data = null, options = {}) {
     // Увеличиваем таймаут для AI запросов
-    const timeout = endpoint.includes('/ai/') ? 60000 : this.apiTimeout;
+    const timeout = endpoint.includes('/ai/') ? 180000 : this.apiTimeout;
     
     const config = {
       method,

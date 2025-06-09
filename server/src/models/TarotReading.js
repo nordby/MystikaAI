@@ -27,6 +27,8 @@ module.exports = (sequelize) => {
         'career',
         'daily_card',
         'lunar_reading',
+        'numerology',
+        'lunar_calendar',
         'custom'
       ),
       allowNull: false

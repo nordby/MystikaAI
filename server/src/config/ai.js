@@ -503,10 +503,10 @@ class AIConfig {
         timeout: 15000
       },
       imageGeneration: {
-        width: 1024,
+        width: 680,
         height: 1024,
         steps: 20,
-        timeout: 60000
+        timeout: 180000
       },
       voiceTranscription: {
         language: 'ru',

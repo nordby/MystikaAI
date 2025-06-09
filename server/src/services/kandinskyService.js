@@ -62,7 +62,7 @@ class KandinskyService {
     try {
       const {
         style = 'mystic',
-        width = 1024,
+        width = 680,
         height = 1024
       } = options;
 
@@ -410,6 +410,35 @@ class KandinskyService {
         data: error.response?.data,
         apiKey: this.apiKey ? 'configured' : 'missing',
         secretKey: this.secretKey ? 'configured' : 'missing'
+      };
+    }
+  }
+
+  /**
+   * Тестовая генерация для проверки API
+   */
+  async testGeneration() {
+    try {
+      logger.info('Starting API test generation');
+      
+      const result = await this.generateCardImage(
+        'Тестовая карта',
+        'Простое изображение для тестирования API',
+        { style: 'mystic', width: 512, height: 512 }
+      );
+      
+      return {
+        success: true,
+        isMock: result.isMock,
+        uuid: result.uuid,
+        imageLength: result.imageData?.length || 0
+      };
+
+    } catch (error) {
+      logger.error('API test failed', { error: error.message });
+      return {
+        success: false,
+        error: error.message
       };
     }
   }
