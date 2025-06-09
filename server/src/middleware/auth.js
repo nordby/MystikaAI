@@ -1,96 +1,116 @@
 // server/src/middleware/auth.js
 const jwt = require('jsonwebtoken');
 const logger = require('../utils/logger');
+const { User } = require('../models');
 
-// Проверка JWT токена
-const authenticateToken = (req, res, next) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
-
-  if (!token) {
-    return res.status(401).json({
-      success: false,
-      message: 'Токен не предоставлен'
-    });
-  }
-
-  jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
-    if (err) {
-      logger.error('Ошибка верификации токена:', err);
-      return res.status(403).json({
-        success: false,
-        message: 'Недействительный токен'
-      });
-    }
-
-    req.user = user;
-    next();
-  });
-};
-
-// Опциональная аутентификация
-const optionalAuth = (req, res, next) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
-
-  if (!token) {
-    return next();
-  }
-
-  jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
-    if (!err) {
-      req.user = user;
-    }
-    next();
-  });
-};
-
-// Проверка прав администратора
-const requireAdmin = (req, res, next) => {
-  if (!req.user || !req.user.isAdmin) {
-    return res.status(403).json({
-      success: false,
-      message: 'Требуются права администратора'
-    });
-  }
-  next();
-};
-
-// Проверка подписки
-const requireSubscription = (subscriptionType) => {
-  return (req, res, next) => {
-    if (!req.user) {
+/**
+ * Middleware для проверки JWT токена
+ */
+async function authMiddleware(req, res, next) {
+  try {
+    const authHeader = req.headers.authorization;
+    
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return res.status(401).json({
         success: false,
-        message: 'Требуется аутентификация'
+        message: 'Access token required'
       });
     }
 
-    const allowedTypes = {
-      'mystic': ['mystic', 'master', 'grandmaster'],
-      'master': ['master', 'grandmaster'],
-      'grandmaster': ['grandmaster']
-    };
+    const token = authHeader.substring(7); // Убираем 'Bearer '
+    
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        message: 'Access token required'
+      });
+    }
 
-    const userSubscription = req.user.subscriptionType || 'basic';
-    const allowed = allowedTypes[subscriptionType] || [];
+    // Проверка и декодирование токена
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'default-secret');
+    
+    // Поиск пользователя
+    const user = await User.findByPk(decoded.userId);
+    
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
 
-    if (!allowed.includes(userSubscription)) {
+    if (!user.isActive) {
       return res.status(403).json({
         success: false,
-        message: `Требуется подписка уровня ${subscriptionType} или выше`,
-        requiredSubscription: subscriptionType,
-        currentSubscription: userSubscription
+        message: 'User account is deactivated'
       });
     }
 
+    // Добавление пользователя в запрос
+    req.user = user;
+    req.token = token;
+    
     next();
-  };
-};
 
-module.exports = {
-  authenticateToken,
-  optionalAuth,
-  requireAdmin,
-  requireSubscription
-};
+  } catch (error) {
+    logger.error('Auth middleware error', {
+      error: error.message,
+      token: req.headers.authorization?.substring(0, 20) + '...'
+    });
+
+    if (error.name === 'JsonWebTokenError') {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid access token'
+      });
+    }
+
+    if (error.name === 'TokenExpiredError') {
+      return res.status(401).json({
+        success: false,
+        message: 'Access token expired'
+      });
+    }
+
+    return res.status(500).json({
+      success: false,
+      message: 'Authentication failed'
+    });
+  }
+}
+
+/**
+ * Опциональная аутентификация (не возвращает ошибку если токен отсутствует)
+ */
+async function optionalAuthMiddleware(req, res, next) {
+  try {
+    const authHeader = req.headers.authorization;
+    
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return next();
+    }
+
+    const token = authHeader.substring(7);
+    
+    if (!token) {
+      return next();
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'default-secret');
+    const user = await User.findByPk(decoded.userId);
+    
+    if (user && user.isActive) {
+      req.user = user;
+      req.token = token;
+    }
+    
+    next();
+
+  } catch (error) {
+    // Игнорируем ошибки при опциональной аутентификации
+    next();
+  }
+}
+
+module.exports = authMiddleware;
+module.exports.optional = optionalAuthMiddleware;

@@ -11,7 +11,7 @@ class MistikaServer {
   constructor() {
     this.app = express();
     this.port = process.env.PORT || 3001;
-    this.host = process.env.HOST || '0.0.0.0';
+    this.host = process.env.HOST || 'localhost';
     this.isProduction = process.env.NODE_ENV === 'production';
   }
 
@@ -40,6 +40,10 @@ class MistikaServer {
   }
 
   setupMiddleware() {
+    this.app.use((req, res, next) => {
+      console.log(`[RAW] Incoming request: ${req.method} ${req.url}`); // console.log вместо logger
+      next();
+    });    
     // Безопасность
     this.app.use(helmet({
       contentSecurityPolicy: this.isProduction,
@@ -47,12 +51,22 @@ class MistikaServer {
     }));
 
     // CORS
+    // this.app.use(cors({
+    //   origin: process.env.CORS_ORIGIN?.split(',') || ['http://localhost:3000'],
+    //   credentials: true,
+    //   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    //   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+    // }));
+
     this.app.use(cors({
-      origin: process.env.CORS_ORIGIN?.split(',') || ['http://localhost:3000'],
+      origin: '*', // временно разрешить все origins для теста
       credentials: true,
       methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
       allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
     }));
+
+
+    
 
     // Сжатие
     this.app.use(compression());
@@ -89,15 +103,21 @@ class MistikaServer {
       res.json({
         status: 'OK',
         timestamp: new Date().toISOString(),
-        version: require('../package.json').version,
+        version: '1.0.0',
         environment: process.env.NODE_ENV,
         uptime: process.uptime()
       });
     });
 
     // API routes
-    this.app.use('/api/v1', (req, res, next) => {
-      // Здесь будут подключены роуты когда они будут созданы
+    this.app.use('/api/v1/auth', require('./routes/auth'));
+    this.app.use('/api/v1/cards', require('./routes/cards'));
+    this.app.use('/api/v1/readings', require('./routes/readings')); // Убрали auth middleware для бота
+    this.app.use('/api/v1/analytics', require('./routes/analytics'));
+    this.app.use('/api/v1/ai', require('./routes/ai'));
+    
+    // API status endpoint
+    this.app.get('/api/v1', (req, res) => {
       res.json({
         message: 'MISTIKA API v1.0',
         status: 'Active',
@@ -105,10 +125,10 @@ class MistikaServer {
           '/api/v1/auth',
           '/api/v1/readings',
           '/api/v1/cards',
-          '/api/v1/users',
-          '/api/v1/numerology',
-          '/api/v1/lunar'
-        ]
+          '/api/v1/analytics',
+          '/api/v1/ai'
+        ],
+        timestamp: new Date().toISOString()
       });
     });
 
@@ -116,7 +136,7 @@ class MistikaServer {
     this.app.get('/', (req, res) => {
       res.json({
         name: 'MISTIKA Tarot Server',
-        version: require('../package.json').version,
+        version: '1.0.0',
         description: 'API для таро, нумерологии и лунного календаря',
         status: 'Running',
         timestamp: new Date().toISOString()
@@ -158,8 +178,9 @@ class MistikaServer {
 
   async initializeDatabase() {
     try {
-      // Здесь будет инициализация Sequelize и Redis когда модели будут созданы
-      logger.info('Database initialization skipped (models not ready)');
+      const { initialize } = require('./models');
+      await initialize();
+      logger.info('Database initialized successfully');
       return true;
     } catch (error) {
       logger.error('Database initialization failed', { error: error.message });
@@ -169,11 +190,9 @@ class MistikaServer {
 
   async start() {
     try {
-      if (!this.app) {
-        await this.initialize();
-      }
+      await this.initialize();
 
-      this.server = this.app.listen(this.port, this.host, () => {
+      this.server = this.app.listen(this.port, 'localhost', () => {
         logger.info('MISTIKA Server started', {
           port: this.port,
           host: this.host,

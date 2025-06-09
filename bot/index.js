@@ -25,9 +25,21 @@ class MistikaTelegramBot {
       // Инициализация базы данных
       await database.initialize();
 
+      // Очистка webhook если используется polling
+      if (!this.config.useWebhook) {
+        const tempBot = new TelegramBot(this.config.botToken);
+        await tempBot.deleteWebHook();
+      }
+
       // Создание экземпляра бота
       this.bot = new TelegramBot(this.config.botToken, {
-        polling: !this.config.useWebhook,
+        polling: !this.config.useWebhook ? {
+          interval: 2000,
+          autoStart: false,
+          params: {
+            timeout: 10
+          }
+        } : false,
         webhook: this.config.useWebhook ? {
           port: this.config.webhookPort,
           host: this.config.webhookHost
@@ -166,6 +178,9 @@ class MistikaTelegramBot {
         this.isRunning = true;
         logger.info('Bot started in webhook mode');
       } else {
+        // Добавляем задержку перед запуском polling
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
         // Запуск polling
         await this.bot.startPolling();
         this.isRunning = true;

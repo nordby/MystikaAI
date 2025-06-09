@@ -1,143 +1,73 @@
 // server/src/models/index.js
-const { Sequelize } = require('sequelize');
-const logger = require('../utils/logger');
+const databaseConfig = require('../config/database');
 
-class Database {
-  constructor() {
-    this.sequelize = null;
-    this.models = {};
-    this.isConnected = false;
-  }
+let models = {};
+let sequelize = null;
 
-  async initialize() {
-    try {
-      logger.info('Initializing database connection...');
-
-      // Настройка Sequelize
-      this.sequelize = new Sequelize(
-        process.env.DATABASE_URL || {
-          database: process.env.DB_NAME || 'mistika_db',
-          username: process.env.DB_USER || 'postgres',
-          password: process.env.DB_PASSWORD || 'password',
-          host: process.env.DB_HOST || 'localhost',
-          port: process.env.DB_PORT || 5432,
-          dialect: 'postgres',
-          logging: process.env.NODE_ENV === 'development' ? 
-            (msg) => logger.debug('SQL', { query: msg }) : false,
-          pool: {
-            max: parseInt(process.env.DB_POOL_MAX) || 10,
-            min: parseInt(process.env.DB_POOL_MIN) || 2,
-            acquire: 30000,
-            idle: 10000
-          },
-          dialectOptions: {
-            ssl: process.env.DB_SSL === 'true' ? {
-              require: true,
-              rejectUnauthorized: false
-            } : false
-          }
-        }
-      );
-
-      // Тест подключения
-      await this.sequelize.authenticate();
-      this.isConnected = true;
-
-      logger.info('Database connection established successfully');
-
-      // Здесь будут импортированы модели когда они будут созданы
-      // this.models.User = require('./User')(this.sequelize);
-      // this.models.Reading = require('./Reading')(this.sequelize);
-      // ... другие модели
-
-      // Настройка ассоциаций
-      // this.setupAssociations();
-
-      return true;
-    } catch (error) {
-      logger.error('Failed to connect to database', { 
-        error: error.message,
-        stack: error.stack 
-      });
-      throw error;
-    }
-  }
-
-  setupAssociations() {
-    // Здесь будут настроены связи между моделями
-    logger.info('Setting up model associations...');
+/**
+ * Инициализация моделей и базы данных
+ */
+async function initialize() {
+  try {
+    // Инициализация подключения к БД
+    sequelize = await databaseConfig.initialize();
     
-    // Пример ассоциаций:
-    // this.models.User.hasMany(this.models.Reading);
-    // this.models.Reading.belongsTo(this.models.User);
+    // Получение моделей из конфигурации БД
+    models = databaseConfig.getModels();
     
-    logger.info('Model associations setup completed');
-  }
-
-  async sync(options = {}) {
-    try {
-      if (!this.isConnected) {
-        throw new Error('Database not connected');
-      }
-
-      logger.info('Syncing database models...');
-      await this.sequelize.sync(options);
-      logger.info('Database sync completed');
-      
-      return true;
-    } catch (error) {
-      logger.error('Database sync failed', { error: error.message });
-      throw error;
-    }
-  }
-
-  async close() {
-    try {
-      if (this.sequelize) {
-        await this.sequelize.close();
-        this.isConnected = false;
-        logger.info('Database connection closed');
-      }
-    } catch (error) {
-      logger.error('Error closing database connection', { error: error.message });
-    }
-  }
-
-  async healthCheck() {
-    try {
-      if (!this.isConnected) {
-        return { healthy: false, message: 'Not connected' };
-      }
-
-      await this.sequelize.authenticate();
-      return { 
-        healthy: true, 
-        message: 'Database connection is healthy',
-        timestamp: new Date().toISOString()
-      };
-    } catch (error) {
-      return { 
-        healthy: false, 
-        message: error.message,
-        timestamp: new Date().toISOString()
-      };
-    }
-  }
-
-  getSequelize() {
-    return this.sequelize;
-  }
-
-  getModels() {
-    return this.models;
-  }
-
-  isReady() {
-    return this.isConnected && this.sequelize;
+    return { sequelize, models };
+  } catch (error) {
+    throw error;
   }
 }
 
-// Создание единственного экземпляра базы данных
-const database = new Database();
+/**
+ * Получение моделей (ленивая инициализация)
+ */
+function getModels() {
+  if (!models || Object.keys(models).length === 0) {
+    if (sequelize && sequelize.models) {
+      models = sequelize.models;
+    }
+  }
+  return models;
+}
 
-module.exports = database;
+/**
+ * Получение Sequelize
+ */
+function getSequelize() {
+  return sequelize || databaseConfig.getSequelize();
+}
+
+// Экспорт для удобного использования
+module.exports = {
+  initialize,
+  getModels,
+  getSequelize,
+  
+  // Прямой доступ к моделям
+  get User() {
+    const models = getModels();
+    return models.User;
+  },
+  
+  get Card() {
+    const models = getModels();
+    return models.Card;
+  },
+  
+  get TarotReading() {
+    const models = getModels();
+    return models.TarotReading;
+  },
+  
+  // Совместимость со старым API
+  get sequelize() {
+    return getSequelize();
+  },
+  
+  get models() {
+    return getModels();
+  }
+};

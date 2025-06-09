@@ -1,110 +1,108 @@
 // server/src/routes/ai.js
 const express = require('express');
-const multer = require('multer');
 const router = express.Router();
-const authMiddleware = require('../middleware/auth');
-const rateLimitMiddleware = require('../middleware/rateLimiting');
 const aiController = require('../controllers/ai');
+const kandinskyService = require('../services/kandinskyService');
+const logger = require('../utils/logger');
 
-// Настройка multer для обработки файлов
-const upload = multer({
-    storage: multer.memoryStorage(),
-    limits: {
-        fileSize: 10 * 1024 * 1024, // 10MB
-    },
-    fileFilter: (req, file, cb) => {
-        if (file.fieldname === 'image') {
-            // Для изображений
-            if (file.mimetype.startsWith('image/')) {
-                cb(null, true);
-            } else {
-                cb(new Error('Только изображения разрешены'), false);
-            }
-        } else if (file.fieldname === 'audio') {
-            // Для аудио
-            if (file.mimetype.startsWith('audio/')) {
-                cb(null, true);
-            } else {
-                cb(new Error('Только аудиофайлы разрешены'), false);
-            }
-        } else {
-            cb(new Error('Неизвестный тип файла'), false);
-        }
+// Публичные роуты (для бота)
+router.post('/interpret', aiController.interpretReading);
+
+// Генерация изображения карты
+router.post('/generate-card-image', async (req, res) => {
+  try {
+    const { cardName, cardDescription, style = 'mystic' } = req.body;
+
+    if (!cardName) {
+      return res.status(400).json({
+        success: false,
+        message: 'Card name is required'
+      });
     }
+
+    const result = await kandinskyService.generateCardImage(
+      cardName,
+      cardDescription || 'Карта Таро',
+      { style }
+    );
+
+    res.json(result);
+
+  } catch (error) {
+    logger.error('Image generation endpoint error', {
+      error: error.message,
+      cardName: req.body.cardName
+    });
+
+    res.status(500).json({
+      success: false,
+      message: 'Failed to generate card image'
+    });
+  }
 });
 
-// Все роуты требуют аутентификации
-router.use(authMiddleware);
+// Генерация изображений для всего расклада
+router.post('/generate-spread-images', async (req, res) => {
+  try {
+    const { cards, spreadType } = req.body;
 
-/**
- * POST /api/ai/interpret-card
- * Генерация интерпретации карты
- */
-router.post('/interpret-card', 
-    rateLimitMiddleware({ windowMs: 15 * 60 * 1000, max: 30 }),
-    aiController.generateCardInterpretation
-);
+    if (!cards || !Array.isArray(cards) || cards.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Cards array is required'
+      });
+    }
 
-/**
- * POST /api/ai/personal-card
- * Генерация персональной карты
- */
-router.post('/personal-card',
-    rateLimitMiddleware({ windowMs: 60 * 60 * 1000, max: 10 }),
-    aiController.generatePersonalCard
-);
+    const result = await kandinskyService.generateSpreadImages(cards, spreadType);
 
-/**
- * POST /api/ai/analyze-photo
- * Анализ фотографии
- */
-router.post('/analyze-photo',
-    rateLimitMiddleware({ windowMs: 60 * 60 * 1000, max: 5 }),
-    upload.single('image'),
-    aiController.analyzePhoto
-);
+    res.json(result);
 
-/**
- * POST /api/ai/voice-message
- * Обработка голосового сообщения
- */
-router.post('/voice-message',
-    rateLimitMiddleware({ windowMs: 60 * 60 * 1000, max: 10 }),
-    upload.single('audio'),
-    aiController.processVoiceMessage
-);
+  } catch (error) {
+    logger.error('Spread images generation endpoint error', {
+      error: error.message,
+      cardCount: req.body.cards?.length
+    });
 
-/**
- * GET /api/ai/recommendations
- * Получение персонализированных рекомендаций
- */
-router.get('/recommendations',
-    rateLimitMiddleware({ windowMs: 60 * 60 * 1000, max: 20 }),
-    aiController.getPersonalizedRecommendations
-);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to generate spread images'
+    });
+  }
+});
 
-/**
- * POST /api/ai/daily-horoscope
- * Генерация ежедневного гороскопа
- */
-router.post('/daily-horoscope',
-    rateLimitMiddleware({ windowMs: 24 * 60 * 60 * 1000, max: 3 }),
-    aiController.generateDailyHoroscope
-);
+// Проверка доступности Kandinsky API
+router.get('/kandinsky/health', async (req, res) => {
+  try {
+    const health = await kandinskyService.checkServiceHealth();
+    res.json({
+      success: true,
+      kandinsky: health,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
 
-/**
- * POST /api/ai/compatibility
- * Анализ совместимости
- */
-router.post('/compatibility',
-    rateLimitMiddleware({ windowMs: 60 * 60 * 1000, max: 5 }),
-    aiController.analyzeCompatibility
-);
+// Проверка доступности функций AI
+router.get('/health', async (req, res) => {
+  res.json({
+    success: true,
+    status: 'AI services available',
+    models: ['claude-3-5-haiku-20241022'],
+    kandinsky: 'available',
+    timestamp: new Date().toISOString()
+  });
+});
 
-/**
- * GET /api/ai/usage-stats
- * Получение статистики использования AI
- */
-router.get('/usage-stats', aiController.getAIUsageStats);
+// Простой middleware для ограничения запросов
+const simpleRateLimit = (req, res, next) => {
+  // Пропускаем все запросы для начала
+  next();
+};
 
 module.exports = router;

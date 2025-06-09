@@ -43,7 +43,7 @@ services:
       DATABASE_URL: postgresql://mistika_user:mistika_password@postgres:5432/mistika
       REDIS_URL: redis://:redis_password@redis:6379
       JWT_SECRET: your_jwt_secret_here
-      TELEGRAM_BOT_TOKEN: your_telegram_bot_token
+      TELEGRAM_BOT_TOKEN: asdfjsfjhsjfhskjdhf
       TELEGRAM_WEBHOOK_URL: https://your-domain.com/api/telegram/webhook
       YANDEX_GPT_API_KEY: your_yandex_gpt_key
       KANDINSKY_API_KEY: your_kandinsky_key

@@ -10,7 +10,8 @@ yarn-error.log*
 .env.development.local
 .env.test.local
 .env.production.local
-
+**/.env
+**/.env.*
 # Build outputs
 client/build/
 client/dist/
@@ -38,6 +39,7 @@ coverage/
 # Dependency directories
 node_modules/
 jspm_packages/
+**/node_modules/
 
 # TypeScript cache
 *.tsbuildinfo

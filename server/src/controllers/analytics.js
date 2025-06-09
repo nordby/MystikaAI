@@ -1,13 +1,47 @@
 // server/src/controllers/analytics.js
-const { Reading, User, Subscription } = require('../models');
+const databaseConfig = require('../config/database');
 const { Op } = require('sequelize');
 const logger = require('../utils/logger');
+
+/**
+ * Отслеживание событий
+ */
+const trackEvent = async (req, res) => {
+    try {
+        const { event, data } = req.body;
+        
+        // Логируем событие
+        logger.info('Analytics event tracked', {
+            event,
+            data,
+            timestamp: new Date().toISOString()
+        });
+
+        res.json({
+            success: true,
+            message: 'Event tracked successfully'
+        });
+
+    } catch (error) {
+        logger.error('Analytics tracking error', {
+            error: error.message
+        });
+
+        res.status(500).json({
+            success: false,
+            message: 'Failed to track event'
+        });
+    }
+};
 
 /**
  * Получение аналитики использования приложения (админ)
  */
 const getAppAnalytics = async (req, res) => {
     try {
+        const models = databaseConfig.getModels();
+        const { User } = models;
+
         if (!req.user.isAdmin) {
             return res.status(403).json({
                 success: false,
@@ -411,6 +445,7 @@ const exportUserData = async (req, res) => {
 };
 
 module.exports = {
+    trackEvent,
     getAppAnalytics,
     getUserStats,
     getInsights,

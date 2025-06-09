@@ -3,6 +3,82 @@ const aiService = require('../services/aiService');
 const logger = require('../utils/logger');
 
 /**
+ * Интерпретация гадания с помощью ИИ
+ */
+const interpretReading = async (req, res) => {
+    try {
+        const {
+            cards,
+            spreadType,
+            positions,
+            question,
+            user
+        } = req.body;
+
+        if (!cards || !Array.isArray(cards) || cards.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'Cards array is required'
+            });
+        }
+
+        // Подготавливаем данные пользователя
+        const userData = {
+            id: user.id,
+            language: user.language || 'ru'
+        };
+
+        // Получаем интерпретацию от AI сервиса
+        const interpretation = await aiService.interpretReading(
+            cards,
+            question || 'Общее гадание',
+            userData,
+            {
+                spreadType: spreadType || 'single',
+                positions: positions || [],
+                language: userData.language,
+                style: 'detailed',
+                model: 'claude-3-5-haiku-20241022'
+            }
+        );
+
+        logger.info('AI interpretation completed', {
+            userId: user.id,
+            cardCount: cards.length,
+            spreadType,
+            model: interpretation.model,
+            processingTime: interpretation.processingTime
+        });
+
+        res.json({
+            success: true,
+            interpretation: {
+                interpretation: interpretation.interpretation,
+                summary: interpretation.summary,
+                advice: interpretation.advice,
+                mood: interpretation.mood,
+                confidence: interpretation.confidence,
+                model: interpretation.model,
+                processingTime: interpretation.processingTime
+            }
+        });
+
+    } catch (error) {
+        logger.error('AI interpretation error', {
+            error: error.message,
+            userId: req.body.user?.id,
+            cardCount: req.body.cards?.length
+        });
+
+        res.status(500).json({
+            success: false,
+            message: 'Failed to generate interpretation',
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined
+        });
+    }
+};
+
+/**
  * Генерация интерпретации карт через AI
  */
 const generateCardInterpretation = async (req, res) => {
@@ -260,6 +336,7 @@ const getAIUsageStats = async (req, res) => {
 };
 
 module.exports = {
+    interpretReading,
     generateCardInterpretation,
     generatePersonalCard,
     analyzePhoto,

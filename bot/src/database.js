@@ -4,7 +4,7 @@ const axios = require('axios');
 class BotDatabase {
   constructor() {
     this.serverUrl = process.env.SERVER_URL || 'http://localhost:3001';
-    this.apiTimeout = parseInt(process.env.API_TIMEOUT) || 10000;
+    this.apiTimeout = parseInt(process.env.API_TIMEOUT) || 45000; // Увеличили до 45 секунд для AI запросов
     this.retryAttempts = 3;
     this.retryDelay = 1000;
   }
@@ -17,9 +17,11 @@ class BotDatabase {
       console.log('Connecting to MISTIKA Server...');
       
       // Проверка доступности сервера
-      const response = await this.makeRequest('GET', '/health');
+      const response = await axios.get(`${this.serverUrl}/health`, {
+        timeout: this.apiTimeout
+      });
       
-      if (response.status === 'OK') {
+      if (response.data.status === 'OK') {
         console.log('Successfully connected to MISTIKA Server');
         return true;
       } else {
@@ -35,10 +37,13 @@ class BotDatabase {
    * Выполнение HTTP запроса к серверу
    */
   async makeRequest(method, endpoint, data = null, options = {}) {
+    // Увеличиваем таймаут для AI запросов
+    const timeout = endpoint.includes('/ai/') ? 60000 : this.apiTimeout;
+    
     const config = {
       method,
       url: `${this.serverUrl}/api/v1${endpoint}`,
-      timeout: this.apiTimeout,
+      timeout: timeout,
       headers: {
         'Content-Type': 'application/json',
         'User-Agent': 'MISTIKA-Bot/1.0',
@@ -86,21 +91,34 @@ class BotDatabase {
    */
   async getUserByTelegramId(telegramId) {
     try {
-      return await this.makeRequest('GET', `/users/telegram/${telegramId}`);
+      console.log(`Looking up user with telegramId: ${telegramId}`);
+      const result = await this.makeRequest('GET', `/auth/user/${telegramId}`);
+      console.log(`User found:`, result?.user ? 'YES' : 'NO');
+      return result;
     } catch (error) {
       if (error.response?.status === 404) {
+        console.log(`User with telegramId ${telegramId} not found in database (404)`);
         return null;
       }
+      console.error(`Error looking up user ${telegramId}:`, error.message);
       throw error;
     }
   }
 
   async createUser(userData) {
-    return await this.makeRequest('POST', '/users', userData);
+    try {
+      console.log(`Creating new user:`, userData);
+      const result = await this.makeRequest('POST', '/auth/bot', userData);
+      console.log(`User created successfully:`, result?.user ? 'YES' : 'NO', result?.user?.id || 'NO_ID');
+      return result;
+    } catch (error) {
+      console.error(`Failed to create user:`, error.message);
+      throw error;
+    }
   }
 
   async updateUser(userId, userData) {
-    return await this.makeRequest('PUT', `/users/${userId}`, userData);
+    return await this.makeRequest('PUT', `/auth/user/${userId}`, userData);
   }
 
   /**
@@ -186,6 +204,28 @@ class BotDatabase {
 
   async markNotificationRead(notificationId) {
     return await this.makeRequest('POST', `/notifications/${notificationId}/read`);
+  }
+
+  /**
+   * Методы для работы с Kandinsky API (генерация изображений)
+   */
+  async generateCardImage(cardName, cardDescription, style = 'mystic') {
+    return await this.makeRequest('POST', '/ai/generate-card-image', {
+      cardName,
+      cardDescription,
+      style
+    });
+  }
+
+  async generateSpreadImages(cards, spreadType) {
+    return await this.makeRequest('POST', '/ai/generate-spread-images', {
+      cards,
+      spreadType
+    });
+  }
+
+  async checkKandinskyHealth() {
+    return await this.makeRequest('GET', '/ai/kandinsky/health');
   }
 
   /**

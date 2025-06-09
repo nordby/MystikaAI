@@ -6,10 +6,13 @@ const { message } = require('telegraf/filters');
 // Handlers
 const LunarHandler = require('./handlers/lunar');
 const NumerologyHandler = require('./handlers/numerology');
+const { handleStart, handleRestart } = require('./handlers/start');
+const { handleDaily } = require('./handlers/daily');
 
 // Utils
 const { createInlineKeyboard } = require('./utils/keyboards');
 const logger = require('../../server/src/utils/logger');
+const apiService = require('./services/api');
 
 // Создание бота
 const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN);
@@ -45,33 +48,7 @@ const getMainMenu = () => {
 
 // Команда /start
 bot.start(async (ctx) => {
-  try {
-    const user = ctx.from;
-    
-    // Регистрируем пользователя в базе данных (если нужно)
-    // await userService.findOrCreate(user);
-    
-    const welcomeMessage = `🔮 *Добро пожаловать в MISTIKA!*
-
-Я - ваш персональный мистический ИИ-советник. Готов помочь вам:
-
-✨ Получить дневную карту таро
-🃏 Провести детальное гадание
-🔢 Рассчитать нумерологический профиль
-🌙 Изучить лунные влияния
-👥 Участвовать в групповых гаданиях
-
-Выберите, что вас интересует:`;
-
-    await ctx.reply(welcomeMessage, {
-      parse_mode: 'Markdown',
-      reply_markup: getMainMenu()
-    });
-
-  } catch (error) {
-    logger.error('Ошибка команды /start:', error);
-    await ctx.reply('Произошла ошибка. Попробуйте позже.');
-  }
+  await handleStart(bot, ctx.message);
 });
 
 // Команда /help
@@ -186,8 +163,15 @@ bot.on('callback_query', async (ctx) => {
       return;
     }
 
-    // Дневная карта
+    // Перезапуск
+    if (data === 'restart') {
+      await handleRestart(bot, ctx.callbackQuery);
+      return;
+    }
+
+    // Дневная карта  
     if (data === 'daily_card') {
+      // TODO: Временно используем веб-приложение, потом добавим прямую обработку в боте
       await ctx.editMessageText('🃏 *Дневная карта*\n\nОткройте веб-приложение для получения дневной карты с красивой визуализацией!', {
         parse_mode: 'Markdown',
         reply_markup: createInlineKeyboard([
@@ -245,6 +229,8 @@ bot.on(message('text'), async (ctx) => {
 
 // Команды-shortcuts
 bot.command('daily', async (ctx) => {
+  // TODO: Добавить получение токена пользователя из сессии
+  // Пока используем веб-приложение
   await ctx.reply('🃏 Дневная карта доступна в веб-приложении!', {
     reply_markup: createInlineKeyboard([
       [{ text: '📱 Открыть', web_app: { url: `${process.env.WEBAPP_URL}/daily` } }]
@@ -277,6 +263,14 @@ bot.catch((err, ctx) => {
 // Запуск бота
 const startBot = async () => {
   try {
+    // Проверяем соединение с API сервером
+    try {
+      await apiService.healthCheck();
+      logger.info('API server connection established');
+    } catch (error) {
+      logger.warn('API server not available, bot will continue but with limited functionality:', error.message);
+    }
+
     if (process.env.NODE_ENV === 'production') {
       // Webhook режим для production
       const webhookUrl = `${process.env.TELEGRAM_WEBHOOK_URL}/api/telegram/webhook`;

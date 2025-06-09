@@ -1,11 +1,13 @@
 // bot/src/handlers/daily.js
 const { createDailyCardKeyboard } = require('../utils/keyboards');
 const { dailyCardMessage, formatCardMessage } = require('../utils/messages');
+const apiService = require('../services/api');
+const logger = require('../utils/logger');
 
 /**
  * Обработчик команды /daily - получение дневной карты
  */
-async function handleDaily(bot, msg, api) {
+async function handleDaily(bot, msg, userToken) {
     const chatId = msg.chat.id;
     const userId = msg.from.id;
 
@@ -18,10 +20,10 @@ async function handleDaily(bot, msg, api) {
         });
 
         // Получаем дневную карту через API
-        const response = await api.get('/cards/daily');
+        const response = await apiService.getDailyCard(userToken);
 
-        if (response.data.success) {
-            const { card, isReversed, interpretation, date } = response.data;
+        if (response.success) {
+            const { card, isReversed, interpretation, date } = response;
 
             // Удаляем сообщение о загрузке
             await bot.deleteMessage(chatId, loadingMsg.message_id);
@@ -30,8 +32,8 @@ async function handleDaily(bot, msg, api) {
             const cardText = formatCardMessage(card, isReversed, interpretation, date);
 
             // Отправляем карту с изображением (если есть)
-            if (card.image_url) {
-                await bot.sendPhoto(chatId, card.image_url, {
+            if (card.imageUrl) {
+                await bot.sendPhoto(chatId, card.imageUrl, {
                     caption: cardText,
                     parse_mode: 'HTML',
                     reply_markup: createDailyCardKeyboard(card.id)

@@ -1,42 +1,44 @@
 // bot/src/handlers/start.js
 const { createMainKeyboard } = require('../utils/keyboards');
 const { welcomeMessage } = require('../utils/messages');
+const apiService = require('../services/api');
+const logger = require('../utils/logger');
 
 /**
  * Обработчик команды /start
  */
-async function handleStart(bot, msg, api, referralCode = null) {
+async function handleStart(bot, msg, referralCode = null) {
     const chatId = msg.chat.id;
     const user = msg.from;
 
     try {
         // Подготавливаем данные пользователя для регистрации/обновления
         const userData = {
-            telegram_id: user.id,
+            telegramId: user.id,
             username: user.username,
-            first_name: user.first_name,
-            last_name: user.last_name,
-            language_code: user.language_code || 'ru',
-            referral_code: referralCode
+            firstName: user.first_name,
+            lastName: user.last_name,
+            languageCode: user.language_code || 'ru',
+            referralCode: referralCode
         };
 
         // Отправляем данные на backend для регистрации/аутентификации
-        const response = await api.post('/auth/telegram', userData);
+        const response = await apiService.createOrUpdateUser(userData);
 
-        if (response.data.success) {
-            const { user: authUser, token } = response.data;
+        if (response.success) {
+            const { user: authUser, token } = response;
             
             // Создаем приветственное сообщение
-            const welcome = welcomeMessage(user.first_name, authUser.subscription_type);
+            const welcome = welcomeMessage(user.first_name, authUser.subscriptionType);
             
             // Отправляем приветствие с клавиатурой
             await bot.sendMessage(chatId, welcome, {
                 parse_mode: 'HTML',
-                reply_markup: createMainKeyboard(authUser.subscription_type)
+                reply_markup: createMainKeyboard(authUser.subscriptionType)
             });
 
             // Если это новый пользователь, показываем дополнительную информацию
-            if (!authUser.total_readings || authUser.total_readings === 0) {
+            if (!authUser.totalReadings || authUser.totalReadings === 0) {
                 await bot.sendMessage(chatId, 
                     '✨ <b>Добро пожаловать в мир мистики!</b>\n\n' +
                     '🔮 Получите свою первую карту дня\n' +
@@ -93,11 +95,11 @@ async function handleStart(bot, msg, api, referralCode = null) {
             });
 
         } else {
-            throw new Error(response.data.message || 'Ошибка аутентификации');
+            throw new Error(response.message || 'Ошибка аутентификации');
         }
 
     } catch (error) {
-        console.error('Ошибка в handleStart:', error);
+        logger.error('Ошибка в handleStart:', error);
         
         await bot.sendMessage(chatId, 
             '❌ <b>Произошла ошибка при входе</b>\n\n' +
@@ -119,7 +121,7 @@ async function handleStart(bot, msg, api, referralCode = null) {
 /**
  * Обработчик повторного запуска
  */
-async function handleRestart(bot, callbackQuery, api) {
+async function handleRestart(bot, callbackQuery) {
     const msg = callbackQuery.message;
     const user = callbackQuery.from;
     
@@ -134,7 +136,7 @@ async function handleRestart(bot, callbackQuery, api) {
     await handleStart(bot, { 
         chat: msg.chat, 
         from: user 
-    }, api);
+    });
 }
 
 /**
