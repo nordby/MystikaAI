@@ -1,29 +1,29 @@
 /* client/src/styles/animations.css */
 
-/* Базовые анимации */
+/**
+ * Мистические анимации для приложения Таро
+ */
+
+/* === БАЗОВЫЕ АНИМАЦИИ === */
+
 @keyframes spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
 }
 
 @keyframes bounce {
   0%, 100% {
     transform: translateY(-25%);
-    animation-timing-function: cubic-bezier(0.8,0,1,1);
+    animation-timing-function: cubic-bezier(0.8, 0, 1, 1);
   }
   50% {
-    transform: none;
-    animation-timing-function: cubic-bezier(0,0,0.2,1);
-  }
-}
-
-@keyframes pulse {
-  50% {
-    opacity: .5;
+    transform: translateY(0);
+    animation-timing-function: cubic-bezier(0, 0, 0.2, 1);
   }
 }
 
@@ -34,84 +34,62 @@
   }
 }
 
-/* Анимации появления */
+/* === АНИМАЦИИ ПОЯВЛЕНИЯ === */
+
 @keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 @keyframes fadeOut {
-  from {
-    opacity: 1;
-  }
-  to {
-    opacity: 0;
-  }
+  from { opacity: 1; }
+  to { opacity: 0; }
 }
 
-@keyframes slideIn {
-  from {
-    transform: translateY(20px);
-    opacity: 0;
-  }
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
-}
-
-@keyframes slideOut {
-  from {
-    transform: translateY(0);
-    opacity: 1;
-  }
-  to {
-    transform: translateY(-20px);
-    opacity: 0;
-  }
-}
-
-@keyframes slideInLeft {
-  from {
-    transform: translateX(-100%);
-  }
-  to {
-    transform: translateX(0);
-  }
-}
-
-@keyframes slideInRight {
-  from {
-    transform: translateX(100%);
-  }
-  to {
-    transform: translateX(0);
-  }
-}
-
-@keyframes slideInUp {
+@keyframes slideUp {
   from {
     transform: translateY(100%);
+    opacity: 0;
   }
   to {
     transform: translateY(0);
+    opacity: 1;
   }
 }
 
-@keyframes slideInDown {
+@keyframes slideDown {
   from {
     transform: translateY(-100%);
+    opacity: 0;
   }
   to {
     transform: translateY(0);
+    opacity: 1;
   }
 }
 
-/* Анимации масштабирования */
+@keyframes slideLeft {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideRight {
+  from {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
 @keyframes scaleIn {
   from {
     transform: scale(0.8);
@@ -135,46 +113,68 @@
 }
 
 @keyframes zoomIn {
-  from {
-    transform: scale(0);
-  }
-  to {
-    transform: scale(1);
-  }
+  from { transform: scale(0); }
+  to { transform: scale(1); }
 }
 
 @keyframes zoomOut {
-  from {
-    transform: scale(1);
-  }
-  to {
-    transform: scale(0);
-  }
+  from { transform: scale(1); }
+  to { transform: scale(0); }
 }
 
-/* Мистические анимации для Таро */
-@keyframes mysticPulse {
+/* === МИСТИЧЕСКИЕ АНИМАЦИИ === */
+
+@keyframes glow {
   0%, 100% {
-    box-shadow: 0 0 5px var(--mystic-glow);
-    transform: scale(1);
+    filter: drop-shadow(0 0 5px var(--glow-amethyst));
+    opacity: 1;
   }
   50% {
-    box-shadow: 0 0 20px var(--mystic-glow), 0 0 30px var(--mystic-glow);
-    transform: scale(1.02);
+    filter: drop-shadow(0 0 20px var(--glow-amethyst)) 
+            drop-shadow(0 0 30px var(--glow-gold));
+    opacity: 0.8;
   }
 }
 
-@keyframes mysticGlow {
+@keyframes mysticalGlow {
   0%, 100% {
-    filter: drop-shadow(0 0 5px var(--mystic-glow));
+    box-shadow: 
+      0 0 10px var(--crystal-amethyst),
+      0 0 20px var(--crystal-amethyst),
+      0 0 30px var(--crystal-amethyst);
   }
   50% {
-    filter: drop-shadow(0 0 15px var(--mystic-glow)) 
-            drop-shadow(0 0 25px var(--mystic-gold));
+    box-shadow: 
+      0 0 20px var(--golden-aura),
+      0 0 40px var(--golden-aura),
+      0 0 60px var(--golden-aura);
   }
 }
 
-@keyframes mysticShimmer {
+@keyframes auraBreathe {
+  0%, 100% {
+    transform: scale(1);
+    filter: brightness(1) hue-rotate(0deg);
+  }
+  50% {
+    transform: scale(1.05);
+    filter: brightness(1.2) hue-rotate(90deg);
+  }
+}
+
+@keyframes energyFlow {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+@keyframes shimmer {
   0% {
     background-position: -200% center;
   }
@@ -183,25 +183,68 @@
   }
 }
 
-@keyframes mysticFloat {
+@keyframes float {
   0%, 100% {
     transform: translateY(0px);
   }
   50% {
-    transform: translateY(-10px);
+    transform: translateY(-15px);
   }
 }
 
-/* Анимации карт Таро */
-@keyframes cardFlip {
-  0% {
-    transform: rotateY(0);
+@keyframes levitate {
+  0%, 100% {
+    transform: translateY(0px) rotate(0deg);
   }
   50% {
-    transform: rotateY(90deg);
+    transform: translateY(-20px) rotate(2deg);
+  }
+}
+
+@keyframes mysticalEntrance {
+  0% {
+    opacity: 0;
+    transform: scale(0.3) rotate(180deg);
+    filter: blur(10px);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(1.1) rotate(90deg);
+    filter: blur(5px);
   }
   100% {
-    transform: rotateY(0);
+    opacity: 1;
+    transform: scale(1) rotate(0deg);
+    filter: blur(0px);
+  }
+}
+
+@keyframes cosmicDrift {
+  0% {
+    transform: translate(0, 0) rotate(0deg);
+  }
+  33% {
+    transform: translate(30px, -30px) rotate(120deg);
+  }
+  66% {
+    transform: translate(-20px, 20px) rotate(240deg);
+  }
+  100% {
+    transform: translate(0, 0) rotate(360deg);
+  }
+}
+
+/* === АНИМАЦИИ КАРТ ТАРО === */
+
+@keyframes cardFlip {
+  0% {
+    transform: rotateY(0deg) scale(1);
+  }
+  50% {
+    transform: rotateY(90deg) scale(1.1);
+  }
+  100% {
+    transform: rotateY(0deg) scale(1);
   }
 }
 
@@ -209,13 +252,16 @@
   0% {
     transform: rotateY(180deg) scale(0.8);
     opacity: 0;
+    filter: blur(5px);
   }
   50% {
-    opacity: 0.5;
+    opacity: 0.7;
+    filter: blur(2px);
   }
   100% {
-    transform: rotateY(0) scale(1);
+    transform: rotateY(0deg) scale(1);
     opacity: 1;
+    filter: blur(0px);
   }
 }
 
@@ -224,38 +270,67 @@
     transform: translateX(0) rotate(0deg);
   }
   25% {
-    transform: translateX(-10px) rotate(-5deg);
+    transform: translateX(-15px) rotate(-8deg);
   }
   75% {
-    transform: translateX(10px) rotate(5deg);
+    transform: translateX(15px) rotate(8deg);
   }
 }
 
 @keyframes cardDeal {
   0% {
-    transform: translateY(-100vh) rotate(180deg);
+    transform: translateY(-200px) translateX(-100px) rotate(45deg);
     opacity: 0;
   }
   50% {
-    opacity: 0.5;
+    opacity: 0.8;
   }
   100% {
-    transform: translateY(0) rotate(0deg);
+    transform: translateY(0) translateX(0) rotate(0deg);
     opacity: 1;
   }
 }
 
-@keyframes cardHover {
+@keyframes cardDrawFromDeck {
   0% {
-    transform: translateY(0) scale(1);
+    transform: translateY(0) rotate(0deg) scale(1);
+    z-index: 1;
+  }
+  50% {
+    transform: translateY(-50px) rotate(10deg) scale(1.1);
+    z-index: 10;
   }
   100% {
-    transform: translateY(-8px) scale(1.05);
+    transform: translateY(-100px) rotate(0deg) scale(1);
+    z-index: 5;
   }
 }
 
-/* Анимации лунных фаз */
-@keyframes moonPhase {
+@keyframes cardHoverLift {
+  0% {
+    transform: translateY(0) scale(1);
+    box-shadow: var(--shadow-card);
+  }
+  100% {
+    transform: translateY(-10px) scale(1.03);
+    box-shadow: var(--shadow-elevated), var(--glow-amethyst);
+  }
+}
+
+@keyframes cardSpread {
+  0% {
+    transform: translateX(0) rotate(0deg);
+    opacity: 0;
+  }
+  100% {
+    transform: translateX(var(--spread-x, 0)) rotate(var(--spread-rotation, 0deg));
+    opacity: 1;
+  }
+}
+
+/* === АНИМАЦИИ ЛУННЫХ ФАЗ === */
+
+@keyframes moonPhaseTransition {
   0% {
     clip-path: circle(0% at 50% 50%);
   }
@@ -266,153 +341,147 @@
 
 @keyframes moonGlow {
   0%, 100% {
-    box-shadow: 0 0 10px var(--moon-shadow);
+    box-shadow: 0 0 20px var(--moon-silver);
+    filter: brightness(1);
   }
   50% {
-    box-shadow: 0 0 20px var(--moon-shadow), 0 0 30px var(--moon-shadow);
+    box-shadow: 
+      0 0 40px var(--moon-silver),
+      0 0 60px var(--golden-aura);
+    filter: brightness(1.3);
   }
 }
 
-@keyframes starTwinkle {
-  0%, 100% {
-    opacity: 1;
-    transform: scale(1);
+@keyframes starField {
+  0% {
+    opacity: 0.3;
+    transform: scale(0.8);
   }
   50% {
+    opacity: 1;
+    transform: scale(1.2);
+  }
+  100% {
     opacity: 0.3;
     transform: scale(0.8);
   }
 }
 
-/* Анимации нумерологии */
-@keyframes numberPulse {
-  0%, 100% {
-    transform: scale(1);
-    background: var(--accent-gradient);
+@keyframes constellation {
+  0% {
+    stroke-dasharray: 0 100;
+    opacity: 0;
   }
   50% {
-    transform: scale(1.1);
-    background: var(--gold-gradient);
+    opacity: 1;
+  }
+  100% {
+    stroke-dasharray: 100 0;
+    opacity: 0.7;
   }
 }
+
+/* === АНИМАЦИИ НУМЕРОЛОГИИ === */
 
 @keyframes numberReveal {
   0% {
     transform: scale(0) rotate(180deg);
     opacity: 0;
+    background: var(--gradient-cosmic);
   }
   50% {
-    transform: scale(1.2) rotate(90deg);
-    opacity: 0.7;
+    transform: scale(1.3) rotate(90deg);
+    opacity: 0.8;
+    background: var(--gradient-golden);
   }
   100% {
     transform: scale(1) rotate(0deg);
     opacity: 1;
+    background: var(--gradient-mystical);
   }
 }
 
-/* Анимации интерфейса */
-@keyframes buttonPress {
-  0% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(0.95);
-  }
-  100% {
-    transform: scale(1);
-  }
-}
-
-@keyframes modalSlideIn {
-  0% {
-    transform: translateY(100vh);
-    opacity: 0;
-  }
-  100% {
-    transform: translateY(0);
-    opacity: 1;
-  }
-}
-
-@keyframes modalSlideOut {
-  0% {
-    transform: translateY(0);
-    opacity: 1;
-  }
-  100% {
-    transform: translateY(100vh);
-    opacity: 0;
-  }
-}
-
-@keyframes drawerSlideIn {
-  0% {
-    transform: translateX(-100%);
-  }
-  100% {
-    transform: translateX(0);
-  }
-}
-
-@keyframes drawerSlideOut {
-  0% {
-    transform: translateX(0);
-  }
-  100% {
-    transform: translateX(-100%);
-  }
-}
-
-/* Анимации уведомлений */
-@keyframes notificationSlideIn {
-  0% {
-    transform: translateX(100%);
-    opacity: 0;
-  }
-  100% {
-    transform: translateX(0);
-    opacity: 1;
-  }
-}
-
-@keyframes notificationSlideOut {
-  0% {
-    transform: translateX(0);
-    opacity: 1;
-  }
-  100% {
-    transform: translateX(100%);
-    opacity: 0;
-  }
-}
-
-@keyframes shake {
+@keyframes numberPulse {
   0%, 100% {
-    transform: translateX(0);
-  }
-  10%, 30%, 50%, 70%, 90% {
-    transform: translateX(-5px);
-  }
-  20%, 40%, 60%, 80% {
-    transform: translateX(5px);
-  }
-}
-
-/* Анимации загрузки */
-@keyframes skeletonPulse {
-  0% {
-    background-color: var(--neutral-700);
+    transform: scale(1);
+    box-shadow: var(--glow-amethyst);
   }
   50% {
-    background-color: var(--neutral-600);
-  }
-  100% {
-    background-color: var(--neutral-700);
+    transform: scale(1.1);
+    box-shadow: var(--glow-gold);
   }
 }
 
-@keyframes dots {
+@keyframes numerologyCalculation {
+  0% {
+    transform: translateY(0) rotate(0deg);
+    opacity: 1;
+  }
+  25% {
+    transform: translateY(-20px) rotate(90deg);
+    opacity: 0.7;
+  }
+  50% {
+    transform: translateY(-40px) rotate(180deg);
+    opacity: 0.3;
+  }
+  75% {
+    transform: translateY(-20px) rotate(270deg);
+    opacity: 0.7;
+  }
+  100% {
+    transform: translateY(0) rotate(360deg);
+    opacity: 1;
+  }
+}
+
+/* === АНИМАЦИИ ИНТЕРФЕЙСА === */
+
+@keyframes buttonRipple {
+  0% {
+    transform: scale(0);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(4);
+    opacity: 0;
+  }
+}
+
+@keyframes modalAppear {
+  0% {
+    opacity: 0;
+    transform: scale(0.8) translateY(50px);
+    filter: blur(5px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+    filter: blur(0px);
+  }
+}
+
+@keyframes drawerSlide {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(0);
+  }
+}
+
+@keyframes notificationSlide {
+  0% {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  100% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes loadingDots {
   0%, 20% {
     color: transparent;
     text-shadow: 
@@ -437,106 +506,247 @@
   }
 }
 
-/* Анимации прогресса */
 @keyframes progressBar {
+  0% { width: 0%; }
+  100% { width: 100%; }
+}
+
+@keyframes skeletonShimmer {
   0% {
-    width: 0%;
+    background-position: -200px 0;
   }
   100% {
-    width: 100%;
+    background-position: calc(200px + 100%) 0;
   }
 }
 
-@keyframes circularProgress {
-  0% {
-    stroke-dasharray: 0 100;
+/* === АНИМАЦИИ МАГИЧЕСКИХ ЭФФЕКТОВ === */
+
+@keyframes runeGlow {
+  0%, 100% {
+    filter: drop-shadow(0 0 5px var(--crystal-amethyst));
+    transform: rotate(0deg);
   }
-  100% {
-    stroke-dasharray: 100 0;
+  50% {
+    filter: drop-shadow(0 0 15px var(--golden-aura));
+    transform: rotate(180deg);
   }
 }
 
-/* Утилитарные классы анимации */
+@keyframes crystalPulse {
+  0%, 100% {
+    transform: scale(1) rotate(0deg);
+    filter: hue-rotate(0deg);
+  }
+  33% {
+    transform: scale(1.1) rotate(120deg);
+    filter: hue-rotate(120deg);
+  }
+  66% {
+    transform: scale(0.9) rotate(240deg);
+    filter: hue-rotate(240deg);
+  }
+}
+
+@keyframes magicCircle {
+  0% {
+    transform: rotate(0deg) scale(0.8);
+    opacity: 0;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    transform: rotate(360deg) scale(1);
+    opacity: 0.7;
+  }
+}
+
+@keyframes pentagramReveal {
+  0% {
+    stroke-dasharray: 0 1000;
+    opacity: 0;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    stroke-dasharray: 1000 0;
+    opacity: 0.8;
+  }
+}
+
+@keyframes energyWave {
+  0% {
+    transform: scale(0);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(3);
+    opacity: 0;
+  }
+}
+
+/* === УТИЛИТАРНЫЕ КЛАССЫ === */
+
+/* Базовые анимации */
 .animate-spin { animation: spin 1s linear infinite; }
-.animate-ping { animation: ping 1s cubic-bezier(0, 0, 0.2, 1) infinite; }
 .animate-pulse { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
 .animate-bounce { animation: bounce 1s infinite; }
+.animate-ping { animation: ping 1s cubic-bezier(0, 0, 0.2, 1) infinite; }
 
-.animate-fade-in { animation: fadeIn 0.3s ease-in-out; }
-.animate-fade-out { animation: fadeOut 0.3s ease-in-out; }
-.animate-slide-in { animation: slideIn 0.3s ease-out; }
-.animate-slide-out { animation: slideOut 0.3s ease-in; }
-.animate-scale-in { animation: scaleIn 0.2s ease-out; }
-.animate-scale-out { animation: scaleOut 0.2s ease-in; }
+/* Анимации появления */
+.animate-fade-in { animation: fadeIn 0.5s ease-out; }
+.animate-fade-out { animation: fadeOut 0.5s ease-in; }
+.animate-slide-up { animation: slideUp 0.6s ease-out; }
+.animate-slide-down { animation: slideDown 0.6s ease-out; }
+.animate-slide-left { animation: slideLeft 0.6s ease-out; }
+.animate-slide-right { animation: slideRight 0.6s ease-out; }
+.animate-scale-in { animation: scaleIn 0.4s ease-out; }
+.animate-scale-out { animation: scaleOut 0.4s ease-in; }
+.animate-zoom-in { animation: zoomIn 0.3s ease-out; }
+.animate-zoom-out { animation: zoomOut 0.3s ease-in; }
 
-.animate-mystic-pulse { animation: mysticPulse 3s ease-in-out infinite; }
-.animate-mystic-glow { animation: mysticGlow 2s ease-in-out infinite; }
-.animate-mystic-float { animation: mysticFloat 4s ease-in-out infinite; }
+/* Мистические анимации */
+.animate-glow { animation: glow 3s ease-in-out infinite; }
+.animate-mystical-glow { animation: mysticalGlow 4s ease-in-out infinite; }
+.animate-aura-breathe { animation: auraBreathe 6s ease-in-out infinite; }
+.animate-energy-flow { animation: energyFlow 3s linear infinite; }
+.animate-shimmer { animation: shimmer 2s linear infinite; }
+.animate-float { animation: float 6s ease-in-out infinite; }
+.animate-levitate { animation: levitate 8s ease-in-out infinite; }
+.animate-mystical-entrance { animation: mysticalEntrance 1.2s ease-out; }
+.animate-cosmic-drift { animation: cosmicDrift 20s linear infinite; }
 
-.animate-card-flip { animation: cardFlip 0.6s ease-in-out; }
-.animate-card-reveal { animation: cardReveal 0.8s ease-out; }
-.animate-card-shuffle { animation: cardShuffle 0.5s ease-in-out; }
-.animate-card-deal { animation: cardDeal 0.8s ease-out; }
+/* Анимации карт */
+.animate-card-flip { animation: cardFlip 0.8s ease-in-out; }
+.animate-card-reveal { animation: cardReveal 1s ease-out; }
+.animate-card-shuffle { animation: cardShuffle 0.6s ease-in-out; }
+.animate-card-deal { animation: cardDeal 1s ease-out; }
+.animate-card-draw { animation: cardDrawFromDeck 0.8s ease-out; }
+.animate-card-hover { animation: cardHoverLift 0.3s ease-out; }
+.animate-card-spread { animation: cardSpread 0.8s ease-out; }
 
-.animate-moon-glow { animation: moonGlow 3s ease-in-out infinite; }
-.animate-star-twinkle { animation: starTwinkle 2s ease-in-out infinite; }
+/* Анимации луны и звезд */
+.animate-moon-glow { animation: moonGlow 4s ease-in-out infinite; }
+.animate-star-field { animation: starField 3s ease-in-out infinite; }
+.animate-constellation { animation: constellation 5s ease-in-out infinite; }
 
-.animate-number-pulse { animation: numberPulse 1s ease-in-out; }
-.animate-number-reveal { animation: numberReveal 0.6s ease-out; }
+/* Анимации нумерологии */
+.animate-number-reveal { animation: numberReveal 0.8s ease-out; }
+.animate-number-pulse { animation: numberPulse 1.5s ease-in-out infinite; }
+.animate-numerology-calc { animation: numerologyCalculation 2s ease-in-out; }
 
-.animate-button-press { animation: buttonPress 0.1s ease-in-out; }
-.animate-shake { animation: shake 0.5s ease-in-out; }
+/* Анимации интерфейса */
+.animate-button-ripple { animation: buttonRipple 0.6s ease-out; }
+.animate-modal-appear { animation: modalAppear 0.5s ease-out; }
+.animate-drawer-slide { animation: drawerSlide 0.4s ease-out; }
+.animate-notification-slide { animation: notificationSlide 0.5s ease-out; }
+.animate-loading-dots { animation: loadingDots 1.4s ease-in-out infinite; }
+.animate-progress { animation: progressBar 2s ease-out; }
+.animate-skeleton { animation: skeletonShimmer 2s ease-in-out infinite; }
 
-/* Задержки анимации */
-.animation-delay-75 { animation-delay: 75ms; }
-.animation-delay-100 { animation-delay: 100ms; }
-.animation-delay-150 { animation-delay: 150ms; }
-.animation-delay-200 { animation-delay: 200ms; }
-.animation-delay-300 { animation-delay: 300ms; }
-.animation-delay-500 { animation-delay: 500ms; }
-.animation-delay-700 { animation-delay: 700ms; }
-.animation-delay-1000 { animation-delay: 1000ms; }
+/* Магические эффекты */
+.animate-rune-glow { animation: runeGlow 5s ease-in-out infinite; }
+.animate-crystal-pulse { animation: crystalPulse 4s ease-in-out infinite; }
+.animate-magic-circle { animation: magicCircle 3s ease-in-out infinite; }
+.animate-pentagram { animation: pentagramReveal 2s ease-out; }
+.animate-energy-wave { animation: energyWave 1s ease-out; }
 
-/* Продолжительность анимации */
-.animation-duration-75 { animation-duration: 75ms; }
-.animation-duration-100 { animation-duration: 100ms; }
-.animation-duration-150 { animation-duration: 150ms; }
-.animation-duration-200 { animation-duration: 200ms; }
-.animation-duration-300 { animation-duration: 300ms; }
-.animation-duration-500 { animation-duration: 500ms; }
-.animation-duration-700 { animation-duration: 700ms; }
-.animation-duration-1000 { animation-duration: 1000ms; }
+/* === МОДИФИКАТОРЫ === */
 
-/* Функции времени анимации */
-.animation-ease-linear { animation-timing-function: linear; }
-.animation-ease-in { animation-timing-function: cubic-bezier(0.4, 0, 1, 1); }
-.animation-ease-out { animation-timing-function: cubic-bezier(0, 0, 0.2, 1); }
-.animation-ease-in-out { animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1); }
+/* Задержки */
+.delay-75 { animation-delay: 75ms; }
+.delay-100 { animation-delay: 100ms; }
+.delay-150 { animation-delay: 150ms; }
+.delay-200 { animation-delay: 200ms; }
+.delay-300 { animation-delay: 300ms; }
+.delay-500 { animation-delay: 500ms; }
+.delay-700 { animation-delay: 700ms; }
+.delay-1000 { animation-delay: 1000ms; }
 
-/* Состояния анимации */
+/* Длительность */
+.duration-75 { animation-duration: 75ms; }
+.duration-100 { animation-duration: 100ms; }
+.duration-150 { animation-duration: 150ms; }
+.duration-200 { animation-duration: 200ms; }
+.duration-300 { animation-duration: 300ms; }
+.duration-500 { animation-duration: 500ms; }
+.duration-700 { animation-duration: 700ms; }
+.duration-1000 { animation-duration: 1000ms; }
+.duration-2000 { animation-duration: 2000ms; }
+
+/* Функции времени */
+.ease-linear { animation-timing-function: linear; }
+.ease-in { animation-timing-function: cubic-bezier(0.4, 0, 1, 1); }
+.ease-out { animation-timing-function: cubic-bezier(0, 0, 0.2, 1); }
+.ease-in-out { animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1); }
+.ease-mystical { animation-timing-function: cubic-bezier(0.68, -0.55, 0.265, 1.55); }
+
+/* Состояния */
 .animation-paused { animation-play-state: paused; }
 .animation-running { animation-play-state: running; }
 
-/* Направления анимации */
-.animation-reverse { animation-direction: reverse; }
-.animation-alternate { animation-direction: alternate; }
-.animation-alternate-reverse { animation-direction: alternate-reverse; }
+/* Повторения */
+.repeat-1 { animation-iteration-count: 1; }
+.repeat-2 { animation-iteration-count: 2; }
+.repeat-3 { animation-iteration-count: 3; }
+.repeat-infinite { animation-iteration-count: infinite; }
 
-/* Заполнение анимации */
-.animation-fill-none { animation-fill-mode: none; }
-.animation-fill-forwards { animation-fill-mode: forwards; }
-.animation-fill-backwards { animation-fill-mode: backwards; }
-.animation-fill-both { animation-fill-mode: both; }
+/* Направления */
+.reverse { animation-direction: reverse; }
+.alternate { animation-direction: alternate; }
+.alternate-reverse { animation-direction: alternate-reverse; }
 
-/* Переходы */
+/* Заполнение */
+.fill-none { animation-fill-mode: none; }
+.fill-forwards { animation-fill-mode: forwards; }
+.fill-backwards { animation-fill-mode: backwards; }
+.fill-both { animation-fill-mode: both; }
+
+/* === ПЕРЕХОДЫ === */
+
 .transition-none { transition: none; }
-.transition-all { transition: all var(--transition-standard); }
-.transition-colors { transition: color var(--transition-standard), background-color var(--transition-standard), border-color var(--transition-standard); }
-.transition-opacity { transition: opacity var(--transition-standard); }
-.transition-shadow { transition: box-shadow var(--transition-standard); }
-.transition-transform { transition: transform var(--transition-standard); }
+.transition-all { transition: all var(--transition-normal); }
+.transition-colors { 
+  transition: color var(--transition-normal), 
+              background-color var(--transition-normal), 
+              border-color var(--transition-normal); 
+}
+.transition-opacity { transition: opacity var(--transition-normal); }
+.transition-shadow { transition: box-shadow var(--transition-normal); }
+.transition-transform { transition: transform var(--transition-normal); }
+.transition-mystical { transition: all var(--transition-mystical); }
 
-/* Медиа-запрос для пользователей с предпочтением уменьшенной анимации */
+/* === HOVER ЭФФЕКТЫ === */
+
+.hover-glow:hover {
+  box-shadow: var(--glow-amethyst);
+  transition: box-shadow var(--transition-normal);
+}
+
+.hover-lift:hover {
+  transform: translateY(-4px) scale(1.02);
+  transition: transform var(--transition-normal);
+}
+
+.hover-float:hover {
+  animation: float 2s ease-in-out infinite;
+}
+
+.hover-shimmer:hover {
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.2),
+    transparent
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out;
+}
+
+/* === ДОСТУПНОСТЬ === */
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -546,11 +756,11 @@
     transition-duration: 0.01ms !important;
   }
   
-  .animate-mystic-pulse,
-  .animate-mystic-glow,
-  .animate-mystic-float,
-  .animate-moon-glow,
-  .animate-star-twinkle {
-    animation: none;
+  /* Исключения для критически важных анимаций */
+  .animate-fade-in,
+  .animate-fade-out,
+  .animate-scale-in,
+  .animate-scale-out {
+    animation-duration: 0.15s !important;
   }
 }

@@ -1,8 +1,9 @@
 // client/src/pages/Friends/Friends.jsx
 import React, { useState, useEffect } from 'react';
-import  useAuthStore  from '../../store/authStore';
+import useAuthStore from '../../store/authStore';
+import useUserStore from '../../store/userStore';
 import apiService from '../../services/api';
-import { FRIEND_STATUS, SUCCESS_MESSAGES } from '../../utils/constants';
+import { FRIEND_STATUS, SUCCESS_MESSAGES, ERROR_MESSAGES, ROUTES } from '../../utils/constants';
 import { generateInviteLink, copyToClipboard } from '../../utils/helpers';
 import Button from '../../components/common/Button';
 import Loading from '../../components/common/Loading';

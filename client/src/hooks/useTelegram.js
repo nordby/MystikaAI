@@ -16,7 +16,7 @@ export const useTelegram = () => {
             }
         } 
         // РЕЖИМ РАЗРАБОТКИ - для тестирования в браузере
-        else if (process.env.NODE_ENV === 'development') {
+        else if (process.env.NODE_ENV === 'development' || process.env.REACT_APP_FORCE_DEV === 'true') {
             // Создаем моковые данные пользователя для разработки
             const mockUser = {
                 id: 123456789,
@@ -71,6 +71,6 @@ export const useTelegram = () => {
         close,
         isSupported: !!window.Telegram?.WebApp,
         // Добавляем флаг режима разработки
-        isDevelopment: process.env.NODE_ENV === 'development' && !window.Telegram?.WebApp
+        isDevelopment: (process.env.NODE_ENV === 'development' && !window.Telegram?.WebApp) || process.env.REACT_APP_FORCE_DEV === 'true'
     };
 };

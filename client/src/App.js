@@ -40,7 +40,9 @@ function App() {
   // Инициализация при загрузке
   useEffect(() => {
     const initApp = async () => {
-      if (telegramUser) {
+      console.log('App init:', { telegramUser, isDevelopment, isAuthenticated });
+      
+      if (telegramUser && !isDevelopment) {
         try {
           // Авторизация через Telegram
           await login({
@@ -58,11 +60,18 @@ function App() {
         } catch (error) {
           console.error('Ошибка инициализации:', error);
         }
+      } else if (isDevelopment) {
+        try {
+          // В режиме разработки только загружаем настройки
+          await loadSettings();
+        } catch (error) {
+          console.error('Ошибка загрузки настроек в dev режиме:', error);
+        }
       }
     };
 
     initApp();
-  }, [telegramUser]);
+  }, [telegramUser, isDevelopment]);
 
   // Применение темы
   useEffect(() => {
@@ -78,25 +87,34 @@ function App() {
   // Показать загрузку при инициализации
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-indigo-900 to-blue-900 flex items-center justify-center">
-        <Loading size="large" />
+      <div className="min-h-screen flex items-center justify-center" style={{
+        background: 'var(--gradient-background)'
+      }}>
+        <div className="mystical-loading"></div>
       </div>
     );
   }
 
   // Проверяем авторизацию ИЛИ режим разработки
   const shouldRenderApp = isAuthenticated || isDevelopment;
+  console.log('Render check:', { isAuthenticated, isDevelopment, shouldRenderApp });
 
   return (
     <ErrorBoundary>
       <Router>
-        <div className="min-h-screen bg-gradient-to-br from-purple-900 via-indigo-900 to-blue-900 text-white">
+        <div className="min-h-screen text-white" style={{
+          background: 'var(--gradient-background)',
+          color: 'var(--text-primary)'
+        }}>
           <AnimatePresence mode="wait">
             {shouldRenderApp ? (
               <Layout>
                 {/* Уведомление для режима разработки */}
                 {isDevelopment && (
-                  <div className="bg-yellow-600 text-black text-center p-2 text-sm font-medium">
+                  <div style={{
+                    background: 'var(--gradient-primary)',
+                    color: 'var(--primary-dark)'
+                  }} className="text-center p-2 text-sm font-medium">
                     🚧 РЕЖИМ РАЗРАБОТКИ - Тестирование вне Telegram
                   </div>
                 )}
@@ -109,7 +127,7 @@ function App() {
                       exit={{ opacity: 0 }}
                       className="flex items-center justify-center min-h-[60vh]"
                     >
-                      <Loading />
+                      <div className="mystical-loading"></div>
                     </motion.div>
                   }
                 >
@@ -134,16 +152,20 @@ function App() {
                 className="flex items-center justify-center min-h-screen p-4"
               >
                 <div className="text-center">
-                  <h1 className="text-4xl font-bold mb-4 bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
-                    🔮 MISTIKA
+                  <h1 className="text-6xl font-bold mb-4 orbitron gradient-text">
+                    🔮 MYSTIKA
                   </h1>
-                  <p className="text-gray-300 mb-8">
+                  <p style={{ color: 'var(--text-secondary)' }} className="mb-8 text-lg">
+                    Откройте тайны будущего в Web3
+                  </p>
+                  <p style={{ color: 'var(--text-secondary)' }} className="mb-8">
                     Пожалуйста, откройте приложение через Telegram
                   </p>
                   <a
                     href={`https://t.me/${process.env.REACT_APP_TELEGRAM_BOT_USERNAME}`}
-                    className="inline-flex items-center px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-full font-medium transition-all transform hover:scale-105"
+                    className="mystical-btn inline-flex items-center font-medium"
                   >
+                    <span className="mr-2">📱</span>
                     Открыть в Telegram
                   </a>
                 </div>
@@ -151,28 +173,30 @@ function App() {
             )}
           </AnimatePresence>
 
-          {/* Toast уведомления */}
+          {/* Toast уведомления в стиле MYSTIKA */}
           <Toaster
             position="top-center"
             toastOptions={{
               duration: 4000,
               style: {
-                background: '#1a1a2e',
-                color: '#fff',
-                border: '1px solid rgba(139, 92, 246, 0.3)',
-                borderRadius: '12px',
+                background: 'rgba(26, 0, 26, 0.9)',
+                color: 'var(--text-primary)',
+                border: '1px solid rgba(255, 0, 255, 0.3)',
+                borderRadius: '15px',
                 padding: '16px',
+                backdropFilter: 'blur(10px)',
+                boxShadow: '0 10px 30px rgba(0, 255, 255, 0.2)',
               },
               success: {
                 iconTheme: {
-                  primary: '#10b981',
-                  secondary: '#fff',
+                  primary: 'var(--accent-blue)',
+                  secondary: 'var(--primary-dark)',
                 },
               },
               error: {
                 iconTheme: {
-                  primary: '#ef4444',
-                  secondary: '#fff',
+                  primary: 'var(--accent-pink)',
+                  secondary: 'var(--primary-dark)',
                 },
               },
             }}

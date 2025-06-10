@@ -3,82 +3,166 @@
 @import 'variables.css';
 @import 'animations.css';
 
-/* Базовые стили для всего приложения */
+/**
+ * Мистические глобальные стили для приложения Таро
+ */
+
+/* === БАЗОВЫЕ СТИЛИ === */
+
 * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
 }
 
-html, body {
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
   height: 100%;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  background: var(--background-primary);
+  scroll-behavior: smooth;
+}
+
+body {
+  height: 100%;
+  font-family: var(--font-primary);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-normal);
+  background: var(--gradient-cosmic);
   color: var(--text-primary);
   overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
 #root {
   height: 100%;
   width: 100%;
+  position: relative;
 }
 
-/* Скроллбары */
+/* === СКРОЛЛБАРЫ === */
+
 ::-webkit-scrollbar {
   width: 8px;
+  height: 8px;
 }
 
 ::-webkit-scrollbar-track {
   background: var(--background-secondary);
+  border-radius: var(--radius-md);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--accent-primary);
-  border-radius: 4px;
+  background: var(--gradient-mystical);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-mystical);
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--accent-secondary);
+  background: var(--gradient-golden);
+  box-shadow: var(--glow-gold);
 }
 
-/* Фокус */
+::-webkit-scrollbar-corner {
+  background: var(--background-secondary);
+}
+
+/* === ФОКУС И ИНТЕРАКТИВНОСТЬ === */
+
 *:focus {
   outline: 2px solid var(--accent-primary);
   outline-offset: 2px;
+  box-shadow: var(--glow-amethyst);
 }
 
 *:focus:not(:focus-visible) {
   outline: none;
+  box-shadow: none;
 }
 
-/* Disabled элементы */
+*:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+  box-shadow: var(--glow-amethyst);
+}
+
+/* === СОСТОЯНИЯ ЭЛЕМЕНТОВ === */
+
 *:disabled {
-  opacity: 0.5;
+  opacity: 0.4;
   cursor: not-allowed;
+  filter: grayscale(0.5);
 }
 
-/* Кнопки */
+/* === КНОПКИ === */
+
 button {
   background: none;
   border: none;
   cursor: pointer;
   font-family: inherit;
+  font-size: inherit;
+  transition: var(--transition-normal);
 }
 
-/* Ссылки */
+button:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+button:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+/* === ССЫЛКИ === */
+
 a {
   color: var(--accent-primary);
   text-decoration: none;
+  transition: var(--transition-normal);
+  position: relative;
 }
 
 a:hover {
-  text-decoration: underline;
+  color: var(--accent-secondary);
+  text-shadow: var(--glow-gold);
 }
 
-/* Формы */
-input, textarea, select {
+a:focus {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+}
+
+/* === ФОРМЫ === */
+
+input, 
+textarea, 
+select {
   font-family: inherit;
   font-size: inherit;
+  background: var(--background-card);
+  border: var(--border-mystical);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-sm) var(--spacing-md);
+  color: var(--text-primary);
+  transition: var(--transition-normal);
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  border-color: var(--accent-primary);
+  box-shadow: var(--glow-amethyst);
+  outline: none;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--text-muted);
+  opacity: 0.7;
 }
 
 /* Telegram WebApp стили */

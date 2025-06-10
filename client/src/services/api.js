@@ -53,15 +53,19 @@ class ApiService {
 
   // Карты
   async getDailyCard() {
-    return this.client.get('/cards/daily');
+    return this.client.get('/cards/random');
   }
 
-  async getPersonalDeck() {
-    return this.client.get('/cards/personal-deck');
+  async getCards(filters = {}) {
+    return this.client.get('/cards/', { params: filters });
   }
 
-  async generatePersonalDeck() {
-    return this.client.post('/cards/generate-deck');
+  async getRandomCards(count = 1) {
+    return this.client.get('/cards/random-multiple', { params: { count } });
+  }
+
+  async getCard(cardId) {
+    return this.client.get(`/cards/${cardId}`);
   }
 
   async getCardMeaning(cardId) {
@@ -69,27 +73,55 @@ class ApiService {
   }
 
   // Расклады
-  async getSpreadTemplates() {
-    return this.client.get('/spreads/templates');
+  async getSpreads() {
+    return this.client.get('/spreads/');
   }
 
-  async performReading(readingData) {
+  async getSpread(spreadId) {
+    return this.client.get(`/spreads/${spreadId}`);
+  }
+
+  async createReading(readingData) {
+    return this.client.post('/readings/', readingData);
+  }
+
+  async performSpreadReading(readingData) {
     return this.client.post('/spreads/reading', readingData);
   }
 
-  async getReadingHistory(params = {}) {
-    return this.client.get('/spreads/history', { params });
+  async getReadingHistory() {
+    return this.client.get('/spreads/reading/history');
   }
 
   async getReading(readingId) {
-    return this.client.get(`/spreads/${readingId}`);
+    return this.client.get(`/spreads/reading/${readingId}`);
   }
 
-  async rateReading(readingId, rating) {
-    return this.client.post(`/spreads/${readingId}/rate`, { rating });
+  async getUserReadings(userId) {
+    return this.client.get(`/readings/user/${userId}`);
+  }
+
+  async getSpecificReading(readingId) {
+    return this.client.get(`/readings/${readingId}`);
+  }
+
+  async createCustomSpread(spreadData) {
+    return this.client.post('/spreads/custom', spreadData);
+  }
+
+  async getMyCustomSpreads() {
+    return this.client.get('/spreads/custom/my');
+  }
+
+  async deleteCustomSpread(spreadId) {
+    return this.client.delete(`/spreads/custom/${spreadId}`);
   }
 
   // Платежи
+  async getSubscriptionPlans() {
+    return this.client.get('/payments/plans');
+  }
+
   async getSubscriptionInfo() {
     return this.client.get('/payments/subscription');
   }
@@ -98,24 +130,81 @@ class ApiService {
     return this.client.post('/payments/create', planData);
   }
 
-  async confirmPayment(paymentId) {
-    return this.client.post(`/payments/${paymentId}/confirm`);
+  async confirmPayment(paymentData) {
+    return this.client.post('/payments/confirm', paymentData);
+  }
+
+  async cancelSubscription() {
+    return this.client.post('/payments/cancel-subscription');
+  }
+
+  async resumeSubscription() {
+    return this.client.post('/payments/resume-subscription');
+  }
+
+  async getPaymentHistory() {
+    return this.client.get('/payments/history');
+  }
+
+  async getInvoice(paymentId) {
+    return this.client.get(`/payments/invoice/${paymentId}`);
+  }
+
+  async applyPromoCode(code) {
+    return this.client.post('/payments/promo-code', { code });
   }
 
   // AI функции
-  async generateAIInterpretation(cards, question) {
-    return this.client.post('/ai/interpret', { cards, question });
+  async generateAIInterpretation(interpretationData) {
+    return this.client.post('/ai/interpret', interpretationData);
   }
 
-  async processVoiceInput(audioBlob) {
-    const formData = new FormData();
-    formData.append('audio', audioBlob);
-    return this.client.post('/ai/voice', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' }
-    });
+  async generateCardImage(imageData) {
+    return this.client.post('/ai/generate-card-image', imageData);
   }
 
-  // Нумерология
+  async generateSpreadImages(spreadData) {
+    return this.client.post('/ai/generate-spread-images', spreadData);
+  }
+
+  async checkAIHealth() {
+    return this.client.get('/ai/health');
+  }
+
+  async checkKandinskyHealth() {
+    return this.client.get('/ai/kandinsky/health');
+  }
+
+  // Analytics
+  async trackEvent(eventData) {
+    return this.client.post('/analytics/events', eventData);
+  }
+
+  async getUserStats(userId) {
+    return this.client.get(`/analytics/users/${userId}/stats`);
+  }
+
+  // Telegram
+  async sendMessage(messageData) {
+    return this.client.post('/telegram/send-message', messageData);
+  }
+
+  async sendCard(cardData) {
+    return this.client.post('/telegram/send-card', cardData);
+  }
+
+  async sendNotification(notificationData) {
+    return this.client.post('/telegram/send-notification', notificationData);
+  }
+
+  async getTelegramUserInfo(telegramId) {
+    return this.client.get(`/telegram/user-info/${telegramId}`);
+  }
+
+  // Note: Numerology and Lunar endpoints are not implemented in backend yet
+  // These will return 404 until backend routes are created
+
+  // Нумерология (placeholder - needs backend implementation)
   async calculateNumerology(birthData) {
     return this.client.post('/numerology/calculate', birthData);
   }
@@ -128,7 +217,7 @@ class ApiService {
     return this.client.post('/numerology/compatibility', partnerData);
   }
 
-  // Лунный календарь
+  // Лунный календарь (placeholder - needs backend implementation)
   async getCurrentMoonPhase() {
     return this.client.get('/lunar/current');
   }

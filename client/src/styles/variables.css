@@ -1,236 +1,303 @@
 /* client/src/styles/variables.css */
 
+/**
+ * Мистические CSS переменные для приложения Таро
+ */
+
 :root {
-  /* Цветовая палитра */
-  --primary-50: #faf5ff;
-  --primary-100: #f3e8ff;
-  --primary-200: #e9d5ff;
-  --primary-300: #d8b4fe;
-  --primary-400: #c084fc;
-  --primary-500: #a855f7;
-  --primary-600: #9333ea;
-  --primary-700: #7c3aed;
-  --primary-800: #6b21a8;
-  --primary-900: #581c87;
-
-  --secondary-50: #ecfdf5;
-  --secondary-100: #d1fae5;
-  --secondary-200: #a7f3d0;
-  --secondary-300: #6ee7b7;
-  --secondary-400: #34d399;
-  --secondary-500: #10b981;
-  --secondary-600: #059669;
-  --secondary-700: #047857;
-  --secondary-800: #065f46;
-  --secondary-900: #064e3b;
-
-  --accent-50: #fff7ed;
-  --accent-100: #ffedd5;
-  --accent-200: #fed7aa;
-  --accent-300: #fdba74;
-  --accent-400: #fb923c;
-  --accent-500: #f97316;
-  --accent-600: #ea580c;
-  --accent-700: #c2410c;
-  --accent-800: #9a3412;
-  --accent-900: #7c2d12;
-
-  --neutral-50: #fafafa;
-  --neutral-100: #f5f5f5;
-  --neutral-200: #e5e5e5;
-  --neutral-300: #d4d4d4;
-  --neutral-400: #a3a3a3;
-  --neutral-500: #737373;
-  --neutral-600: #525252;
-  --neutral-700: #404040;
-  --neutral-800: #262626;
-  --neutral-900: #171717;
-
-  /* Мистические цвета */
-  --mystic-purple: #6b46c1;
-  --mystic-gold: #f59e0b;
-  --mystic-silver: #9ca3af;
-  --mystic-deep: #1e1b4b;
-  --mystic-glow: #a78bfa;
-
-  /* Основные цвета темы */
-  --background-primary: var(--neutral-900);
-  --background-secondary: var(--neutral-800);
-  --background-tertiary: var(--neutral-700);
+  /* === МИСТИЧЕСКАЯ ЦВЕТОВАЯ ПАЛИТРА === */
   
-  --text-primary: var(--neutral-50);
-  --text-secondary: var(--neutral-300);
-  --text-muted: var(--neutral-500);
-  --text-on-accent: var(--neutral-900);
+  /* Космические глубины */
+  --cosmic-void: #0a0015;         /* Бездна космоса */
+  --cosmic-purple: #1a0933;       /* Глубокий космический фиолетовый */
+  --mystic-navy: #0f0629;         /* Мистический темно-синий */
+  --ethereal-indigo: #1e1b4b;     /* Эфирный индиго */
+  
+  /* Мистические фиолетовые */
+  --deep-violet: #2d1b69;         /* Глубокий фиолетовый */
+  --enchanted-purple: #4c1d95;    /* Зачарованный фиолетовый */
+  --crystal-amethyst: #7c3aed;    /* Кристалл аметиста */
+  --royal-purple: #9333ea;        /* Королевский фиолетовый */
+  --light-amethyst: #a855f7;      /* Светлый аметист */
+  
+  /* Магические акценты */
+  --golden-aura: #fbbf24;         /* Золотая аура */
+  --solar-gold: #f59e0b;          /* Солнечное золото */
+  --moon-silver: #e5e7eb;         /* Серебро луны */
+  --starlight: #f8fafc;           /* Звездный свет */
+  --crimson-energy: #dc2626;      /* Багровая энергия */
+  --emerald-magic: #059669;       /* Изумрудная магия */
+  --sapphire-blue: #2563eb;       /* Сапфировый синий */
+  
+  /* Нейтральные тона */
+  --shadow-black: #000000;        /* Тень черная */
+  --deep-gray: #111827;           /* Глубокий серый */
+  --medium-gray: #374151;         /* Средний серый */
+  --light-gray: #6b7280;          /* Светлый серый */
+  --silver-mist: #9ca3af;         /* Серебряная дымка */
+  --crystal-white: #ffffff;       /* Кристально белый */
 
-  --accent-primary: var(--primary-600);
-  --accent-secondary: var(--secondary-500);
-  --accent-tertiary: var(--accent-500);
+  /* === ГРАДИЕНТЫ === */
+  --gradient-cosmic: linear-gradient(135deg, var(--cosmic-void) 0%, var(--cosmic-purple) 40%, var(--deep-violet) 100%);
+  --gradient-mystical: linear-gradient(45deg, var(--ethereal-indigo) 0%, var(--enchanted-purple) 50%, var(--crystal-amethyst) 100%);
+  --gradient-aurora: linear-gradient(90deg, var(--crystal-amethyst) 0%, var(--royal-purple) 25%, var(--golden-aura) 50%, var(--emerald-magic) 75%, var(--sapphire-blue) 100%);
+  --gradient-golden: linear-gradient(135deg, var(--golden-aura) 0%, var(--solar-gold) 100%);
+  --gradient-silver: linear-gradient(135deg, var(--moon-silver) 0%, var(--silver-mist) 100%);
+  --gradient-energy: linear-gradient(45deg, var(--crimson-energy) 0%, var(--golden-aura) 100%);
+  
+  /* === ОСНОВНЫЕ ЦВЕТА ИНТЕРФЕЙСА === */
+  --background-primary: var(--cosmic-void);
+  --background-secondary: var(--cosmic-purple);
+  --background-tertiary: var(--deep-violet);
+  --background-card: rgba(45, 27, 105, 0.8);
+  --background-modal: rgba(10, 0, 21, 0.95);
+  --background-overlay: rgba(0, 0, 0, 0.8);
+  --background-glass: rgba(124, 58, 237, 0.1);
+  
+  /* === ТЕКСТ === */
+  --text-primary: var(--starlight);
+  --text-secondary: var(--moon-silver);
+  --text-tertiary: var(--silver-mist);
+  --text-muted: var(--light-gray);
+  --text-golden: var(--golden-aura);
+  --text-mystical: var(--light-amethyst);
+  --text-on-dark: var(--starlight);
+  --text-on-light: var(--deep-gray);
 
-  /* Состояния */
-  --success: var(--secondary-500);
-  --warning: var(--accent-500);
-  --error: #ef4444;
-  --info: #3b82f6;
+  /* === АКЦЕНТЫ === */
+  --accent-primary: var(--crystal-amethyst);
+  --accent-secondary: var(--golden-aura);
+  --accent-tertiary: var(--emerald-magic);
+  --accent-danger: var(--crimson-energy);
+  --accent-info: var(--sapphire-blue);
+  --accent-success: var(--emerald-magic);
+  --accent-warning: var(--solar-gold);
 
-  /* Границы */
-  --border-color: var(--neutral-700);
-  --border-light: var(--neutral-600);
-  --border-card: 1px solid var(--neutral-700);
-  --border-accent: 1px solid var(--accent-primary);
+  /* === ГРАНИЦЫ === */
+  --border-mystical: 1px solid rgba(124, 58, 237, 0.4);
+  --border-golden: 1px solid rgba(251, 191, 36, 0.4);
+  --border-subtle: 1px solid rgba(229, 231, 235, 0.1);
+  --border-card: 1px solid rgba(124, 58, 237, 0.3);
+  --border-focus: 2px solid var(--crystal-amethyst);
+  --border-glass: 1px solid rgba(255, 255, 255, 0.1);
 
-  /* Тени */
-  --shadow-subtle: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-  --shadow-standard: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-  --shadow-elevated: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-  --shadow-mystic: 0 10px 25px rgba(167, 139, 250, 0.3);
+  /* === ТЕНИ И СВЕЧЕНИЯ === */
+  --shadow-mystical: 0 0 30px rgba(124, 58, 237, 0.4);
+  --shadow-golden: 0 0 25px rgba(251, 191, 36, 0.3);
+  --shadow-ethereal: 0 10px 40px rgba(45, 27, 105, 0.6);
+  --shadow-card: 0 8px 32px rgba(0, 0, 0, 0.4);
+  --shadow-elevated: 0 20px 60px rgba(0, 0, 0, 0.5);
+  
+  --glow-amethyst: 0 0 40px rgba(124, 58, 237, 0.6);
+  --glow-gold: 0 0 30px rgba(251, 191, 36, 0.5);
+  --glow-silver: 0 0 25px rgba(229, 231, 235, 0.4);
+  --glow-energy: 0 0 35px rgba(220, 38, 38, 0.5);
+  --glow-emerald: 0 0 30px rgba(5, 150, 105, 0.5);
 
-  /* Градиенты */
-  --mystic-gradient: linear-gradient(135deg, var(--mystic-purple) 0%, var(--mystic-deep) 100%);
-  --accent-gradient: linear-gradient(135deg, var(--accent-primary) 0%, var(--primary-700) 100%);
-  --accent-gradient-subtle: linear-gradient(135deg, var(--primary-50) 0%, var(--accent-50) 100%);
-  --gold-gradient: linear-gradient(135deg, var(--mystic-gold) 0%, var(--accent-600) 100%);
+  /* === РАЗМЕРЫ И ОТСТУПЫ === */
+  --spacing-xs: 0.25rem;    /* 4px */
+  --spacing-sm: 0.5rem;     /* 8px */
+  --spacing-md: 1rem;       /* 16px */
+  --spacing-lg: 1.5rem;     /* 24px */
+  --spacing-xl: 2rem;       /* 32px */
+  --spacing-2xl: 3rem;      /* 48px */
+  --spacing-3xl: 4rem;      /* 64px */
+  --spacing-4xl: 6rem;      /* 96px */
+  --spacing-5xl: 8rem;      /* 128px */
 
-  /* Отступы */
-  --spacing-xs: 0.25rem;   /* 4px */
-  --spacing-sm: 0.5rem;    /* 8px */
-  --spacing-md: 1rem;      /* 16px */
-  --spacing-lg: 1.5rem;    /* 24px */
-  --spacing-xl: 2rem;      /* 32px */
-  --spacing-2xl: 3rem;     /* 48px */
-  --spacing-3xl: 4rem;     /* 64px */
+  /* === РАДИУСЫ === */
+  --radius-xs: 0.25rem;     /* 4px */
+  --radius-sm: 0.375rem;    /* 6px */
+  --radius-md: 0.5rem;      /* 8px */
+  --radius-lg: 0.75rem;     /* 12px */
+  --radius-xl: 1rem;        /* 16px */
+  --radius-2xl: 1.5rem;     /* 24px */
+  --radius-3xl: 2rem;       /* 32px */
+  --radius-full: 9999px;    /* Полный круг */
 
-  /* Радиусы скругления */
-  --border-radius-sm: 0.25rem;  /* 4px */
-  --border-radius-md: 0.375rem; /* 6px */
-  --border-radius-lg: 0.5rem;   /* 8px */
-  --border-radius-xl: 0.75rem;  /* 12px */
-  --border-radius-2xl: 1rem;    /* 16px */
-  --border-radius-full: 9999px;
+  /* === ПЕРЕХОДЫ === */
+  --transition-instant: 0ms;
+  --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-normal: 300ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-slow: 500ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-mystical: 600ms cubic-bezier(0.68, -0.55, 0.265, 1.55);
 
-  /* Переходы */
-  --transition-fast: 150ms ease-in-out;
-  --transition-standard: 250ms ease-in-out;
-  --transition-slow: 400ms ease-in-out;
+  /* === ШРИФТЫ === */
+  --font-primary: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mystical: 'Cinzel', 'Playfair Display', serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
 
-  /* Анимации */
-  --animation-spin: spin 1s linear infinite;
-  --animation-bounce: bounce 1s infinite;
-  --animation-pulse: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-  --animation-fade-in: fadeIn 0.3s ease-in-out;
-  --animation-slide-in: slideIn 0.3s ease-out;
-  --animation-card-flip: cardFlip 0.6s ease-in-out;
-  --animation-mystic-pulse: mysticPulse 3s ease-in-out infinite;
+  --font-size-xs: 0.75rem;      /* 12px */
+  --font-size-sm: 0.875rem;     /* 14px */
+  --font-size-base: 1rem;       /* 16px */
+  --font-size-lg: 1.125rem;     /* 18px */
+  --font-size-xl: 1.25rem;      /* 20px */
+  --font-size-2xl: 1.5rem;      /* 24px */
+  --font-size-3xl: 1.875rem;    /* 30px */
+  --font-size-4xl: 2.25rem;     /* 36px */
+  --font-size-5xl: 3rem;        /* 48px */
+  --font-size-6xl: 3.75rem;     /* 60px */
 
-  /* Шрифты */
-  --font-size-xs: 0.75rem;    /* 12px */
-  --font-size-sm: 0.875rem;   /* 14px */
-  --font-size-base: 1rem;     /* 16px */
-  --font-size-lg: 1.125rem;   /* 18px */
-  --font-size-xl: 1.25rem;    /* 20px */
-  --font-size-2xl: 1.5rem;    /* 24px */
-  --font-size-3xl: 1.875rem;  /* 30px */
-  --font-size-4xl: 2.25rem;   /* 36px */
-
+  --font-weight-light: 300;
   --font-weight-normal: 400;
   --font-weight-medium: 500;
   --font-weight-semibold: 600;
   --font-weight-bold: 700;
+  --font-weight-extrabold: 800;
+  --font-weight-black: 900;
 
   --line-height-tight: 1.25;
   --line-height-snug: 1.375;
   --line-height-normal: 1.5;
   --line-height-relaxed: 1.625;
+  --line-height-loose: 2;
 
-  /* Z-индексы */
-  --z-dropdown: 10;
-  --z-sticky: 20;
-  --z-fixed: 30;
-  --z-modal-backdrop: 40;
-  --z-modal: 50;
-  --z-popover: 60;
-  --z-tooltip: 70;
-  --z-notification: 80;
+  /* === Z-ИНДЕКСЫ === */
+  --z-base: 1;
+  --z-docked: 10;
+  --z-dropdown: 1000;
+  --z-sticky: 1020;
+  --z-banner: 1030;
+  --z-fixed: 1030;
+  --z-modal-backdrop: 1040;
+  --z-modal: 1050;
+  --z-popover: 1060;
+  --z-layer: 1070;
+  --z-notification: 1080;
+  --z-tooltip: 1090;
 
-  /* Карты Таро */
+  /* === КАРТЫ ТАРО === */
+  --card-aspect-ratio: 2/3;
+  --card-width-xs: 60px;
   --card-width-sm: 80px;
   --card-width-md: 120px;
   --card-width-lg: 160px;
-  --card-aspect-ratio: 2/3;
-  --card-background: var(--background-secondary);
-  --card-border: var(--border-card);
-  --card-shadow: var(--shadow-standard);
+  --card-width-xl: 200px;
+  --card-width-2xl: 240px;
 
-  /* Лунные фазы */
-  --moon-color: var(--mystic-silver);
-  --moon-shadow: var(--mystic-glow);
+  /* === МИСТИЧЕСКИЕ ЭЛЕМЕНТЫ === */
+  --crystal-size-sm: 16px;
+  --crystal-size-md: 24px;
+  --crystal-size-lg: 32px;
+  --rune-size-sm: 24px;
+  --rune-size-md: 32px;
+  --rune-size-lg: 48px;
+  --moon-phase-size: 40px;
+  --magic-circle-size: 200px;
+  --pentagram-size: 100px;
 
-  /* Нумерология */
-  --number-size-sm: 32px;
-  --number-size-md: 48px;
-  --number-size-lg: 64px;
+  /* === АНИМАЦИИ === */
+  --animation-float: float 6s ease-in-out infinite;
+  --animation-pulse: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  --animation-glow: glow 3s ease-in-out infinite alternate;
+  --animation-shimmer: shimmer 2s linear infinite;
+  --animation-spin: spin 1s linear infinite;
+  --animation-bounce: bounce 1s infinite;
+  --animation-fade-in: fadeIn 0.5s ease-out;
+  --animation-slide-up: slideUp 0.5s ease-out;
+  --animation-scale-in: scaleIn 0.3s ease-out;
+  --animation-mystical-entrance: mysticalEntrance 1s ease-out;
 
-  /* Telegram WebApp переменные */
-  --tg-viewport-height: var(--tg-viewport-height, 100vh);
-  --tg-viewport-stable-height: var(--tg-viewport-stable-height, 100vh);
+  /* === ЭФФЕКТЫ === */
+  --backdrop-blur: blur(12px);
+  --backdrop-blur-strong: blur(20px);
+  --brightness-hover: brightness(1.1);
+  --brightness-active: brightness(0.9);
+  --scale-hover: scale(1.05);
+  --scale-active: scale(0.95);
+  --rotate-slight: rotate(1deg);
+  --rotate-card: rotate(180deg);
 }
 
-/* Светлая тема (для переключения) */
+/* === ТЕМЫ === */
+
+/* Темная мистическая тема (по умолчанию) */
+[data-theme="dark"], 
+.dark-theme {
+  --background-primary: var(--cosmic-void);
+  --background-secondary: var(--cosmic-purple);
+  --background-tertiary: var(--deep-violet);
+  --text-primary: var(--starlight);
+  --text-secondary: var(--moon-silver);
+}
+
+/* Светлая мистическая тема */
+[data-theme="light"], 
+.light-theme {
+  --background-primary: #f8fafc;
+  --background-secondary: #f1f5f9;
+  --background-tertiary: #e2e8f0;
+  --background-card: rgba(248, 250, 252, 0.9);
+  --text-primary: var(--deep-gray);
+  --text-secondary: var(--medium-gray);
+  --text-tertiary: var(--light-gray);
+  --shadow-mystical: 0 0 30px rgba(124, 58, 237, 0.2);
+  --glow-amethyst: 0 0 40px rgba(124, 58, 237, 0.3);
+}
+
+/* Автоматическая тема */
+[data-theme="auto"] {
+  /* Переключается автоматически */
+}
+
 @media (prefers-color-scheme: light) {
-  :root {
-    --background-primary: var(--neutral-50);
-    --background-secondary: var(--neutral-100);
-    --background-tertiary: var(--neutral-200);
-    
-    --text-primary: var(--neutral-900);
-    --text-secondary: var(--neutral-700);
-    --text-muted: var(--neutral-500);
-    --text-on-accent: var(--neutral-50);
-
-    --border-color: var(--neutral-300);
-    --border-light: var(--neutral-200);
-    --border-card: 1px solid var(--neutral-300);
-
-    --card-background: var(--neutral-50);
-    --shadow-mystic: 0 10px 25px rgba(107, 70, 193, 0.2);
-
-    --accent-gradient-subtle: linear-gradient(135deg, var(--primary-100) 0%, var(--accent-100) 100%);
+  [data-theme="auto"] {
+    --background-primary: #f8fafc;
+    --background-secondary: #f1f5f9;
+    --text-primary: var(--deep-gray);
+    --text-secondary: var(--medium-gray);
   }
 }
 
-/* Telegram WebApp темы */
-[data-theme="telegram"] {
-  --background-primary: var(--tg-theme-bg-color, var(--neutral-900));
-  --background-secondary: var(--tg-theme-secondary-bg-color, var(--neutral-800));
-  --text-primary: var(--tg-theme-text-color, var(--neutral-50));
-  --text-secondary: var(--tg-theme-hint-color, var(--neutral-300));
-  --accent-primary: var(--tg-theme-button-color, var(--primary-600));
-  --accent-secondary: var(--tg-theme-link-color, var(--secondary-500));
-}
+/* === АДАПТИВНОСТЬ === */
 
-/* Большие экраны */
-@media (min-width: 1024px) {
+/* Планшеты и большие экраны */
+@media (min-width: 768px) {
   :root {
-    --spacing-xs: 0.5rem;   /* 8px */
-    --spacing-sm: 0.75rem;  /* 12px */
-    --spacing-md: 1.25rem;  /* 20px */
-    --spacing-lg: 2rem;     /* 32px */
-    --spacing-xl: 2.5rem;   /* 40px */
-    --spacing-2xl: 3.5rem;  /* 56px */
-    --spacing-3xl: 5rem;    /* 80px */
-
+    --spacing-xs: 0.375rem;   /* 6px */
+    --spacing-sm: 0.75rem;    /* 12px */
+    --spacing-md: 1.25rem;    /* 20px */
+    --spacing-lg: 2rem;       /* 32px */
+    --spacing-xl: 2.5rem;     /* 40px */
+    --spacing-2xl: 3.5rem;    /* 56px */
+    --spacing-3xl: 5rem;      /* 80px */
+    
+    --card-width-xs: 80px;
     --card-width-sm: 100px;
     --card-width-md: 140px;
     --card-width-lg: 180px;
+    --card-width-xl: 220px;
+  }
+}
+
+/* Десктопы */
+@media (min-width: 1024px) {
+  :root {
+    --spacing-lg: 2.5rem;     /* 40px */
+    --spacing-xl: 3rem;       /* 48px */
+    --spacing-2xl: 4rem;      /* 64px */
+    --spacing-3xl: 6rem;      /* 96px */
+    --spacing-4xl: 8rem;      /* 128px */
+    
+    --font-size-xs: 0.8rem;   /* 13px */
+    --font-size-sm: 0.9rem;   /* 14px */
+    --font-size-base: 1rem;   /* 16px */
+    --font-size-lg: 1.2rem;   /* 19px */
+    --font-size-xl: 1.4rem;   /* 22px */
+    --font-size-2xl: 1.7rem;  /* 27px */
+    --font-size-3xl: 2.1rem;  /* 34px */
+    --font-size-4xl: 2.6rem;  /* 42px */
   }
 }
 
 /* Мобильные устройства */
-@media (max-width: 768px) {
+@media (max-width: 480px) {
   :root {
-    --card-width-sm: 60px;
+    --card-width-xs: 50px;
+    --card-width-sm: 70px;
     --card-width-md: 90px;
     --card-width-lg: 120px;
+    --card-width-xl: 150px;
     
     --font-size-xs: 0.7rem;   /* 11px */
     --font-size-sm: 0.8rem;   /* 13px */
@@ -238,18 +305,20 @@
     --font-size-lg: 1rem;     /* 16px */
     --font-size-xl: 1.1rem;   /* 18px */
     --font-size-2xl: 1.3rem;  /* 21px */
-    --font-size-3xl: 1.6rem;  /* 25px */
+    --font-size-3xl: 1.6rem;  /* 26px */
     --font-size-4xl: 2rem;    /* 32px */
   }
 }
 
-/* Высокий контраст для доступности */
+/* === ДОСТУПНОСТЬ === */
+
+/* Высокий контраст */
 @media (prefers-contrast: high) {
   :root {
-    --border-color: var(--neutral-200);
-    --text-secondary: var(--neutral-100);
-    --shadow-subtle: 0 2px 4px 0 rgba(0, 0, 0, 0.2);
-    --shadow-standard: 0 6px 8px -1px rgba(0, 0, 0, 0.2);
+    --border-mystical: 2px solid var(--crystal-amethyst);
+    --border-golden: 2px solid var(--golden-aura);
+    --text-secondary: var(--starlight);
+    --shadow-mystical: 0 0 40px rgba(124, 58, 237, 0.8);
   }
 }
 
@@ -257,32 +326,51 @@
 @media (prefers-reduced-motion: reduce) {
   :root {
     --transition-fast: none;
-    --transition-standard: none;
+    --transition-normal: none;
     --transition-slow: none;
+    --transition-mystical: none;
+    --animation-float: none;
+    --animation-pulse: none;
+    --animation-glow: none;
+    --animation-shimmer: none;
     --animation-spin: none;
     --animation-bounce: none;
-    --animation-pulse: none;
-    --animation-mystic-pulse: none;
   }
 }
 
-/* Пользовательские свойства для конкретных компонентов */
-.light-theme {
-  --background-primary: var(--neutral-50);
-  --background-secondary: var(--neutral-100);
-  --text-primary: var(--neutral-900);
-  --text-secondary: var(--neutral-700);
-  --border-color: var(--neutral-300);
-  --card-background: var(--neutral-50);
-  --shadow-mystic: 0 10px 25px rgba(107, 70, 193, 0.15);
+/* === TELEGRAM WEBAPP === */
+[data-theme="telegram"] {
+  --background-primary: var(--tg-theme-bg-color, var(--cosmic-void));
+  --background-secondary: var(--tg-theme-secondary-bg-color, var(--cosmic-purple));
+  --text-primary: var(--tg-theme-text-color, var(--starlight));
+  --text-secondary: var(--tg-theme-hint-color, var(--moon-silver));
+  --accent-primary: var(--tg-theme-button-color, var(--crystal-amethyst));
+  --accent-secondary: var(--tg-theme-link-color, var(--golden-aura));
 }
 
-.dark-theme {
-  --background-primary: var(--neutral-900);
-  --background-secondary: var(--neutral-800);
-  --text-primary: var(--neutral-50);
-  --text-secondary: var(--neutral-300);
-  --border-color: var(--neutral-700);
-  --card-background: var(--neutral-800);
-  --shadow-mystic: 0 10px 25px rgba(167, 139, 250, 0.3);
+/* === УТИЛИТАРНЫЕ КЛАССЫ === */
+.mystic-glow { box-shadow: var(--glow-amethyst); }
+.golden-glow { box-shadow: var(--glow-gold); }
+.silver-glow { box-shadow: var(--glow-silver); }
+.energy-glow { box-shadow: var(--glow-energy); }
+.emerald-glow { box-shadow: var(--glow-emerald); }
+
+.mystical-bg { background: var(--gradient-mystical); }
+.cosmic-bg { background: var(--gradient-cosmic); }
+.aurora-bg { background: var(--gradient-aurora); }
+.golden-bg { background: var(--gradient-golden); }
+
+.glass-effect {
+  background: var(--background-glass);
+  backdrop-filter: var(--backdrop-blur);
+  border: var(--border-glass);
+}
+
+.card-hover {
+  transition: var(--transition-normal);
+}
+
+.card-hover:hover {
+  transform: translateY(-8px) var(--scale-hover);
+  box-shadow: var(--shadow-elevated);
 }

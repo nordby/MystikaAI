@@ -14,6 +14,9 @@ class BotHandlers {
     this.pendingReadings = new Map();
     this.pendingNumerology = new Map();
     
+    // Постоянное хранилище профилей пользователей (не очищается)
+    this.userProfiles = new Map(); // chatId -> { profile, birthDate, fullName, lastAnalysis }
+    
     // Очистка старых состояний каждые 10 минут
     setInterval(() => {
       this.cleanupOldQuestions();
@@ -610,25 +613,62 @@ class BotHandlers {
       // Обработка кнопок главного меню
       switch (text) {
         case '🔮 Новое гадание':
+          // Очищаем любые активные сессии нумерологии
+          this.pendingNumerology?.delete(chatId);
           await this.handleReadingCommand(bot, msg);
           break;
+        case '🃏 Дневная карта':
         case '📅 Карта дня':
+          // Очищаем любые активные сессии нумерологии
+          this.pendingNumerology?.delete(chatId);
           await this.handleDailyCommand(bot, msg);
           break;
         case '🌙 Лунный календарь':
+          // Очищаем любые активные сессии нумерологии
+          this.pendingNumerology?.delete(chatId);
           await this.handleLunarCommand(bot, msg);
           break;
         case '🔢 Нумерология':
+          // НЕ очищаем сессию нумерологии, так как пользователь явно хочет работать с нумерологией
           await this.handleNumerologyCommand(bot, msg);
           break;
         case '👤 Профиль':
+          // Очищаем любые активные сессии нумерологии
+          this.pendingNumerology?.delete(chatId);
           await this.handleProfileCommand(bot, msg);
           break;
+        case '💎 Премиум':
+          // Очищаем любые активные сессии нумерологии
+          this.pendingNumerology?.delete(chatId);
+          await this.handlePremiumCommand(bot, msg);
+          break;
+        case '📱 Приложение':
+          // Очищаем любые активные сессии нумерологии
+          this.pendingNumerology?.delete(chatId);
+          await this.handleAppCommand(bot, msg);
+          break;
+        case '⚙️ Настройки':
+          // Очищаем любые активные сессии нумерологии
+          this.pendingNumerology?.delete(chatId);
+          await this.handleSettingsCommand(bot, msg);
+          break;
+        case '❓ Помощь':
+          // Очищаем любые активные сессии нумерологии
+          this.pendingNumerology?.delete(chatId);
+          await this.handleHelpCommand(bot, msg);
+          break;
         default:
-          // Проверяем, ожидаем ли мы ввод даты рождения для нумерологии
+          // Проверяем, ожидаем ли мы ввод для нумерологии
           if (this.pendingNumerology && this.pendingNumerology.has(chatId)) {
-            await this.handleNumerologyInput(bot, msg);
-            return;
+            const session = this.pendingNumerology.get(chatId);
+            // Проверяем, что сессия не устарела (максимум 10 минут)
+            if (session && (Date.now() - session.timestamp) < 10 * 60 * 1000) {
+              await this.handleNumerologyInput(bot, msg);
+              return;
+            } else {
+              // Удаляем устаревшую сессию
+              this.pendingNumerology.delete(chatId);
+            }
           }
           
           // Обработка произвольного текста как вопроса для гадания
@@ -791,26 +831,8 @@ class BotHandlers {
 
       await bot.sendChatAction(msg.chat.id, 'typing');
 
-      const numerologyText = '🔢 <b>Нумерологический анализ</b>\n\n' +
-        'Нумерология раскроет тайны вашей личности и предназначения на основе даты рождения.\n\n' +
-        'Введите дату рождения в формате ДД.ММ.ГГГГ\n\n' +
-        '<i>Например: 15.03.1990</i>';
-
-      await bot.sendMessage(msg.chat.id, numerologyText, {
-        parse_mode: 'HTML',
-        reply_markup: {
-          force_reply: true,
-          input_field_placeholder: 'Введите дату рождения (ДД.ММ.ГГГГ)...'
-        }
-      });
-
-      // Сохраняем состояние ожидания даты рождения
-      this.pendingNumerology.set(msg.chat.id, {
-        userId: user.id,
-        step: 'waiting_birthdate',
-        messageId: msg.message_id,
-        timestamp: Date.now()
-      });
+      // Показываем меню нумерологии вместо сразу запроса даты
+      await this.handleNumerologyMenu(bot, msg.chat.id, null, msg.from);
 
       await database.trackEvent({
         type: 'command_numerology',
@@ -859,7 +881,30 @@ class BotHandlers {
   async handleSettingsCommand(bot, msg) {
     try {
       const user = await this.ensureUser(msg.from);
-      await this.showSettingsMenu(bot, msg.chat.id, user);
+      
+      const settingsText = `⚙️ *Настройки*\n\nВыберите раздел для настройки:`;
+      
+      const keyboard = {
+        inline_keyboard: [
+          [
+            { text: '🔔 Уведомления', callback_data: 'settings_notifications' },
+            { text: '🎨 Тема', callback_data: 'settings_theme' }
+          ],
+          [
+            { text: '🌐 Язык', callback_data: 'settings_language' },
+            { text: '🔮 Колода', callback_data: 'settings_deck' }
+          ],
+          [
+            { text: '🔙 Назад', callback_data: 'back_to_menu' }
+          ]
+        ]
+      };
+
+      await bot.sendMessage(msg.chat.id, settingsText, {
+        parse_mode: 'Markdown',
+        reply_markup: keyboard
+      });
+
     } catch (error) {
       console.error('Error in settings command:', error);
       await this.sendErrorMessage(bot, msg.chat.id);
@@ -1125,9 +1170,8 @@ class BotHandlers {
     try {
       switch (data) {
         case 'daily_details':
-          await bot.editMessageText('🔮 *Подробное толкование карты дня*\n\nЗагружаю расширенную интерпретацию...', {
-            chat_id: chatId,
-            message_id: messageId,
+          // Отправляем новое сообщение вместо редактирования (так как исходное может быть изображением)
+          await bot.sendMessage(chatId, '🔮 *Подробное толкование карты дня*\n\nЗагружаю расширенную интерпретацию...', {
             parse_mode: 'Markdown'
           });
           
@@ -1296,14 +1340,20 @@ class BotHandlers {
           break;
 
         case 'daily_card':
+          // Очищаем активные сессии нумерологии
+          this.pendingNumerology?.delete(chatId);
           await this.handleDailyCommand(bot, { chat: { id: chatId }, from });
           break;
 
         case 'back_to_menu':
+          // Очищаем активные сессии нумерологии
+          this.pendingNumerology?.delete(chatId);
           await this.showMainMenu(bot, chatId, messageId);
           break;
 
         case 'back_to_profile':
+          // Очищаем активные сессии нумерологии
+          this.pendingNumerology?.delete(chatId);
           await this.handleProfileCommand(bot, { chat: { id: chatId }, from });
           break;
 
@@ -1321,39 +1371,63 @@ class BotHandlers {
 
 
         case 'profile':
+          // Очищаем активные сессии нумерологии
+          this.pendingNumerology?.delete(chatId);
           await this.handleProfileCommand(bot, { chat: { id: chatId }, from });
           break;
 
         case 'numerology':
-          await this.handleNumerologyCommand(bot, { chat: { id: chatId }, from });
+        case 'numerology_menu':
+          await this.handleNumerologyMenu(bot, chatId, messageId, from);
+          break;
+
+        case 'numerology_create_profile':
+        case 'numerology_calculate':
+          await this.handleNumerologyCalculate(bot, chatId, messageId, from);
+          break;
+
+        case 'numerology_my_profile':
+          await this.handleMyNumerologyProfile(bot, chatId, messageId, from);
           break;
 
         case 'numerology_personal_reading':
-          await this.handleNumerologyPersonalReading(bot, chatId, from, messageId);
+          await bot.editMessageText('🔮 Персональное нумерологическое гадание в разработке...', { chat_id: chatId, message_id: messageId });
           break;
 
         case 'numerology_compatibility':
-          await this.handleNumerologyCompatibility(bot, chatId, from, messageId);
+          await this.handleNumerologyCompatibility(bot, chatId, messageId, from);
+          break;
+
+        case 'numerology_name':
+          await this.handleNumerologyNameAnalysis(bot, chatId, messageId, from);
+          break;
+
+        case 'numerology_forecast':
+        case 'numerology_year':
+          await this.handleNumerologyForecast(bot, chatId, messageId, from);
+          break;
+
+        case 'numerology_cancel':
+          // Очищаем сессию нумерологии и возвращаемся в главное меню
+          this.pendingNumerology?.delete(chatId);
+          await this.handleNumerologyMenu(bot, chatId, messageId, from);
           break;
 
         case 'numerology_detailed':
-          const numerologyData = this.pendingNumerology.get(chatId);
-          if (numerologyData && numerologyData.lastAnalysis) {
-            await this.showDetailedNumerologyAnalysis(bot, chatId, numerologyData.lastAnalysis, messageId);
-          } else {
-            await bot.editMessageText('🔢 Для получения подробной интерпретации сначала проведите базовый анализ.', {
-              chat_id: chatId,
-              message_id: messageId,
-              reply_markup: {
-                inline_keyboard: [
-                  [{ text: '🔢 Начать анализ', callback_data: 'numerology' }],
-                  [{ text: '⬅️ Главное меню', callback_data: 'back_to_menu' }]
-                ]
-              }
-            });
-          }
+          await this.showDetailedNumerologyAnalysis(bot, chatId, messageId, from);
           break;
 
+        case 'help':
+          await this.handleHelpCommand(bot, { chat: { id: chatId }, from });
+          break;
+
+        case 'settings':
+        case 'settings_notifications':
+        case 'settings_theme':
+        case 'settings_language':
+        case 'settings_deck':
+          await this.handleSettingsCommand(bot, { chat: { id: chatId }, from });
+          break;
 
         default:
           await bot.editMessageText('⏳ Обработка запроса...', {
@@ -1772,17 +1846,545 @@ ${phases.map(phase => `${phase.emoji} ${phase.date} - ${phase.name}`).join('\n')
       const input = msg.text.trim();
       const numerologyData = this.pendingNumerology.get(chatId);
 
-      if (!numerologyData || numerologyData.step !== 'waiting_birthdate') {
+      if (!numerologyData) {
         return;
       }
 
-      // Используем новый метод обработки даты
-      await this.processNumerologyDate(bot, chatId, input, msg.from);
+      switch (numerologyData.step) {
+        case 'waiting_birthdate':
+          await this.processNumerologyBirthDate(bot, chatId, input, msg.from, numerologyData);
+          break;
+          
+        case 'waiting_fullname':
+          await this.processNumerologyFullName(bot, chatId, input, msg.from, numerologyData);
+          break;
+          
+        case 'waiting_partner_birthdate':
+          await this.processNumerologyPartnerBirthDate(bot, chatId, input, msg.from, numerologyData);
+          break;
+          
+        case 'waiting_partner_name':
+          await this.processNumerologyPartnerName(bot, chatId, input, msg.from, numerologyData);
+          break;
+          
+        case 'waiting_name_analysis':
+          await this.processNameAnalysis(bot, chatId, input, msg.from);
+          break;
+      }
 
     } catch (error) {
       console.error('Error in numerology input:', error);
-      await this.sendErrorMessage(bot, msg.chat.id);
+      await bot.sendMessage(msg.chat.id, 'Произошла ошибка. Попробуйте еще раз.');
       this.pendingNumerology?.delete(msg.chat.id);
+    }
+  }
+
+  // Обработка даты рождения
+  async processNumerologyBirthDate(bot, chatId, text, from, session) {
+    const dateRegex = /^(\d{1,2})\.(\d{1,2})\.(\d{4})$/;
+    const match = text.match(dateRegex);
+
+    if (!match) {
+      await bot.sendMessage(chatId, '❌ Неверный формат даты. Введите дату в формате ДД.ММ.ГГГГ (например: 15.03.1990)');
+      return;
+    }
+
+    const [, day, month, year] = match;
+    const birthDate = new Date(year, month - 1, day);
+
+    if (isNaN(birthDate.getTime()) || birthDate > new Date()) {
+      await bot.sendMessage(chatId, '❌ Некорректная дата. Проверьте правильность ввода.');
+      return;
+    }
+
+    // Инициализируем data если не существует
+    if (!session.data) {
+      session.data = {};
+    }
+    
+    session.data.birthDate = birthDate;
+    session.step = 'waiting_fullname';
+    this.pendingNumerology.set(chatId, session);
+
+    await bot.sendMessage(chatId, `✅ Дата рождения: ${day}.${month}.${year}\n\n👤 Теперь введите ваше полное имя (Фамилия Имя Отчество):`, {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '❌ Отмена', callback_data: 'numerology_menu' }]
+        ]
+      }
+    });
+  }
+
+  // Обработка полного имени
+  async processNumerologyFullName(bot, chatId, text, from, session) {
+    if (text.length < 2) {
+      await bot.sendMessage(chatId, '❌ Слишком короткое имя. Введите полное имя.');
+      return;
+    }
+
+    session.data.fullName = text;
+    
+    try {
+      // Рассчитываем профиль
+      const numerologyService = require('../../../server/src/services/numerologyService');
+      const profile = await numerologyService.generateFullAnalysis(
+        session.data.birthDate,
+        session.data.fullName
+      );
+
+      // Получаем ИИ интерпретацию нумерологического профиля
+      let aiInterpretation = null;
+      try {
+        const aiResponse = await database.makeRequest('POST', '/ai/interpret', {
+          cards: [{
+            name: `Нумерология: Личностный профиль`,
+            description: `НУМЕРОЛОГИЧЕСКИЙ АНАЛИЗ (НЕ ТАРО): Полное имя: ${session.data.fullName}, дата рождения: ${session.data.birthDate.toDateString()}. Число жизненного пути: ${profile.lifePath.number} (${profile.lifePath.meaning?.description}), Число судьбы: ${profile.destiny.number} (${profile.destiny.meaning?.description}), Число души: ${profile.soul.number}, Число личности: ${profile.personality.number}`,
+            isReversed: false
+          }],
+          spreadType: 'numerology_profile',
+          positions: [{ name: 'Нумерологический портрет', description: 'Полный анализ личности через числа' }],
+          question: `Проведи НУМЕРОЛОГИЧЕСКИЙ (не таро) анализ личности. Игнорируй упоминания карт таро - это нумерология. Создай персональную интерпретацию на основе чисел жизненного пути, судьбы, души и личности.`,
+          user: { id: session.userId, language: 'ru' }
+        });
+        
+        aiInterpretation = aiResponse.interpretation;
+        console.log('Numerology AI interpretation received:', JSON.stringify(aiResponse, null, 2));
+      } catch (error) {
+        console.log('Numerology AI interpretation failed:', error.message);
+      }
+
+      // Сохраняем профиль пользователя для будущего использования (НЕ удаляем!)
+      this.userProfiles.set(chatId, {
+        profile: profile,
+        birthDate: session.data.birthDate,
+        fullName: session.data.fullName,
+        aiInterpretation: aiInterpretation,
+        createdAt: new Date(),
+        userId: session.userId
+      });
+
+      await this.sendNumerologyProfileResult(bot, chatId, profile, aiInterpretation);
+      
+      // Очищаем только временную сессию ввода (профиль остается сохраненным!)
+      this.pendingNumerology.delete(chatId);
+    } catch (error) {
+      console.error('Ошибка расчета профиля:', error);
+      await bot.sendMessage(chatId, '❌ Ошибка расчета. Попробуйте позже.');
+      this.pendingNumerology.delete(chatId);
+    }
+  }
+
+  // Обработка анализа имени
+  async processNameAnalysis(bot, chatId, text, from) {
+    try {
+      const numerologyService = require('../../../server/src/services/numerologyService');
+      const destinyNumber = await numerologyService.calculateDestinyNumber(text);
+      const nameNumber = await numerologyService.calculateNameNumber(text);
+      
+      let message = `📝 *Анализ имени "${text}"*\n\n`;
+      message += `⭐ *Число судьбы:* ${destinyNumber}\n`;
+      message += `📚 *Число имени:* ${nameNumber}\n\n`;
+      
+      // Получаем ИИ интерпретацию имени
+      let aiInterpretation = null;
+      try {
+        const aiResponse = await database.makeRequest('POST', '/ai/interpret', {
+          cards: [{
+            name: `Нумерология: Анализ имени`,
+            description: `НУМЕРОЛОГИЧЕСКИЙ АНАЛИЗ (НЕ ТАРО): Анализ имени "${text}". Число судьбы: ${destinyNumber}, Число имени: ${nameNumber}. Значение числа судьбы: ${numerologyService.numberMeanings[destinyNumber]?.description || 'анализ числа'}`,
+            isReversed: false
+          }],
+          spreadType: 'numerology_name',
+          positions: [{ name: 'Влияние имени', description: 'Как имя влияет на судьбу и характер' }],
+          question: `Проведи НУМЕРОЛОГИЧЕСКИЙ (не таро) анализ имени "${text}". Игнорируй упоминания карт таро - это нумерология. Расскажи о влиянии имени на характер и судьбу человека.`,
+          user: { id: from.id, language: 'ru' }
+        });
+        
+        aiInterpretation = aiResponse.interpretation;
+        console.log('Name analysis AI interpretation received:', JSON.stringify(aiResponse, null, 2));
+      } catch (error) {
+        console.log('Name analysis AI interpretation failed:', error.message);
+      }
+
+      if (aiInterpretation && aiInterpretation.interpretation) {
+        message += `🤖 *ИИ-анализ:*\n${aiInterpretation.interpretation}\n\n`;
+        
+        if (aiInterpretation.advice) {
+          message += `💡 *Рекомендации:*\n${aiInterpretation.advice}`;
+        }
+      } else {
+        // Получаем описание числа
+        const meaning = numerologyService.numberMeanings[destinyNumber];
+        if (meaning) {
+          message += `💬 *Значение:* ${meaning.description}\n\n`;
+          message += `🔑 *Ключевые слова:* ${meaning.keywords.join(', ')}`;
+        }
+      }
+
+      const keyboard = {
+        inline_keyboard: [
+          [{ text: '🔄 Другое имя', callback_data: 'numerology_name' }],
+          [{ text: '🔙 Назад', callback_data: 'numerology_menu' }]
+        ]
+      };
+
+      await bot.sendMessage(chatId, message, { 
+        parse_mode: 'Markdown', 
+        reply_markup: keyboard 
+      });
+
+      this.pendingNumerology.delete(chatId);
+    } catch (error) {
+      console.error('Ошибка анализа имени:', error);
+      await bot.sendMessage(chatId, 'Ошибка анализа. Попробуйте еще раз.');
+    }
+  }
+
+  // Отправка результата профиля
+  async sendNumerologyProfileResult(bot, chatId, profile, aiInterpretation = null) {
+    try {
+      let message = `🔢 *Ваш нумерологический профиль*\n\n`;
+
+      // Основные числа
+      message += `🛤 *Число жизненного пути:* ${profile.lifePath.number}\n`;
+      message += `⭐ *Число судьбы:* ${profile.destiny.number}\n`;
+      message += `💫 *Число души:* ${profile.soul.number}\n`;
+      message += `👤 *Число личности:* ${profile.personality.number}\n\n`;
+
+      // ИИ интерпретация или базовое описание
+      if (aiInterpretation && aiInterpretation.interpretation) {
+        message += `🤖 *ИИ-анализ:*\n${aiInterpretation.interpretation}\n\n`;
+        
+        if (aiInterpretation.advice) {
+          message += `💡 *Рекомендации:*\n${aiInterpretation.advice}\n\n`;
+        }
+      } else {
+        // Краткое описание
+        message += `💬 *Главное значение:*\n${profile.lifePath.meaning?.description || 'Ваш жизненный путь определяет основные уроки и задачи'}\n\n`;
+
+        // Сильные стороны
+        if (profile.lifePath.meaning?.positive && profile.lifePath.meaning.positive.length > 0) {
+          message += `💪 *Сильные стороны:*\n`;
+          profile.lifePath.meaning.positive.slice(0, 3).forEach(strength => {
+            message += `• ${strength}\n`;
+          });
+          message += '\n';
+        }
+      }
+
+      const keyboard = {
+        inline_keyboard: [
+          [{ text: '✅ Профиль создан!', callback_data: 'numerology_menu' }]
+        ]
+      };
+
+      await bot.sendMessage(chatId, message, { 
+        parse_mode: 'Markdown', 
+        reply_markup: keyboard 
+      });
+    } catch (error) {
+      console.error('Ошибка отправки профиля:', error);
+      await bot.sendMessage(chatId, 'Ошибка отображения результата.');
+    }
+  }
+
+  /**
+   * Обработчик "Мой профиль" - показывает сохраненный профиль пользователя
+   */
+  async handleMyNumerologyProfile(bot, chatId, messageId, from) {
+    try {
+      const userProfile = this.userProfiles.get(chatId);
+      
+      if (!userProfile || !userProfile.profile) {
+        await bot.editMessageText('❌ Профиль не найден. Необходимо создать профиль заново.', {
+          chat_id: chatId,
+          message_id: messageId,
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '🔢 Создать профиль', callback_data: 'numerology_create_profile' }],
+              [{ text: '🔙 Назад', callback_data: 'numerology_menu' }]
+            ]
+          }
+        });
+        return;
+      }
+
+      const profile = userProfile.profile;
+      let message = `👤 *Ваш нумерологический профиль*\n\n`;
+      message += `📝 *Имя:* ${userProfile.fullName}\n`;
+      message += `📅 *Дата рождения:* ${userProfile.birthDate.toLocaleDateString('ru-RU')}\n\n`;
+
+      // Основные числа
+      message += `🔢 *Ваши числа:*\n`;
+      message += `🛤 Жизненный путь: *${profile.lifePath.number}*\n`;
+      message += `⭐ Число судьбы: *${profile.destiny.number}*\n`;
+      message += `💫 Число души: *${profile.soul.number}*\n`;
+      message += `👤 Число личности: *${profile.personality.number}*\n\n`;
+
+      // Краткое описание
+      message += `💬 *Краткая характеристика:*\n${profile.lifePath.meaning?.description || 'Ваш уникальный жизненный путь'}`;
+
+      const keyboard = {
+        inline_keyboard: [
+          [
+            { text: '📊 Подробный анализ', callback_data: 'numerology_detailed' },
+            { text: '🔄 Пересчитать', callback_data: 'numerology_create_profile' }
+          ],
+          [{ text: '🔙 Назад', callback_data: 'numerology_menu' }]
+        ]
+      };
+
+      await bot.editMessageText(message, {
+        chat_id: chatId,
+        message_id: messageId,
+        parse_mode: 'Markdown',
+        reply_markup: keyboard
+      });
+
+    } catch (error) {
+      console.error('Error in my numerology profile:', error);
+      await bot.editMessageText('❌ Ошибка загрузки профиля. Попробуйте позже.', {
+        chat_id: chatId,
+        message_id: messageId,
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '🔙 Назад', callback_data: 'numerology_menu' }]
+          ]
+        }
+      });
+    }
+  }
+
+  /**
+   * Показывает подробный ИИ анализ профиля пользователя
+   */
+  async showDetailedNumerologyAnalysis(bot, chatId, messageId, from) {
+    try {
+      const userProfile = this.userProfiles.get(chatId);
+      
+      if (!userProfile || !userProfile.profile) {
+        await bot.editMessageText('❌ Профиль не найден. Необходимо создать профиль заново.', {
+          chat_id: chatId,
+          message_id: messageId,
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '🔢 Создать профиль', callback_data: 'numerology_create_profile' }],
+              [{ text: '🔙 Назад', callback_data: 'numerology_menu' }]
+            ]
+          }
+        });
+        return;
+      }
+
+      // Показываем загрузку
+      await bot.editMessageText('🔄 *Подготавливаю подробный анализ...*\n\nИИ создает персональную интерпретацию вашего профиля.', {
+        chat_id: chatId,
+        message_id: messageId,
+        parse_mode: 'Markdown'
+      });
+
+      let message = `📊 *Подробный нумерологический анализ*\n\n`;
+      message += `👤 *${userProfile.fullName}*\n`;
+      message += `📅 ${userProfile.birthDate.toLocaleDateString('ru-RU')}\n\n`;
+
+      // Если есть сохраненная ИИ интерпретация - используем ее
+      if (userProfile.aiInterpretation && userProfile.aiInterpretation.interpretation) {
+        message += `🤖 *ИИ-анализ:*\n${userProfile.aiInterpretation.interpretation}\n\n`;
+        
+        if (userProfile.aiInterpretation.advice) {
+          message += `💡 *Персональные рекомендации:*\n${userProfile.aiInterpretation.advice}`;
+        }
+      } else {
+        // Если ИИ анализа нет - создаем его заново
+        try {
+          const profile = userProfile.profile;
+          const aiResponse = await database.makeRequest('POST', '/ai/interpret', {
+            cards: [{
+              name: `Нумерология: Детальный анализ`,
+              description: `ДЕТАЛЬНЫЙ НУМЕРОЛОГИЧЕСКИЙ АНАЛИЗ (НЕ ТАРО): ${userProfile.fullName}, ${userProfile.birthDate.toDateString()}. Жизненный путь: ${profile.lifePath.number} (${profile.lifePath.meaning?.description}), Судьба: ${profile.destiny.number} (${profile.destiny.meaning?.description}), Душа: ${profile.soul.number}, Личность: ${profile.personality.number}`,
+              isReversed: false
+            }],
+            spreadType: 'numerology_detailed',
+            positions: [{ name: 'Глубинный анализ', description: 'Детальная интерпретация всех аспектов личности' }],
+            question: `Проведи ДЕТАЛЬНЫЙ НУМЕРОЛОГИЧЕСКИЙ анализ. Игнорируй упоминания карт таро. Дай глубокую персональную интерпретацию с конкретными рекомендациями для жизни и развития.`,
+            user: { id: from.id, language: 'ru' }
+          });
+          
+          const aiInterpretation = aiResponse.interpretation;
+          
+          // Сохраняем новый ИИ анализ
+          userProfile.aiInterpretation = aiInterpretation;
+          this.userProfiles.set(chatId, userProfile);
+          
+          message += `🤖 *ИИ-анализ:*\n${aiInterpretation.interpretation}\n\n`;
+          
+          if (aiInterpretation.advice) {
+            message += `💡 *Персональные рекомендации:*\n${aiInterpretation.advice}`;
+          }
+          
+        } catch (error) {
+          console.log('Detailed analysis AI failed:', error.message);
+          
+          // Fallback на статичный анализ
+          const profile = userProfile.profile;
+          message += `🔢 *Детальный анализ чисел:*\n\n`;
+          
+          message += `🛤 *Жизненный путь ${profile.lifePath.number}:*\n${profile.lifePath.meaning?.description}\n\n`;
+          message += `⭐ *Число судьбы ${profile.destiny.number}:*\n${profile.destiny.meaning?.description}\n\n`;
+          
+          if (profile.lifePath.meaning?.positive) {
+            message += `💪 *Сильные стороны:*\n`;
+            profile.lifePath.meaning.positive.forEach(strength => {
+              message += `• ${strength}\n`;
+            });
+          }
+        }
+      }
+
+      const keyboard = {
+        inline_keyboard: [
+          [{ text: '👤 Мой профиль', callback_data: 'numerology_my_profile' }],
+          [{ text: '🔙 К нумерологии', callback_data: 'numerology_menu' }]
+        ]
+      };
+
+      await bot.editMessageText(message, {
+        chat_id: chatId,
+        message_id: messageId,
+        parse_mode: 'Markdown',
+        reply_markup: keyboard
+      });
+
+    } catch (error) {
+      console.error('Error in detailed numerology analysis:', error);
+      await bot.editMessageText('❌ Ошибка создания подробного анализа. Попробуйте позже.', {
+        chat_id: chatId,
+        message_id: messageId,
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '🔙 Назад', callback_data: 'numerology_my_profile' }]
+          ]
+        }
+      });
+    }
+  }
+
+  // Обработка даты рождения партнера
+  async processNumerologyPartnerBirthDate(bot, chatId, text, from, session) {
+    const dateRegex = /^(\d{1,2})\.(\d{1,2})\.(\d{4})$/;
+    const match = text.match(dateRegex);
+
+    if (!match) {
+      await bot.sendMessage(chatId, '❌ Неверный формат даты. Введите дату в формате ДД.ММ.ГГГГ (например: 15.03.1990)');
+      return;
+    }
+
+    const [, day, month, year] = match;
+    const birthDate = new Date(year, month - 1, day);
+
+    if (isNaN(birthDate.getTime()) || birthDate > new Date()) {
+      await bot.sendMessage(chatId, '❌ Некорректная дата. Проверьте правильность ввода.');
+      return;
+    }
+
+    // Инициализируем data если не существует
+    if (!session.data) {
+      session.data = {};
+    }
+    
+    session.data.partnerBirthDate = birthDate;
+    session.step = 'waiting_partner_name';
+    this.pendingNumerology.set(chatId, session);
+
+    await bot.sendMessage(chatId, `✅ Дата рождения партнера: ${day}.${month}.${year}\n\n👤 Теперь введите полное имя партнера:`, {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '❌ Отмена', callback_data: 'numerology_menu' }]
+        ]
+      }
+    });
+  }
+
+  // Обработка полного имени партнера
+  async processNumerologyPartnerName(bot, chatId, text, from, session) {
+    if (text.length < 2) {
+      await bot.sendMessage(chatId, '❌ Слишком короткое имя. Введите полное имя.');
+      return;
+    }
+
+    session.data.partnerFullName = text;
+    
+    try {
+      const numerologyService = require('../../../server/src/services/numerologyService');
+      
+      // Рассчитываем совместимость
+      const compatibility = await numerologyService.calculateCompatibility(
+        session.data.partnerBirthDate,
+        session.data.partnerFullName
+      );
+
+      // Получаем ИИ интерпретацию совместимости
+      let aiInterpretation = null;
+      try {
+        const aiResponse = await database.makeRequest('POST', '/ai/interpret', {
+          cards: [{
+            name: `Нумерология: Совместимость`,
+            description: `НУМЕРОЛОГИЧЕСКИЙ АНАЛИЗ (НЕ ТАРО): Совместимость партнеров по числам судьбы. Партнер: ${session.data.partnerFullName}, дата рождения: ${session.data.partnerBirthDate.toDateString()}. Процент совместимости: ${compatibility.percentage}%. Базовая характеристика: ${compatibility.description}`,
+            isReversed: false
+          }],
+          spreadType: 'numerology_compatibility',
+          positions: [{ name: 'Нумерологическая совместимость', description: 'Анализ совместимости по нумерологическим числам партнеров' }],
+          question: `Проведи НУМЕРОЛОГИЧЕСКИЙ (не таро) анализ совместимости партнеров. Игнорируй упоминания карт таро - это нумерология. Дай персональные рекомендации для отношений на основе числовых значений.`,
+          user: { id: session.userId, language: 'ru' }
+        });
+        
+        aiInterpretation = aiResponse.interpretation;
+        console.log('Compatibility AI interpretation received:', JSON.stringify(aiResponse, null, 2));
+      } catch (error) {
+        console.log('Compatibility AI interpretation failed:', error.message);
+      }
+
+      await this.sendCompatibilityResult(bot, chatId, compatibility, aiInterpretation);
+      
+      // Очищаем сессию
+      this.pendingNumerology.delete(chatId);
+    } catch (error) {
+      console.error('Ошибка расчета совместимости:', error);
+      await bot.sendMessage(chatId, '❌ Ошибка расчета. Попробуйте позже.');
+      this.pendingNumerology.delete(chatId);
+    }
+  }
+
+  // Отправка результата совместимости
+  async sendCompatibilityResult(bot, chatId, compatibility, aiInterpretation = null) {
+    try {
+      let message = `👥 *Анализ совместимости*\n\n`;
+
+      if (aiInterpretation && aiInterpretation.interpretation) {
+        message += `🤖 *ИИ-анализ совместимости:*\n${aiInterpretation.interpretation}\n\n`;
+        
+        if (aiInterpretation.advice) {
+          message += `💡 *Рекомендации:*\n${aiInterpretation.advice}`;
+        }
+      } else {
+        message += `💫 *Совместимость:* ${compatibility.percentage}%\n`;
+        message += `💬 *Описание:* ${compatibility.description}\n\n`;
+        message += `🔑 *Рекомендации:* ${compatibility.advice}`;
+      }
+
+      const keyboard = {
+        inline_keyboard: [
+          [{ text: '🔙 Назад', callback_data: 'numerology_menu' }]
+        ]
+      };
+
+      await bot.sendMessage(chatId, message, { 
+        parse_mode: 'Markdown', 
+        reply_markup: keyboard 
+      });
+    } catch (error) {
+      console.error('Ошибка отправки совместимости:', error);
+      await bot.sendMessage(chatId, 'Ошибка отображения результата.');
     }
   }
 
@@ -3346,6 +3948,364 @@ ${phases.map(phase => `${phase.emoji} ${phase.date} - ${phase.name}`).join('\n')
     };
     
     return descriptions[`${userNumber}_${partnerNumber}`] || baseDescriptions[partnerNumber] || 'Интересное сочетание';
+  }
+
+  /**
+   * Обработчик меню нумерологии
+   */
+  async handleNumerologyMenu(bot, chatId, messageId, from) {
+    try {
+      const user = await this.ensureUser(from);
+      
+      // Проверяем, есть ли у пользователя сохраненный профиль
+      const userProfile = this.userProfiles.get(chatId);
+      const hasProfile = userProfile && userProfile.profile;
+
+      let text, keyboard;
+
+      if (!hasProfile) {
+        // Если профиля нет - принудительное создание
+        text = `🔢 *Добро пожаловать в Нумерологию!*\n\nДля начала работы необходимо создать ваш нумерологический профиль.\n\n✨ Это займет всего 2 минуты, но откроет доступ ко всем функциям:\n• Персональный анализ\n• Совместимость с партнером\n• Прогноз на год\n• И многое другое!`;
+        
+        keyboard = {
+          inline_keyboard: [
+            [{ text: '🔢 Создать мой профиль', callback_data: 'numerology_create_profile' }],
+            [{ text: '🔙 Главное меню', callback_data: 'back_to_menu' }]
+          ]
+        };
+      } else {
+        // Если профиль есть - показываем полное меню
+        text = `🔢 *Нумерология*\n\n👤 *Ваш профиль создан!*\n\nВыберите интересующий раздел:`;
+        
+        keyboard = {
+          inline_keyboard: [
+            [
+              { text: '👤 Мой профиль', callback_data: 'numerology_my_profile' },
+              { text: '👥 Совместимость', callback_data: 'numerology_compatibility' }
+            ],
+            [
+              { text: '🎯 Персональный год', callback_data: 'numerology_year' },
+              { text: '📝 Анализ имени', callback_data: 'numerology_name' }
+            ],
+            [
+              { text: '📱 Открыть приложение', web_app: { url: process.env.WEBAPP_URL || 'https://mistika.app' } }
+            ]
+          ]
+        };
+      }
+
+      if (messageId) {
+        await bot.editMessageText(text, {
+          chat_id: chatId,
+          message_id: messageId,
+          parse_mode: 'Markdown',
+          reply_markup: keyboard
+        });
+      } else {
+        await bot.sendMessage(chatId, text, {
+          parse_mode: 'Markdown',
+          reply_markup: keyboard
+        });
+      }
+
+    } catch (error) {
+      console.error('Error in numerology menu:', error);
+      await bot.sendMessage(chatId, 'Произошла ошибка. Попробуйте позже.');
+    }
+  }
+
+  /**
+   * Обработчик расчета нумерологического профиля
+   */
+  async handleNumerologyCalculate(bot, chatId, messageId, from) {
+    try {
+      const user = await this.ensureUser(from);
+      
+      // Инициализируем сессию
+      this.pendingNumerology.set(chatId, {
+        userId: user.id,
+        step: 'waiting_birthdate',
+        data: {},
+        timestamp: Date.now()
+      });
+
+      const text = `🔢 *Расчет нумерологического профиля*\n\nДля точного расчета мне понадобятся:\n1. Ваша дата рождения\n2. Ваше полное имя\n\n📅 Введите дату рождения в формате ДД.ММ.ГГГГ\nНапример: 15.03.1990`;
+
+      const keyboard = {
+        inline_keyboard: [
+          [{ text: '❌ Отмена', callback_data: 'numerology_cancel' }]
+        ]
+      };
+
+      if (messageId) {
+        await bot.editMessageText(text, {
+          chat_id: chatId,
+          message_id: messageId,
+          parse_mode: 'Markdown',
+          reply_markup: keyboard
+        });
+      } else {
+        await bot.sendMessage(chatId, text, {
+          parse_mode: 'Markdown',
+          reply_markup: keyboard
+        });
+      }
+
+    } catch (error) {
+      console.error('Error in numerology calculate:', error);
+      await bot.sendMessage(chatId, 'Ошибка. Попробуйте позже.');
+    }
+  }
+
+  /**
+   * Обработчик анализа имени
+   */
+  async handleNumerologyNameAnalysis(bot, chatId, messageId, from) {
+    try {
+      const user = await this.ensureUser(from);
+      
+      this.pendingNumerology.set(chatId, {
+        userId: user.id,
+        step: 'waiting_name_analysis',
+        data: {},
+        timestamp: Date.now()
+      });
+
+      const text = `📝 *Анализ имени*\n\nВведите имя для нумерологического анализа:\n(можно ввести как полное имя, так и отдельные имена)`;
+
+      const keyboard = {
+        inline_keyboard: [
+          [{ text: '❌ Отмена', callback_data: 'numerology_cancel' }]
+        ]
+      };
+
+      if (messageId) {
+        await bot.editMessageText(text, {
+          chat_id: chatId,
+          message_id: messageId,
+          parse_mode: 'Markdown',
+          reply_markup: keyboard
+        });
+      } else {
+        await bot.sendMessage(chatId, text, {
+          parse_mode: 'Markdown',
+          reply_markup: keyboard
+        });
+      }
+
+    } catch (error) {
+      console.error('Error in numerology name analysis:', error);
+      await bot.sendMessage(chatId, 'Ошибка. Попробуйте позже.');
+    }
+  }
+
+  /**
+   * Обработчик совместимости - использует сохраненный профиль пользователя
+   */
+  async handleNumerologyCompatibility(bot, chatId, messageId, from) {
+    try {
+      const user = await this.ensureUser(from);
+      
+      // Проверяем есть ли сохраненный профиль пользователя
+      const userProfile = this.userProfiles.get(chatId);
+      
+      if (!userProfile || !userProfile.profile) {
+        await bot.editMessageText('❌ *Для анализа совместимости нужен ваш профиль*\n\nСначала создайте свой нумерологический профиль, а затем сможете проверить совместимость с партнером.', {
+          chat_id: chatId,
+          message_id: messageId,
+          parse_mode: 'Markdown',
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '🔢 Создать профиль', callback_data: 'numerology_create_profile' }],
+              [{ text: '🔙 Назад', callback_data: 'numerology_menu' }]
+            ]
+          }
+        });
+        return;
+      }
+
+      // Профиль пользователя есть - запрашиваем данные партнера
+      this.pendingNumerology.set(chatId, {
+        userId: user.id,
+        step: 'waiting_partner_birthdate',
+        data: {
+          userProfile: userProfile // Сохраняем профиль пользователя в сессии
+        },
+        timestamp: Date.now()
+      });
+
+      const text = `👥 *Анализ совместимости*\n\n✅ *Ваш профиль:* ${userProfile.fullName}\n\nТеперь введите данные партнера для расчета совместимости:\n\n📅 Дата рождения партнера (ДД.ММ.ГГГГ):`;
+
+      const keyboard = {
+        inline_keyboard: [
+          [{ text: '❌ Отмена', callback_data: 'numerology_menu' }]
+        ]
+      };
+
+      if (messageId) {
+        await bot.editMessageText(text, {
+          chat_id: chatId,
+          message_id: messageId,
+          parse_mode: 'Markdown',
+          reply_markup: keyboard
+        });
+      } else {
+        await bot.sendMessage(chatId, text, {
+          parse_mode: 'Markdown',
+          reply_markup: keyboard
+        });
+      }
+
+    } catch (error) {
+      console.error('Error in numerology compatibility:', error);
+      await bot.sendMessage(chatId, 'Ошибка. Попробуйте позже.');
+    }
+  }
+
+  /**
+   * Обработчик персонального года/прогноза
+   */
+  async handleNumerologyForecast(bot, chatId, messageId, from) {
+    try {
+      const user = await this.ensureUser(from);
+      
+      // Здесь можно получить профиль пользователя из базы данных
+      // Для примера используем расчет на основе текущей даты
+      const currentYear = new Date().getFullYear();
+      const personalYear = this.calculatePersonalYear(currentYear, from.id);
+
+      // Получаем ИИ интерпретацию персонального года
+      let aiInterpretation = null;
+      try {
+        const aiResponse = await database.makeRequest('POST', '/ai/interpret', {
+          cards: [{
+            name: `Нумерология: Персональный год`,
+            description: `НУМЕРОЛОГИЧЕСКИЙ АНАЛИЗ (НЕ ТАРО): Персональный год ${currentYear}. Число года: ${personalYear}. Базовое значение: ${this.getPersonalYearMeaning(personalYear)}. Фокус года: ${this.getYearFocus(personalYear)}`,
+            isReversed: false
+          }],
+          spreadType: 'numerology_year',
+          positions: [{ name: 'Энергии года', description: 'Возможности и вызовы предстоящего года' }],
+          question: `Проведи НУМЕРОЛОГИЧЕСКИЙ (не таро) прогноз на ${currentYear} год. Игнорируй упоминания карт таро - это нумерология. Дай персональные рекомендации на основе числа года ${personalYear}.`,
+          user: { id: from.id, language: 'ru' }
+        });
+        
+        aiInterpretation = aiResponse.interpretation;
+        console.log('Personal year AI interpretation received:', JSON.stringify(aiResponse, null, 2));
+      } catch (error) {
+        console.log('Personal year AI interpretation failed:', error.message);
+      }
+
+      let text = `🎯 *Персональный год ${currentYear}*\n\n📊 *Ваше число года:* ${personalYear}\n\n`;
+
+      if (aiInterpretation && aiInterpretation.interpretation) {
+        text += `🤖 *ИИ-прогноз:*\n${aiInterpretation.interpretation}\n\n`;
+        
+        if (aiInterpretation.advice) {
+          text += `💡 *Рекомендации:*\n${aiInterpretation.advice}`;
+        }
+      } else {
+        text += `${this.getPersonalYearMeaning(personalYear)}\n\nЭто время для ${this.getYearFocus(personalYear)}`;
+      }
+
+      const keyboard = {
+        inline_keyboard: [
+          [{ text: '📱 Подробный анализ', web_app: { url: `${process.env.WEBAPP_URL || 'https://mistika.app'}/numerology` } }],
+          [{ text: '🔙 Назад', callback_data: 'numerology_menu' }]
+        ]
+      };
+
+      if (messageId) {
+        await bot.editMessageText(text, {
+          chat_id: chatId,
+          message_id: messageId,
+          parse_mode: 'Markdown',
+          reply_markup: keyboard
+        });
+      } else {
+        await bot.sendMessage(chatId, text, {
+          parse_mode: 'Markdown',
+          reply_markup: keyboard
+        });
+      }
+
+    } catch (error) {
+      console.error('Error in numerology forecast:', error);
+      await bot.sendMessage(chatId, 'Ошибка. Попробуйте позже.');
+    }
+  }
+
+  // Вспомогательные методы
+  calculatePersonalYear(year, userId) {
+    // Упрощенный расчет для демонстрации
+    return ((year + userId) % 9) + 1;
+  }
+
+  getPersonalYearMeaning(year) {
+    const meanings = {
+      1: "Год новых начинаний и возможностей",
+      2: "Год сотрудничества и терпения", 
+      3: "Год творчества и самовыражения",
+      4: "Год труда и построения основ",
+      5: "Год перемен и свободы",
+      6: "Год ответственности и семьи",
+      7: "Год самопознания и духовного роста",
+      8: "Год материального успеха и достижений",
+      9: "Год завершения и освобождения"
+    };
+    return meanings[year] || "Особый год трансформации";
+  }
+
+  getYearFocus(year) {
+    const focuses = {
+      1: "новых проектов и лидерства",
+      2: "партнерства и дипломатии",
+      3: "творчества и общения",
+      4: "стабильности и упорного труда",
+      5: "перемен и путешествий",
+      6: "семьи и заботы о близких",
+      7: "духовного развития и учебы",
+      8: "карьеры и материального успеха",
+      9: "завершения проектов и подведения итогов"
+    };
+    return focuses[year] || "личностного роста";
+  }
+
+  /**
+   * Обработчик кнопки "Приложение"
+   */
+  async handleAppCommand(bot, msg) {
+    try {
+      const user = await this.ensureUser(msg.from);
+
+      const text = `📱 *MISTIKA - Полное приложение*\n\nОткройте веб-приложение MISTIKA для доступа ко всем возможностям:\n\n✨ **Что доступно в приложении:**\n• Полные расклады Таро\n• Детальная нумерология\n• Лунный календарь с ритуалами\n• История всех гаданий\n• Персональные рекомендации\n• Экспорт результатов\n\n🔮 Откройте магический портал прямо сейчас!`;
+
+      await bot.sendMessage(msg.chat.id, text, {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: [
+            [
+              {
+                text: '✨ Открыть MISTIKA',
+                web_app: { url: process.env.WEBAPP_URL || 'https://mistika.app' }
+              }
+            ],
+            [
+              { text: '🔮 Новое гадание', callback_data: 'new_reading' },
+              { text: '🔢 Нумерология', callback_data: 'numerology' }
+            ]
+          ]
+        }
+      });
+
+      await database.trackEvent({
+        type: 'button_app',
+        userId: user.id
+      });
+
+    } catch (error) {
+      console.error('Error in app command:', error);
+      await this.sendErrorMessage(bot, msg.chat.id);
+    }
   }
 }
 

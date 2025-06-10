@@ -1,5 +1,5 @@
 // bot/src/handlers/numerology.js
-const { numerologyService } = require('../../../server/src/services/numerologyService');
+const numerologyService = require('../../../server/src/services/numerologyService');
 const { createInlineKeyboard } = require('../utils/keyboards');
 
 class NumerologyHandler {
@@ -162,11 +162,10 @@ class NumerologyHandler {
     
     try {
       // Рассчитываем профиль
-      const profile = await numerologyService.calculateProfile({
-        birthDate: session.data.birthDate,
-        fullName: session.data.fullName,
-        userId: ctx.from.id
-      });
+      const profile = await numerologyService.generateFullAnalysis(
+        session.data.birthDate,
+        session.data.fullName
+      );
 
       await this.sendProfileResult(ctx, profile);
       
@@ -185,19 +184,18 @@ class NumerologyHandler {
       let message = `🔢 *Ваш нумерологический профиль*\n\n`;
 
       // Основные числа
-      message += `🛤 *Число жизненного пути:* ${profile.lifePathNumber.number}\n`;
-      message += `⭐ *Число судьбы:* ${profile.destinyNumber.number}\n`;
-      message += `💫 *Число души:* ${profile.soulNumber.number}\n`;
-      message += `👤 *Число личности:* ${profile.personalityNumber.number}\n`;
-      message += `🎂 *Число дня рождения:* ${profile.birthdayNumber.number}\n\n`;
+      message += `🛤 *Число жизненного пути:* ${profile.lifePath.number}\n`;
+      message += `⭐ *Число судьбы:* ${profile.destiny.number}\n`;
+      message += `💫 *Число души:* ${profile.soul.number}\n`;
+      message += `👤 *Число личности:* ${profile.personality.number}\n\n`;
 
       // Краткое описание
-      message += `💬 *Главное значение:*\n${profile.lifePathNumber.meaning}\n\n`;
+      message += `💬 *Главное значение:*\n${profile.lifePath.meaning?.description || 'Ваш жизненный путь определяет основные уроки и задачи'}\n\n`;
 
       // Сильные стороны
-      if (profile.strengths && profile.strengths.length > 0) {
+      if (profile.lifePath.meaning?.positive && profile.lifePath.meaning.positive.length > 0) {
         message += `💪 *Сильные стороны:*\n`;
-        profile.strengths.slice(0, 3).forEach(strength => {
+        profile.lifePath.meaning.positive.slice(0, 3).forEach(strength => {
           message += `• ${strength}\n`;
         });
         message += '\n';
@@ -287,13 +285,19 @@ class NumerologyHandler {
   // Обработка анализа имени
   async processNameAnalysis(ctx, text) {
     try {
-      const analysis = await numerologyService.analyzeName(text);
+      const destinyNumber = await numerologyService.calculateDestinyNumber(text);
+      const nameNumber = await numerologyService.calculateNameNumber(text);
       
       let message = `📝 *Анализ имени "${text}"*\n\n`;
-      message += `⭐ *Число судьбы:* ${analysis.destinyNumber.number}\n`;
-      message += `💫 *Число души:* ${analysis.soulNumber.number}\n`;
-      message += `👤 *Число личности:* ${analysis.personalityNumber.number}\n\n`;
-      message += `💬 ${analysis.overallAnalysis}`;
+      message += `⭐ *Число судьбы:* ${destinyNumber}\n`;
+      message += `📛 *Число имени:* ${nameNumber}\n\n`;
+      
+      // Получаем описание числа
+      const meaning = numerologyService.numberMeanings[destinyNumber];
+      if (meaning) {
+        message += `💬 *Значение:* ${meaning.description}\n\n`;
+        message += `🔑 *Ключевые слова:* ${meaning.keywords.join(', ')}`;
+      }
 
       const keyboard = createInlineKeyboard([
         [{ text: '🔄 Другое имя', callback_data: 'numerology_name' }],
