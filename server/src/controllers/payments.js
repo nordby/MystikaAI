@@ -1,3 +1,336 @@
 // server/src/controllers/payments.js
 const paymentService = require('../services/paymentService');
-const { Subscription } = require('../models/Subscription');\nconst logger = require('../utils/logger');\n\n/**\n * Получение планов подписки\n */\nconst getSubscriptionPlans = async (req, res) => {\n    try {\n        const plans = await paymentService.getAvailablePlans();\n        \n        res.json({\n            success: true,\n            plans\n        });\n\n    } catch (error) {\n        logger.error('Ошибка получения планов подписки:', error);\n        res.status(500).json({\n            success: false,\n            message: 'Не удалось получить планы подписки'\n        });\n    }\n};\n\n/**\n * Создание платежа\n */\nconst createPayment = async (req, res) => {\n    try {\n        const userId = req.user.id;\n        const { planId, paymentMethod = 'card' } = req.body;\n        \n        if (!planId) {\n            return res.status(400).json({\n                success: false,\n                message: 'ID плана обязателен'\n            });\n        }\n\n        const payment = await paymentService.createPayment({\n            userId,\n            planId,\n            paymentMethod\n        });\n\n        res.json({\n            success: true,\n            payment\n        });\n\n    } catch (error) {\n        logger.error('Ошибка создания платежа:', error);\n        res.status(500).json({\n            success: false,\n            message: 'Не удалось создать платеж'\n        });\n    }\n};\n\n/**\n * Подтверждение платежа\n */\nconst confirmPayment = async (req, res) => {\n    try {\n        const { paymentId, paymentData } = req.body;\n        \n        if (!paymentId) {\n            return res.status(400).json({\n                success: false,\n                message: 'ID платежа обязателен'\n            });\n        }\n\n        const confirmedPayment = await paymentService.confirmPayment({\n            paymentId,\n            paymentData\n        });\n\n        res.json({\n            success: true,\n            payment: confirmedPayment\n        });\n\n    } catch (error) {\n        logger.error('Ошибка подтверждения платежа:', error);\n        res.status(500).json({\n            success: false,\n            message: 'Не удалось подтвердить платеж'\n        });\n    }\n};\n\n/**\n * Получение статуса подписки пользователя\n */\nconst getSubscriptionStatus = async (req, res) => {\n    try {\n        const userId = req.user.id;\n        \n        const subscription = await paymentService.getUserSubscription(userId);\n\n        res.json({\n            success: true,\n            subscription\n        });\n\n    } catch (error) {\n        logger.error('Ошибка получения статуса подписки:', error);\n        res.status(500).json({\n            success: false,\n            message: 'Не удалось получить статус подписки'\n        });\n    }\n};\n\n/**\n * Отмена подписки\n */\nconst cancelSubscription = async (req, res) => {\n    try {\n        const userId = req.user.id;\n        \n        const canceledSubscription = await paymentService.cancelSubscription(userId);\n\n        res.json({\n            success: true,\n            subscription: canceledSubscription\n        });\n\n    } catch (error) {\n        logger.error('Ошибка отмены подписки:', error);\n        res.status(500).json({\n            success: false,\n            message: 'Не удалось отменить подписку'\n        });\n    }\n};\n\n/**\n * Возобновление подписки\n */\nconst resumeSubscription = async (req, res) => {\n    try {\n        const userId = req.user.id;\n        \n        const resumedSubscription = await paymentService.resumeSubscription(userId);\n\n        res.json({\n            success: true,\n            subscription: resumedSubscription\n        });\n\n    } catch (error) {\n        logger.error('Ошибка возобновления подписки:', error);\n        res.status(500).json({\n            success: false,\n            message: 'Не удалось возобновить подписку'\n        });\n    }\n};\n\n/**\n * Получение истории платежей\n */\nconst getPaymentHistory = async (req, res) => {\n    try {\n        const userId = req.user.id;\n        const { page = 1, limit = 10 } = req.query;\n        \n        const history = await paymentService.getPaymentHistory({\n            userId,\n            page: parseInt(page),\n            limit: parseInt(limit)\n        });\n\n        res.json({\n            success: true,\n            history\n        });\n\n    } catch (error) {\n        logger.error('Ошибка получения истории платежей:', error);\n        res.status(500).json({\n            success: false,\n            message: 'Не удалось получить историю платежей'\n        });\n    }\n};\n\n/**\n * Webhook для обработки уведомлений о платежах\n */\nconst handlePaymentWebhook = async (req, res) => {\n    try {\n        const webhookData = req.body;\n        const signature = req.headers['x-payment-signature'];\n        \n        // Проверяем подпись webhook\n        const isValid = await paymentService.verifyWebhookSignature(webhookData, signature);\n        \n        if (!isValid) {\n            return res.status(400).json({\n                success: false,\n                message: 'Неверная подпись webhook'\n            });\n        }\n\n        await paymentService.processWebhook(webhookData);\n\n        res.json({\n            success: true,\n            message: 'Webhook обработан'\n        });\n\n    } catch (error) {\n        logger.error('Ошибка обработки webhook:', error);\n        res.status(500).json({\n            success: false,\n            message: 'Ошибка обработки webhook'\n        });\n    }\n};\n\n/**\n * Получение счета для оплаты\n */\nconst getInvoice = async (req, res) => {\n    try {\n        const { paymentId } = req.params;\n        const userId = req.user.id;\n        \n        const invoice = await paymentService.getInvoice({\n            paymentId,\n            userId\n        });\n\n        res.json({\n            success: true,\n            invoice\n        });\n\n    } catch (error) {\n        logger.error('Ошибка получения счета:', error);\n        res.status(500).json({\n            success: false,\n            message: 'Не удалось получить счет'\n        });\n    }\n};\n\n/**\n * Применение промокода\n */\nconst applyPromoCode = async (req, res) => {\n    try {\n        const userId = req.user.id;\n        const { promoCode, planId } = req.body;\n        \n        if (!promoCode) {\n            return res.status(400).json({\n                success: false,\n                message: 'Промокод обязателен'\n            });\n        }\n\n        const discount = await paymentService.applyPromoCode({\n            userId,\n            promoCode,\n            planId\n        });\n\n        res.json({\n            success: true,\n            discount\n        });\n\n    } catch (error) {\n        logger.error('Ошибка применения промокода:', error);\n        res.status(400).json({\n            success: false,\n            message: error.message || 'Не удалось применить промокод'\n        });\n    }\n};\n\n/**\n * Получение статистики платежей (для админа)\n */\nconst getPaymentStats = async (req, res) => {\n    try {\n        // Проверяем права администратора\n        if (!req.user.isAdmin) {\n            return res.status(403).json({\n                success: false,\n                message: 'Недостаточно прав'\n            });\n        }\n\n        const { period = '30d' } = req.query;\n        \n        const stats = await paymentService.getPaymentStats(period);\n\n        res.json({\n            success: true,\n            stats\n        });\n\n    } catch (error) {\n        logger.error('Ошибка получения статистики платежей:', error);\n        res.status(500).json({\n            success: false,\n            message: 'Не удалось получить статистику'\n        });\n    }\n};\n\nmodule.exports = {\n    getSubscriptionPlans,\n    createPayment,\n    confirmPayment,\n    getSubscriptionStatus,\n    cancelSubscription,\n    resumeSubscription,\n    getPaymentHistory,\n    handlePaymentWebhook,\n    getInvoice,\n    applyPromoCode,\n    getPaymentStats\n};"
+const logger = require('../utils/logger');
+
+// Lazy loading for models
+const getModels = () => {
+  const { Subscription } = require('../models');
+  return { Subscription };
+};
+
+/**
+ * Получение планов подписки
+ */
+const getSubscriptionPlans = async (req, res) => {
+    try {
+        const plans = await paymentService.getAvailablePlans();
+        
+        res.json({
+            success: true,
+            plans
+        });
+
+    } catch (error) {
+        logger.error('Ошибка получения планов подписки:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Не удалось получить планы подписки'
+        });
+    }
+};
+
+/**
+ * Создание платежа
+ */
+const createPayment = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { planId, paymentMethod = 'card' } = req.body;
+        
+        if (!planId) {
+            return res.status(400).json({
+                success: false,
+                message: 'ID плана обязателен'
+            });
+        }
+
+        const payment = await paymentService.createPayment({
+            userId,
+            planId,
+            paymentMethod
+        });
+
+        res.json({
+            success: true,
+            payment
+        });
+
+    } catch (error) {
+        logger.error('Ошибка создания платежа:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Не удалось создать платеж'
+        });
+    }
+};
+
+/**
+ * Подтверждение платежа
+ */
+const confirmPayment = async (req, res) => {
+    try {
+        const { paymentId, paymentData } = req.body;
+        
+        if (!paymentId) {
+            return res.status(400).json({
+                success: false,
+                message: 'ID платежа обязателен'
+            });
+        }
+
+        const confirmedPayment = await paymentService.confirmPayment({
+            paymentId,
+            paymentData
+        });
+
+        res.json({
+            success: true,
+            payment: confirmedPayment
+        });
+
+    } catch (error) {
+        logger.error('Ошибка подтверждения платежа:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Не удалось подтвердить платеж'
+        });
+    }
+};
+
+/**
+ * Получение статуса подписки пользователя
+ */
+const getSubscriptionStatus = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        
+        const subscription = await paymentService.getUserSubscription(userId);
+
+        res.json({
+            success: true,
+            subscription
+        });
+
+    } catch (error) {
+        logger.error('Ошибка получения статуса подписки:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Не удалось получить статус подписки'
+        });
+    }
+};
+
+/**
+ * Отмена подписки
+ */
+const cancelSubscription = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        
+        const canceledSubscription = await paymentService.cancelSubscription(userId);
+
+        res.json({
+            success: true,
+            subscription: canceledSubscription
+        });
+
+    } catch (error) {
+        logger.error('Ошибка отмены подписки:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Не удалось отменить подписку'
+        });
+    }
+};
+
+/**
+ * Возобновление подписки
+ */
+const resumeSubscription = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        
+        const resumedSubscription = await paymentService.resumeSubscription(userId);
+
+        res.json({
+            success: true,
+            subscription: resumedSubscription
+        });
+
+    } catch (error) {
+        logger.error('Ошибка возобновления подписки:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Не удалось возобновить подписку'
+        });
+    }
+};
+
+/**
+ * Получение истории платежей
+ */
+const getPaymentHistory = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { page = 1, limit = 10 } = req.query;
+        
+        const history = await paymentService.getPaymentHistory({
+            userId,
+            page: parseInt(page),
+            limit: parseInt(limit)
+        });
+
+        res.json({
+            success: true,
+            history
+        });
+
+    } catch (error) {
+        logger.error('Ошибка получения истории платежей:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Не удалось получить историю платежей'
+        });
+    }
+};
+
+/**
+ * Webhook для обработки уведомлений о платежах
+ */
+const handlePaymentWebhook = async (req, res) => {
+    try {
+        const webhookData = req.body;
+        const signature = req.headers['x-payment-signature'];
+        
+        // Проверяем подпись webhook
+        const isValid = await paymentService.verifyWebhookSignature(webhookData, signature);
+        
+        if (!isValid) {
+            return res.status(400).json({
+                success: false,
+                message: 'Неверная подпись webhook'
+            });
+        }
+
+        await paymentService.processWebhook(webhookData);
+
+        res.json({
+            success: true,
+            message: 'Webhook обработан'
+        });
+
+    } catch (error) {
+        logger.error('Ошибка обработки webhook:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Ошибка обработки webhook'
+        });
+    }
+};
+
+/**
+ * Получение счета для оплаты
+ */
+const getInvoice = async (req, res) => {
+    try {
+        const { paymentId } = req.params;
+        const userId = req.user.id;
+        
+        const invoice = await paymentService.getInvoice({
+            paymentId,
+            userId
+        });
+
+        res.json({
+            success: true,
+            invoice
+        });
+
+    } catch (error) {
+        logger.error('Ошибка получения счета:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Не удалось получить счет'
+        });
+    }
+};
+
+/**
+ * Применение промокода
+ */
+const applyPromoCode = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { promoCode, planId } = req.body;
+        
+        if (!promoCode) {
+            return res.status(400).json({
+                success: false,
+                message: 'Промокод обязателен'
+            });
+        }
+
+        const discount = await paymentService.applyPromoCode({
+            userId,
+            promoCode,
+            planId
+        });
+
+        res.json({
+            success: true,
+            discount
+        });
+
+    } catch (error) {
+        logger.error('Ошибка применения промокода:', error);
+        res.status(400).json({
+            success: false,
+            message: error.message || 'Не удалось применить промокод'
+        });
+    }
+};
+
+/**
+ * Получение статистики платежей (для админа)
+ */
+const getPaymentStats = async (req, res) => {
+    try {
+        // Проверяем права администратора
+        if (!req.user.isAdmin) {
+            return res.status(403).json({
+                success: false,
+                message: 'Недостаточно прав'
+            });
+        }
+
+        const { period = '30d' } = req.query;
+        
+        const stats = await paymentService.getPaymentStats(period);
+
+        res.json({
+            success: true,
+            stats
+        });
+
+    } catch (error) {
+        logger.error('Ошибка получения статистики платежей:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Не удалось получить статистику'
+        });
+    }
+};
+
+module.exports = {
+    getSubscriptionPlans,
+    createPayment,
+    confirmPayment,
+    getSubscriptionStatus,
+    cancelSubscription,
+    resumeSubscription,
+    getPaymentHistory,
+    handlePaymentWebhook,
+    getInvoice,
+    applyPromoCode,
+    getPaymentStats
+};

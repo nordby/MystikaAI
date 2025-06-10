@@ -1,12 +1,14 @@
 // server/src/controllers/admin.js
-const User = require('../models/User');
-const Payment = require('../models/Payment');
-const Reading = require('../models/Reading');
 const analyticsService = require('../services/analyticsService');
-const notificationService = require('../services/notificationService');
-const redis = require('../database/redis');
+const logger = require('../utils/logger');
 const { Op } = require('sequelize');
 const os = require('os');
+
+// Lazy loading for models
+const getModels = () => {
+  const { User, Reading, Subscription } = require('../models');
+  return { User, Reading, Subscription };
+};
 
 class AdminController {
     /**
@@ -14,6 +16,7 @@ class AdminController {
      */
     async getDashboard(req, res) {
         try {
+            const { User, Reading, Subscription } = getModels();
             const now = new Date();
             const last30Days = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
             const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -399,6 +402,87 @@ class AdminController {
         }
 
         return stats;
+    }
+
+    // Add missing methods that routes expect
+    async getAllUsers(req, res) {
+        res.status(501).json({ success: false, message: 'Method not implemented yet' });
+    }
+
+    async getUserById(req, res) {
+        res.status(501).json({ success: false, message: 'Method not implemented yet' });
+    }
+
+    async updateUser(req, res) {
+        res.status(501).json({ success: false, message: 'Method not implemented yet' });
+    }
+
+    async deleteUser(req, res) {
+        res.status(501).json({ success: false, message: 'Method not implemented yet' });
+    }
+
+    async banUser(req, res) {
+        res.status(501).json({ success: false, message: 'Method not implemented yet' });
+    }
+
+    async unbanUser(req, res) {
+        res.status(501).json({ success: false, message: 'Method not implemented yet' });
+    }
+
+    async getOverviewStats(req, res) {
+        res.status(501).json({ success: false, message: 'Method not implemented yet' });
+    }
+
+    async getPaymentStats(req, res) {
+        res.status(501).json({ success: false, message: 'Method not implemented yet' });
+    }
+
+    async getReadingStats(req, res) {
+        res.status(501).json({ success: false, message: 'Method not implemented yet' });
+    }
+
+    async exportData(req, res) {
+        res.status(501).json({ success: false, message: 'Method not implemented yet' });
+    }
+
+    async clearCache(req, res) {
+        res.status(501).json({ success: false, message: 'Method not implemented yet' });
+    }
+
+    async runMaintenance(req, res) {
+        res.status(501).json({ success: false, message: 'Method not implemented yet' });
+    }
+
+    async getAllReadings(req, res) {
+        res.status(501).json({ success: false, message: 'Method not implemented yet' });
+    }
+
+    async deleteReading(req, res) {
+        res.status(501).json({ success: false, message: 'Method not implemented yet' });
+    }
+
+    async getReports(req, res) {
+        res.status(501).json({ success: false, message: 'Method not implemented yet' });
+    }
+
+    async resolveReport(req, res) {
+        res.status(501).json({ success: false, message: 'Method not implemented yet' });
+    }
+
+    async getConfig(req, res) {
+        res.status(501).json({ success: false, message: 'Method not implemented yet' });
+    }
+
+    async updateConfig(req, res) {
+        res.status(501).json({ success: false, message: 'Method not implemented yet' });
+    }
+
+    async toggleMaintenanceMode(req, res) {
+        res.status(501).json({ success: false, message: 'Method not implemented yet' });
+    }
+
+    async getLogs(req, res) {
+        res.status(501).json({ success: false, message: 'Method not implemented yet' });
     }
 }
 

@@ -17,7 +17,7 @@ router.get('/plans', paymentsController.getSubscriptionPlans);
  */
 router.post('/create',
     authMiddleware,
-    rateLimitMiddleware({ windowMs: 15 * 60 * 1000, max: 10 }),
+    rateLimitMiddleware.strictLimiter(),
     paymentsController.createPayment
 );
 
@@ -27,7 +27,7 @@ router.post('/create',
  */
 router.post('/confirm',
     authMiddleware,
-    rateLimitMiddleware({ windowMs: 15 * 60 * 1000, max: 20 }),
+    rateLimitMiddleware.strictLimiter(),
     paymentsController.confirmPayment
 );
 
@@ -46,7 +46,7 @@ router.get('/subscription',
  */
 router.post('/cancel-subscription',
     authMiddleware,
-    rateLimitMiddleware({ windowMs: 60 * 60 * 1000, max: 3 }),
+    rateLimitMiddleware.strictLimiter(),
     paymentsController.cancelSubscription
 );
 
@@ -56,7 +56,7 @@ router.post('/cancel-subscription',
  */
 router.post('/resume-subscription',
     authMiddleware,
-    rateLimitMiddleware({ windowMs: 60 * 60 * 1000, max: 5 }),
+    rateLimitMiddleware.strictLimiter(),
     paymentsController.resumeSubscription
 );
 
@@ -84,7 +84,7 @@ router.get('/invoice/:paymentId',
  */
 router.post('/promo-code',
     authMiddleware,
-    rateLimitMiddleware({ windowMs: 60 * 60 * 1000, max: 10 }),
+    rateLimitMiddleware.strictLimiter(),
     paymentsController.applyPromoCode
 );
 
@@ -93,7 +93,7 @@ router.post('/promo-code',
  * Webhook для обработки уведомлений о платежах
  */
 router.post('/webhook',
-    rateLimitMiddleware({ windowMs: 60 * 1000, max: 100 }),
+    rateLimitMiddleware.webhookLimiter(),
     paymentsController.handlePaymentWebhook
 );
 

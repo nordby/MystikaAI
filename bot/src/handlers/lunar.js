@@ -2,6 +2,7 @@
 const { lunarService } = require('../../../server/src/services/lunarService');
 const { createInlineKeyboard, createReplyKeyboard } = require('../utils/keyboards');
 const { formatDate, formatMoonPhase } = require('../utils/formatters');
+const { getMysticalLoadingMessage } = require('../utils/messages');
 
 class LunarHandler {
   // Главное меню лунного календаря
@@ -49,6 +50,11 @@ class LunarHandler {
   // Текущая фаза луны
   async handleCurrentPhase(ctx) {
     try {
+      // Показываем мистическое сообщение загрузки
+      const loadingMsg = await ctx.editMessageText ? 
+        ctx.editMessageText(getMysticalLoadingMessage('lunar'), { parse_mode: 'Markdown' }) :
+        ctx.reply(getMysticalLoadingMessage('lunar'), { parse_mode: 'Markdown' });
+
       const currentPhase = await lunarService.getCurrentMoonPhase();
       
       const phaseEmojis = {

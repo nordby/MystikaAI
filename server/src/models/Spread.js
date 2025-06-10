@@ -1,8 +1,8 @@
 // server/src/models/Spread.js
-const { DataTypes } = require('sequelize');
-const sequelize = require('../database/connection');
+const { DataTypes, Op } = require('sequelize');
 
-const Spread = sequelize.define('Spread', {
+module.exports = (sequelize) => {
+  const Spread = sequelize.define('Spread', {
   id: {
     type: DataTypes.UUID,
     defaultValue: DataTypes.UUIDV4,
@@ -298,10 +298,10 @@ Spread.searchByKeyword = function(keyword, user = null) {
   
   return this.scope('active').findAll({
     where: {
-      [sequelize.Sequelize.Op.or]: [
-        { name: { [sequelize.Sequelize.Op.iLike]: searchPattern } },
-        { description: { [sequelize.Sequelize.Op.iLike]: searchPattern } },
-        { tags: { [sequelize.Sequelize.Op.contains]: [keyword] } }
+      [Op.or]: [
+        { name: { [Op.iLike]: searchPattern } },
+        { description: { [Op.iLike]: searchPattern } },
+        { tags: { [Op.contains]: [keyword] } }
       ]
     },
     order: [['popularity', 'DESC']]
@@ -342,20 +342,21 @@ Spread.beforeUpdate(async (spread) => {
   }
 });
 
-// Ассоциации устанавливаются в отдельном файле associations.js
-Spread.associate = function(models) {
-  // Связь с пользователем-создателем
-  Spread.belongsTo(models.User, {
-    foreignKey: 'createdBy',
-    as: 'creator',
-    allowNull: true
-  });
-  
-  // Связь с гаданиями
-  Spread.hasMany(models.Reading, {
-    foreignKey: 'spreadId',
-    as: 'readings'
-  });
-};
+  // Ассоциации устанавливаются в отдельном файле associations.js
+  Spread.associate = function(models) {
+    // Связь с пользователем-создателем
+    Spread.belongsTo(models.User, {
+      foreignKey: 'createdBy',
+      as: 'creator',
+      allowNull: true
+    });
+    
+    // Связь с гаданиями
+    Spread.hasMany(models.Reading, {
+      foreignKey: 'spreadId',
+      as: 'readings'
+    });
+  };
 
-module.exports = Spread;
+  return Spread;
+};

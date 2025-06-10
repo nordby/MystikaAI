@@ -1,6 +1,7 @@
 // bot/src/handlers/numerology.js
 const numerologyService = require('../../../server/src/services/numerologyService');
 const { createInlineKeyboard } = require('../utils/keyboards');
+const { getMysticalLoadingMessage } = require('../utils/messages');
 
 class NumerologyHandler {
   constructor() {
@@ -161,6 +162,11 @@ class NumerologyHandler {
     session.data.fullName = text;
     
     try {
+      // Показываем мистическое сообщение загрузки
+      await ctx.reply(getMysticalLoadingMessage('numerology'), {
+        parse_mode: 'Markdown'
+      });
+
       // Рассчитываем профиль
       const profile = await numerologyService.generateFullAnalysis(
         session.data.birthDate,

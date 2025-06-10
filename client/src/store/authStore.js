@@ -29,6 +29,9 @@ const useAuthStore = create(
           
           const data = await response.json();
           
+          // Сохраняем токен в localStorage для совместимости с другими сервисами
+          localStorage.setItem('mistika_token', data.token);
+          
           set({
             user: data.user,
             token: data.token,
@@ -63,6 +66,9 @@ const useAuthStore = create(
           
           const data = await response.json();
           
+          // Сохраняем токен в localStorage для совместимости с другими сервисами
+          localStorage.setItem('mistika_token', data.token);
+          
           set({
             user: data.user,
             token: data.token,
@@ -81,6 +87,9 @@ const useAuthStore = create(
       },
 
       logout: () => {
+        // Удаляем токен из localStorage
+        localStorage.removeItem('mistika_token');
+        
         set({
           user: null,
           token: null,

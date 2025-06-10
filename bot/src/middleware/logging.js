@@ -1,5 +1,5 @@
 // bot/src/middleware/logging.js
-const logger = require('../../utils/logger');
+const logger = require('../utils/logger');
 
 /**
  * Middleware для логирования активности бота

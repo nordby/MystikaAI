@@ -110,11 +110,18 @@ class MistikaServer {
     });
 
     // API routes
-    this.app.use('/api/v1/auth', require('./routes/auth'));
-    this.app.use('/api/v1/cards', require('./routes/cards'));
-    this.app.use('/api/v1/readings', require('./routes/readings')); // Убрали auth middleware для бота
-    this.app.use('/api/v1/analytics', require('./routes/analytics'));
-    this.app.use('/api/v1/ai', require('./routes/ai'));
+    try { this.app.use('/api/v1/auth', require('./routes/auth')); } catch(e) { throw new Error('auth: ' + e.message); }
+    try { this.app.use('/api/v1/cards', require('./routes/cards')); } catch(e) { throw new Error('cards: ' + e.message); }
+    try { this.app.use('/api/v1/readings', require('./routes/readings')); } catch(e) { throw new Error('readings: ' + e.message); }
+    try { this.app.use('/api/v1/analytics', require('./routes/analytics')); } catch(e) { throw new Error('analytics: ' + e.message); }
+    try { this.app.use('/api/v1/ai', require('./routes/ai')); } catch(e) { throw new Error('ai: ' + e.message); }
+    try { this.app.use('/api/v1/numerology', require('./routes/numerology')); } catch(e) { throw new Error('numerology: ' + e.message); }
+    try { this.app.use('/api/v1/lunar', require('./routes/lunar')); } catch(e) { throw new Error('lunar: ' + e.message); }
+    try { this.app.use('/api/v1/spreads', require('./routes/spreads')); } catch(e) { throw new Error('spreads: ' + e.message); }
+    try { this.app.use('/api/v1/payments', require('./routes/payments')); } catch(e) { throw new Error('payments: ' + e.message); }
+    try { this.app.use('/api/v1/telegram', require('./routes/telegram')); } catch(e) { throw new Error('telegram: ' + e.message); }
+    try { this.app.use('/api/v1/users', require('./routes/users')); } catch(e) { throw new Error('users: ' + e.message); }
+    try { this.app.use('/api/v1/admin', require('./routes/admin')); } catch(e) { throw new Error('admin: ' + e.message); }
     
     // API status endpoint
     this.app.get('/api/v1', (req, res) => {
@@ -126,7 +133,14 @@ class MistikaServer {
           '/api/v1/readings',
           '/api/v1/cards',
           '/api/v1/analytics',
-          '/api/v1/ai'
+          '/api/v1/ai',
+          '/api/v1/numerology',
+          '/api/v1/lunar',
+          '/api/v1/spreads',
+          '/api/v1/payments',
+          '/api/v1/telegram',
+          '/api/v1/users',
+          '/api/v1/admin'
         ],
         timestamp: new Date().toISOString()
       });

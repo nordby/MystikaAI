@@ -2,7 +2,6 @@
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const logger = require('../utils/logger');
-const databaseConfig = require('../config/database');
 
 class AuthController {
   /**
@@ -21,9 +20,11 @@ class AuthController {
         });
       }
 
-      // Получаем модель User из конфигурации базы данных
-      const models = databaseConfig.getModels();
-      const User = models.User;
+      // Получаем модель User через ленивую загрузку
+      const { User } = require('../models');
+      if (!User) {
+        throw new Error('User model not initialized');
+      }
 
       // Поиск или создание пользователя
       logger.info('Searching for user', { telegramId });
@@ -131,8 +132,11 @@ class AuthController {
       const userData = this.parseTelegramInitData(initData);
       
       // Получаем модель User
-      const models = databaseConfig.getModels();
-      const User = models.User;
+      // Получаем модель User через ленивую загрузку
+      const { User } = require('../models');
+      if (!User) {
+        throw new Error('User model not initialized');
+      }
 
       // Поиск или создание пользователя
       let user = await User.findOne({ where: { telegramId: userData.id } });
@@ -224,8 +228,11 @@ class AuthController {
   async getUserByTelegramId(req, res) {
     try {
       const { telegramId } = req.params;
-      const models = databaseConfig.getModels();
-      const User = models.User;
+      // Получаем модель User через ленивую загрузку
+      const { User } = require('../models');
+      if (!User) {
+        throw new Error('User model not initialized');
+      }
       
       const user = await User.findOne({ where: { telegramId } });
 
@@ -273,8 +280,11 @@ class AuthController {
     try {
       const { telegramId } = req.params;
       const updateData = req.body;
-      const models = databaseConfig.getModels();
-      const User = models.User;
+      // Получаем модель User через ленивую загрузку
+      const { User } = require('../models');
+      if (!User) {
+        throw new Error('User model not initialized');
+      }
       
       const user = await User.findOne({ where: { telegramId } });
 
@@ -325,8 +335,11 @@ class AuthController {
    */
   async getProfile(req, res) {
     try {
-      const models = databaseConfig.getModels();
-      const User = models.User;
+      // Получаем модель User через ленивую загрузку
+      const { User } = require('../models');
+      if (!User) {
+        throw new Error('User model not initialized');
+      }
       
       const user = await User.findByPk(req.user.id);
 

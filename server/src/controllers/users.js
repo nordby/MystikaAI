@@ -1,8 +1,13 @@
-const { User, Reading, ReadingCard, Card } = require('../models');
 const { AppError } = require('../utils/errors');
 const { validateEmail } = require('../utils/validation');
 const { uploadFile, deleteFile } = require('../utils/fileUpload');
 const { Op } = require('sequelize');
+
+// Lazy loading for models
+const getModels = () => {
+  const { User, Reading, ReadingCard, Card } = require('../models');
+  return { User, Reading, ReadingCard, Card };
+};
 
 class UsersController {
   // Get user profile
@@ -614,4 +619,56 @@ class UsersController {
   }
 }
 
-module.exports = UsersController;
+module.exports = {
+  getProfile: UsersController.getProfile,
+  updateProfile: UsersController.updateProfile,
+  uploadAvatar: UsersController.uploadAvatar,
+  deleteAvatar: UsersController.deleteAvatar,
+  getPreferences: UsersController.getPreferences,
+  updatePreferences: UsersController.updatePreferences,
+  getSettings: UsersController.getSettings,
+  updateSettings: UsersController.updateSettings,
+  getStatistics: UsersController.getStatistics,
+  searchUsers: UsersController.searchUsers,
+  
+  // Add any missing methods that routes might need
+  createUser: async (req, res, next) => {
+    res.status(501).json({ success: false, message: 'Method not implemented yet' });
+  },
+  getProfileByTelegramId: async (req, res, next) => {
+    res.status(501).json({ success: false, message: 'Method not implemented yet' });
+  },
+  updateProfileByTelegramId: async (req, res, next) => {
+    res.status(501).json({ success: false, message: 'Method not implemented yet' });
+  },
+  deleteUser: async (req, res, next) => {
+    res.status(501).json({ success: false, message: 'Method not implemented yet' });
+  },
+  getUserStats: async (req, res, next) => {
+    res.status(501).json({ success: false, message: 'Method not implemented yet' });
+  },
+  getMyProfile: async (req, res, next) => {
+    res.status(501).json({ success: false, message: 'Method not implemented yet' });
+  },
+  updateMyProfile: async (req, res, next) => {
+    res.status(501).json({ success: false, message: 'Method not implemented yet' });
+  },
+  deleteMyAccount: async (req, res, next) => {
+    res.status(501).json({ success: false, message: 'Method not implemented yet' });
+  },
+  getMyReadings: async (req, res, next) => {
+    res.status(501).json({ success: false, message: 'Method not implemented yet' });
+  },
+  getMyStats: async (req, res, next) => {
+    res.status(501).json({ success: false, message: 'Method not implemented yet' });
+  },
+  getMySubscription: async (req, res, next) => {
+    res.status(501).json({ success: false, message: 'Method not implemented yet' });
+  },
+  getMyReferrals: async (req, res, next) => {
+    res.status(501).json({ success: false, message: 'Method not implemented yet' });
+  },
+  createReferral: async (req, res, next) => {
+    res.status(501).json({ success: false, message: 'Method not implemented yet' });
+  }
+};

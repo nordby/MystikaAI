@@ -1,8 +1,8 @@
 // server/src/models/MysticCircle.js
 const { DataTypes } = require('sequelize');
-const sequelize = require('../database/connection');
 
-const MysticCircle = sequelize.define('MysticCircle', {
+module.exports = (sequelize) => {
+  const MysticCircle = sequelize.define('MysticCircle', {
   id: {
     type: DataTypes.UUID,
     defaultValue: DataTypes.UUIDV4,
@@ -530,4 +530,5 @@ MysticCircle.associate = function(models) {
   });
 };
 
-module.exports = MysticCircle;
+  return MysticCircle;
+};

@@ -11,7 +11,7 @@ const { handleDaily } = require('./handlers/daily');
 
 // Utils
 const { createInlineKeyboard } = require('./utils/keyboards');
-const logger = require('../../server/src/utils/logger');
+const logger = require('./utils/logger');
 const apiService = require('./services/api');
 
 // Создание бота

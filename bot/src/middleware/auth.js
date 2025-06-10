@@ -1,6 +1,6 @@
 // bot/src/middleware/auth.js
 const axios = require('axios');
-const logger = require('../../utils/logger');
+const logger = require('../utils/logger');
 
 /**
  * Middleware для аутентификации пользователей Telegram

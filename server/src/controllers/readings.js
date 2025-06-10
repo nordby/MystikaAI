@@ -1,6 +1,6 @@
 // server/src/controllers/readings.js
 const logger = require('../utils/logger');
-const databaseConfig = require('../config/database');
+// const databaseConfig = require('../config/database'); // Удалено - используем ленивую загрузку
 
 class ReadingsController {
   /**
@@ -17,7 +17,7 @@ class ReadingsController {
         interpretation = ''
       } = req.body;
 
-      const models = databaseConfig.getModels();
+      const models = require('../models').getModels();
       const { User, TarotReading } = models;
 
       // Найти пользователя
@@ -104,7 +104,7 @@ class ReadingsController {
       const { userId } = req.params;
       const { page = 1, limit = 10 } = req.query;
 
-      const models = databaseConfig.getModels();
+      const models = require('../models').getModels();
       const { TarotReading } = models;
 
       const offset = (page - 1) * limit;
@@ -154,7 +154,7 @@ class ReadingsController {
     try {
       const { readingId } = req.params;
       
-      const models = databaseConfig.getModels();
+      const models = require('../models').getModels();
       const { TarotReading } = models;
 
       const reading = await TarotReading.findByPk(readingId);

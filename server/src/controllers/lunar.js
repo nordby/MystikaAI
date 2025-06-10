@@ -1,424 +1,197 @@
-// server/src/controllers/numerologyController.js
-const numerologyService = require('../services/numerologyService');
-const { NumerologyProfile, User } = require('../models');
-const logger = require('../utils/logger');
-
-class NumerologyController {
-  // Расчет нумерологического профиля
-  async calculateProfile(req, res) {
-    try {
-      const { birthDate, fullName } = req.body;
-      const userId = req.user.id;
-
-      if (!birthDate || !fullName) {
-        return res.status(400).json({
-          success: false,
-          message: 'Необходимо указать дату рождения и полное имя'
-        });
-      }
-
-      // Валидация даты
-      const date = new Date(birthDate);
-      if (isNaN(date.getTime())) {
-        return res.status(400).json({
-          success: false,
-          message: 'Некорректная дата рождения'
-        });
-      }
-
-      // Расчет нумерологического профиля
-      const profile = await numerologyService.calculateProfile({
-        birthDate: date,
-        fullName: fullName.trim(),
-        userId
-      });
-
-      // Сохранение профиля
-      const existingProfile = await NumerologyProfile.findOne({
-        where: { userId }
-      });
-
-      if (existingProfile) {
-        await NumerologyProfile.update(
-          {
-            birthDate: date,
-            fullName: fullName.trim(),
-            lifePathNumber: profile.lifePathNumber.number,
-            destinyNumber: profile.destinyNumber.number,
-            soulNumber: profile.soulNumber.number,
-            personalityNumber: profile.personalityNumber.number,
-            birthdayNumber: profile.birthdayNumber.number,
-            profile: profile,
-            calculatedAt: new Date()
-          },
-          { where: { userId } }
-        );
-      } else {
-        await NumerologyProfile.create({
-          userId,
-          birthDate: date,
-          fullName: fullName.trim(),
-          lifePathNumber: profile.lifePathNumber.number,
-          destinyNumber: profile.destinyNumber.number,
-          soulNumber: profile.soulNumber.number,
-          personalityNumber: profile.personalityNumber.number,
-          birthdayNumber: profile.birthdayNumber.number,
-          profile: profile,
-          calculatedAt: new Date()
-        });
-      }
-
-      res.json({
-        success: true,
-        profile
-      });
-
-    } catch (error) {
-      logger.error('Ошибка расчета нумерологии:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Ошибка расчета нумерологического профиля'
-      });
-    }
-  }
-
-  // Получить сохраненный профиль
-  async getProfile(req, res) {
-    try {
-      const userId = req.user.id;
-
-      const numerologyProfile = await NumerologyProfile.findOne({
-        where: { userId }
-      });
-
-      if (!numerologyProfile) {
-        return res.status(404).json({
-          success: false,
-          message: 'Нумерологический профиль не найден'
-        });
-      }
-
-      res.json({
-        success: true,
-        profile: numerologyProfile.profile,
-        calculatedAt: numerologyProfile.calculatedAt
-      });
-
-    } catch (error) {
-      logger.error('Ошибка получения профиля:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Ошибка получения профиля'
-      });
-    }
-  }
-
-  // Совместимость по числам
-  async getCompatibility(req, res) {
-    try {
-      const { partnerBirthDate, partnerFullName } = req.body;
-      const userId = req.user.id;
-
-      // Получение профиля пользователя
-      const userProfile = await NumerologyProfile.findOne({
-        where: { userId }
-      });
-
-      if (!userProfile) {
-        return res.status(400).json({
-          success: false,
-          message: 'Сначала рассчитайте свой нумерологический профиль'
-        });
-      }
-
-      // Расчет профиля партнера
-      const partnerProfile = await numerologyService.calculateProfile({
-        birthDate: new Date(partnerBirthDate),
-        fullName: partnerFullName.trim(),
-        userId: null // Не сохраняем профиль партнера
-      });
-
-      // Анализ совместимости
-      const compatibility = await numerologyService.analyzeCompatibility(
-        userProfile.profile,
-        partnerProfile
-      );
-
-      res.json({
-        success: true,
-        userProfile: userProfile.profile,
-        partnerProfile,
-        compatibility
-      });
-
-    } catch (error) {
-      logger.error('Ошибка анализа совместимости:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Ошибка анализа совместимости'
-      });
-    }
-  }
-
-  // Персональный прогноз
-  async getPersonalForecast(req, res) {
-    try {
-      const userId = req.user.id;
-      const { period = 'month' } = req.query;
-
-      const numerologyProfile = await NumerologyProfile.findOne({
-        where: { userId }
-      });
-
-      if (!numerologyProfile) {
-        return res.status(400).json({
-          success: false,
-          message: 'Нумерологический профиль не найден'
-        });
-      }
-
-      const forecast = await numerologyService.generateForecast(
-        numerologyProfile.profile,
-        period
-      );
-
-      res.json({
-        success: true,
-        forecast,
-        period
-      });
-
-    } catch (error) {
-      logger.error('Ошибка получения прогноза:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Ошибка получения прогноза'
-      });
-    }
-  }
-
-  // Нумерологический анализ имени
-  async analyzeName(req, res) {
-    try {
-      const { name } = req.body;
-
-      if (!name || !name.trim()) {
-        return res.status(400).json({
-          success: false,
-          message: 'Необходимо указать имя'
-        });
-      }
-
-      const analysis = await numerologyService.analyzeName(name.trim());
-
-      res.json({
-        success: true,
-        analysis
-      });
-
-    } catch (error) {
-      logger.error('Ошибка анализа имени:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Ошибка анализа имени'
-      });
-    }
-  }
-}
-
-// server/src/controllers/lunarController.js
+// server/src/controllers/lunar.js
 const lunarService = require('../services/lunarService');
-const { User } = require('../models');
 const logger = require('../utils/logger');
+
+// Lazy loading for models
+const getModels = () => {
+  const { User } = require('../models');
+  return { User };
+};
 
 class LunarController {
-  // Получить текущую фазу луны
+  /**
+   * Получить текущую фазу луны
+   */
   async getCurrentPhase(req, res) {
     try {
-      const currentPhase = await lunarService.getCurrentMoonPhase();
-      const recommendations = await lunarService.getPhaseRecommendations(currentPhase.phase);
-
+      const currentPhase = await lunarService.getCurrentPhase();
+      
       res.json({
         success: true,
-        currentPhase,
-        recommendations
+        data: currentPhase
       });
-
     } catch (error) {
-      logger.error('Ошибка получения фазы луны:', error);
+      logger.error('Error getting current lunar phase:', error);
       res.status(500).json({
         success: false,
-        message: 'Ошибка получения данных о луне'
+        message: 'Не удалось получить текущую фазу луны'
       });
     }
   }
 
-  // Получить лунный календарь
+  /**
+   * Получить лунный календарь
+   */
   async getCalendar(req, res) {
     try {
-      const { year, month } = req.query;
+      const { month, year } = req.query;
+      const calendar = await lunarService.getCalendar(month, year);
       
-      const currentDate = new Date();
-      const targetYear = year ? parseInt(year) : currentDate.getFullYear();
-      const targetMonth = month ? parseInt(month) - 1 : currentDate.getMonth();
-
-      const calendar = await lunarService.generateCalendar(targetYear, targetMonth);
-
       res.json({
         success: true,
-        calendar,
-        year: targetYear,
-        month: targetMonth + 1
+        data: calendar
       });
-
     } catch (error) {
-      logger.error('Ошибка получения календаря:', error);
+      logger.error('Error getting lunar calendar:', error);
       res.status(500).json({
         success: false,
-        message: 'Ошибка получения лунного календаря'
+        message: 'Не удалось получить лунный календарь'
       });
     }
   }
 
-  // Получить рекомендации для определенной даты
-  async getDateRecommendations(req, res) {
-    try {
-      const { date } = req.params;
-      const targetDate = new Date(date);
-
-      if (isNaN(targetDate.getTime())) {
-        return res.status(400).json({
-          success: false,
-          message: 'Некорректная дата'
-        });
-      }
-
-      const moonPhase = await lunarService.getMoonPhaseForDate(targetDate);
-      const recommendations = await lunarService.getDetailedRecommendations(
-        moonPhase.phase,
-        targetDate
-      );
-
-      res.json({
-        success: true,
-        date: targetDate,
-        moonPhase,
-        recommendations
-      });
-
-    } catch (error) {
-      logger.error('Ошибка получения рекомендаций:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Ошибка получения рекомендаций'
-      });
-    }
-  }
-
-  // Персональные лунные рекомендации
+  /**
+   * Получить персональные рекомендации
+   */
   async getPersonalRecommendations(req, res) {
+    try {
+      const { birthDate, zodiacSign } = req.query;
+      const recommendations = await lunarService.getPersonalRecommendations({
+        birthDate,
+        zodiacSign
+      });
+      
+      res.json({
+        success: true,
+        data: recommendations
+      });
+    } catch (error) {
+      logger.error('Error getting personal lunar recommendations:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Не удалось получить персональные рекомендации'
+      });
+    }
+  }
+
+  /**
+   * Получить лунное гадание
+   */
+  async getLunarReading(req, res) {
+    try {
+      const { question } = req.body;
+      const reading = await lunarService.getLunarReading(question);
+      
+      res.json({
+        success: true,
+        data: reading
+      });
+    } catch (error) {
+      logger.error('Error getting lunar reading:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Не удалось получить лунное гадание'
+      });
+    }
+  }
+
+  /**
+   * Получить мой календарь (для авторизованных пользователей)
+   */
+  async getMyCalendar(req, res) {
     try {
       const userId = req.user.id;
       const user = await User.findByPk(userId);
-
-      const currentPhase = await lunarService.getCurrentMoonPhase();
-      const personalRecommendations = await lunarService.getPersonalizedRecommendations(
-        currentPhase,
-        user
-      );
-
-      res.json({
-        success: true,
-        currentPhase,
-        personalRecommendations
-      });
-
-    } catch (error) {
-      logger.error('Ошибка получения персональных рекомендаций:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Ошибка получения персональных рекомендаций'
-      });
-    }
-  }
-
-  // Лунные ритуалы и практики
-  async getRituals(req, res) {
-    try {
-      const { phase } = req.query;
       
-      const currentPhase = phase || (await lunarService.getCurrentMoonPhase()).phase;
-      const rituals = await lunarService.getRitualsForPhase(currentPhase);
-
+      const calendar = await lunarService.getPersonalizedCalendar(user);
+      
       res.json({
         success: true,
-        phase: currentPhase,
-        rituals
+        data: calendar
       });
-
     } catch (error) {
-      logger.error('Ошибка получения ритуалов:', error);
+      logger.error('Error getting personalized lunar calendar:', error);
       res.status(500).json({
         success: false,
-        message: 'Ошибка получения ритуалов'
+        message: 'Не удалось получить персональный календарь'
       });
     }
   }
 
-  // Лунный дневник
-  async addDiaryEntry(req, res) {
+  /**
+   * Запланировать ритуал
+   */
+  async scheduleRitual(req, res) {
     try {
-      const { entry, mood, energy, date } = req.body;
       const userId = req.user.id;
-
-      const targetDate = date ? new Date(date) : new Date();
-      const moonPhase = await lunarService.getMoonPhaseForDate(targetDate);
-
-      // Здесь можно добавить сохранение в базу данных
-      // const diaryEntry = await LunarDiary.create({...});
-
+      const { ritualType, scheduledDate } = req.body;
+      
+      const ritual = await lunarService.scheduleRitual({
+        userId,
+        ritualType,
+        scheduledDate
+      });
+      
       res.json({
         success: true,
-        message: 'Запись добавлена в лунный дневник',
-        entry: {
-          date: targetDate,
-          moonPhase: moonPhase.phase,
-          entry,
-          mood,
-          energy
-        }
+        data: ritual
       });
-
     } catch (error) {
-      logger.error('Ошибка добавления записи:', error);
+      logger.error('Error scheduling ritual:', error);
       res.status(500).json({
         success: false,
-        message: 'Ошибка добавления записи в дневник'
+        message: 'Не удалось запланировать ритуал'
       });
     }
   }
 
-  // Следующее важное лунное событие
-  async getNextEvent(req, res) {
+  /**
+   * Получить мои ритуалы
+   */
+  async getMyRituals(req, res) {
     try {
-      const nextEvent = await lunarService.getNextSignificantEvent();
-
+      const userId = req.user.id;
+      const rituals = await lunarService.getUserRituals(userId);
+      
       res.json({
         success: true,
-        nextEvent
+        data: rituals
       });
-
     } catch (error) {
-      logger.error('Ошибка получения следующего события:', error);
+      logger.error('Error getting user rituals:', error);
       res.status(500).json({
         success: false,
-        message: 'Ошибка получения информации о событиях'
+        message: 'Не удалось получить ваши ритуалы'
+      });
+    }
+  }
+
+  /**
+   * Получить статистику (админ)
+   */
+  async getStats(req, res) {
+    try {
+      if (!req.user.isAdmin) {
+        return res.status(403).json({
+          success: false,
+          message: 'Недостаточно прав'
+        });
+      }
+
+      const stats = await lunarService.getStats();
+      
+      res.json({
+        success: true,
+        data: stats
+      });
+    } catch (error) {
+      logger.error('Error getting lunar stats:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Не удалось получить статистику'
       });
     }
   }
 }
 
-module.exports = {
-  NumerologyController: new NumerologyController(),
-  LunarController: new LunarController()
-};
+module.exports = new LunarController();

@@ -3,6 +3,9 @@ const database = require('../database');
 const config = require('../config');
 const { TAROT_CARDS } = require('../data/tarot');
 const NumerologyHandler = require('./numerology');
+const premiumHandlers = require('./premium');
+const referralHandlers = require('./referral');
+const { getMysticalLoadingMessage, getMysticalLoadingSequence } = require('../utils/messages');
 
 class BotHandlers {
   constructor() {
@@ -98,6 +101,16 @@ class BotHandlers {
     // Команда /settings
     bot.onText(/\/settings/, async (msg) => {
       await this.handleSettingsCommand(bot, msg);
+    });
+
+    // Команда /premium
+    bot.onText(/\/premium/, async (msg) => {
+      await this.handlePremiumCommand(bot, msg);
+    });
+
+    // Команда /referral
+    bot.onText(/\/referral/, async (msg) => {
+      await this.handleReferralCommand(bot, msg);
     });
 
     console.log('Command handlers registered');
@@ -277,7 +290,10 @@ class BotHandlers {
     try {
       const user = await this.ensureUser(msg.from);
 
-      await bot.sendChatAction(msg.chat.id, 'typing');
+      // Показываем мистическое сообщение загрузки
+      const loadingMsg = await bot.sendMessage(msg.chat.id, getMysticalLoadingMessage('tarot'), {
+        parse_mode: 'Markdown'
+      });
 
       // Выбираем случайную карту дня
       const allCards = [
@@ -296,11 +312,16 @@ class BotHandlers {
         reversed: isReversed
       };
 
+      // Обновляем сообщение на этапе получения интерпретации
+      await bot.editMessageText('🔮 *Карта дня выбрана*\n\n✨ Получаю персональную интерпретацию...', {
+        chat_id: msg.chat.id,
+        message_id: loadingMsg.message_id,
+        parse_mode: 'Markdown'
+      });
+
       // Получаем AI интерпретацию для карты дня
       let dailyInterpretation = null;
       try {
-        await bot.sendChatAction(msg.chat.id, 'typing');
-        
         const aiResponse = await this.getDailyCardInterpretation(cardWithState, user);
         dailyInterpretation = aiResponse;
         console.log('Daily card AI interpretation received:', JSON.stringify(aiResponse, null, 2));
@@ -308,11 +329,16 @@ class BotHandlers {
         console.log('Daily card AI interpretation failed:', error.message);
       }
 
+      // Обновляем сообщение для генерации изображения
+      await bot.editMessageText('🎨 *Создаю мистическое изображение карты*\n\n🌟 Воплощаю энергию в визуальную форму...', {
+        chat_id: msg.chat.id,
+        message_id: loadingMsg.message_id,
+        parse_mode: 'Markdown'
+      });
+
       // Генерируем изображение карты
       let cardImage = null;
       try {
-        await bot.sendChatAction(msg.chat.id, 'typing');
-        
         const imageResponse = await database.generateCardImage(cardWithState.name, cardWithState.description || 'Карта Таро');
         if (imageResponse && imageResponse.success) {
           cardImage = imageResponse;
@@ -351,6 +377,13 @@ class BotHandlers {
         if (withAdvice.length <= 1020) {
           caption = withAdvice;
         }
+      }
+
+      // Удаляем загрузочное сообщение
+      try {
+        await bot.deleteMessage(msg.chat.id, loadingMsg.message_id);
+      } catch (deleteError) {
+        // Игнорируем ошибки удаления
       }
 
       // Отправляем карту с изображением или без
@@ -521,42 +554,54 @@ class BotHandlers {
    */
   async handlePremiumCommand(bot, msg) {
     try {
-      const user = await this.ensureUser(msg.from);
-      const subscription = await database.getUserSubscription(user.id);
+      // Показываем мистическое сообщение загрузки
+      const loadingMsg = await bot.sendMessage(msg.chat.id, getMysticalLoadingMessage('premium'), {
+        parse_mode: 'Markdown'
+      });
 
-      let text;
-      let keyboard;
+      // Небольшая задержка для атмосферы
+      await new Promise(resolve => setTimeout(resolve, 1500));
 
-      if (subscription && subscription.isActive) {
-        text = `💎 *Ваш Premium активен!*\n\nПлан: ${subscription.planName}\nДействует до: ${new Date(subscription.endDate).toLocaleDateString('ru-RU')}\n\n✨ Вам доступны все функции MISTIKA Premium!`;
-        
-        keyboard = {
-          inline_keyboard: [
-            [{ text: '🔄 Продлить подписку', callback_data: 'extend_premium' }],
-            [{ text: '💳 Изменить план', callback_data: 'change_plan' }],
-            [{ text: '📊 Статистика', callback_data: 'premium_stats' }]
-          ]
-        };
-      } else {
-        const messages = config.getMessages();
-        text = `💎 *MISTIKA Premium*\n\nОткройте все возможности мистического мира:\n\n✨ **Что входит в Premium:**\n• Безлимитные гадания (вместо 3 в день)\n• Эксклюзивные расклады Таро\n• Детальная нумерология\n• Персональный лунный календарь\n• История всех гаданий\n• Экспорт результатов\n• Приоритетная поддержка\n\n🎯 **Планы подписки:**\n• Месяц: 299₽\n• 3 месяца: 799₽ (экономия 33%)\n• Год: 2999₽ (экономия 50%)\n\n🎁 Бесплатный пробный период 7 дней!`;
-        
-        keyboard = config.getKeyboards().premium;
-      }
+      // Упрощенная версия без обращения к базе данных для отладки
+      const text = `💎 *MISTIKA Premium*\n\nОткройте все возможности мистического мира:\n\n✨ **Что входит в Premium:**\n• Безлимитные гадания (вместо 3 в день)\n• Эксклюзивные расклады Таро\n• Детальная нумерология\n• Персональный лунный календарь\n• История всех гаданий\n• Экспорт результатов\n• Приоритетная поддержка\n\n🎯 **Планы подписки:**\n• Месяц: 299₽\n• 3 месяца: 799₽ (экономия 33%)\n• Год: 2999₽ (экономия 50%)\n\n🎁 Бесплатный пробный период 7 дней!`;
+      
+      const keyboard = config.getKeyboards().premium;
 
-      await bot.sendMessage(msg.chat.id, text, {
+      await bot.editMessageText(text, {
+        chat_id: msg.chat.id,
+        message_id: loadingMsg.message_id,
         reply_markup: keyboard,
         parse_mode: 'Markdown'
       });
 
+    } catch (error) {
+      console.error('Error in /premium command:', error);
+      console.error('Error details:', error.stack);
+      await bot.sendMessage(msg.chat.id, '❌ Произошла ошибка при загрузке информации о Premium. Попробуйте позже.');
+    }
+  }
+
+  /**
+   * Обработчик команды /referral
+   */
+  async handleReferralCommand(bot, msg) {
+    try {
+      const user = await this.ensureUser(msg.from);
+      
+      // Используем referral handler
+      await referralHandlers.handleReferralProgram(bot, {
+        message: msg,
+        from: msg.from,
+        id: 'referral_program'
+      }, database.apiService);
+
       await database.trackEvent({
-        type: 'command_premium',
-        userId: user.id,
-        metadata: { hasActiveSubscription: !!(subscription && subscription.isActive) }
+        type: 'command_referral',
+        userId: user.id
       });
 
     } catch (error) {
-      console.error('Error in /premium command:', error);
+      console.error('Error in /referral command:', error);
       await this.sendErrorMessage(bot, msg.chat.id);
     }
   }
@@ -575,7 +620,7 @@ class BotHandlers {
       // Подтверждаем получение callback query сразу, чтобы избежать timeout
       try {
         await bot.answerCallbackQuery(query.id, {
-          text: '⏳ Обрабатываю запрос...'
+          text: '✨ Призываю духов-наставников...'
         });
       } catch (err) {
         // Игнорируем ошибки подтверждения (query is too old)
@@ -587,8 +632,10 @@ class BotHandlers {
       // Маршрутизация по типу callback data
       if (data.startsWith('reading_')) {
         await this.handleReadingCallback(bot, chatId, messageId, data, from);
-      } else if (data.startsWith('premium_')) {
+      } else if (data.startsWith('premium_') && data !== 'premium_menu') {
         await this.handlePremiumCallback(bot, chatId, messageId, data, from);
+      } else if (data.startsWith('referral_')) {
+        await this.handleReferralCallback(bot, chatId, messageId, data, from);
       } else if (data.startsWith('daily_')) {
         await this.handleDailyCallback(bot, chatId, messageId, data, from);
       } else if (data.startsWith('lunar_')) {
@@ -693,6 +740,12 @@ class BotHandlers {
               // Удаляем устаревшую сессию
               this.pendingNumerology.delete(chatId);
             }
+          }
+          
+          // Проверяем, не является ли текст командой меню (защита от неточного совпадения)
+          if (text.includes('💎') && (text.includes('Премиум') || text.includes('Premium'))) {
+            await this.handlePremiumCommand(bot, msg);
+            return;
           }
           
           // Обработка произвольного текста как вопроса для гадания
@@ -984,8 +1037,11 @@ class BotHandlers {
    */
   async conductTarotRitual(bot, chatId, messageId, readingType, userQuestion, user) {
     try {
-      // Этап 1: Подготовка и настройка
-      await bot.editMessageText('🔮 *Подготовка к гаданию*\n\n🕯️ Зажигаю свечи...\n🌟 Очищаю энергетическое пространство...\n📿 Настраиваюсь на вашу энергию...', {
+      // Мистическая последовательность загрузки
+      const loadingSequence = getMysticalLoadingSequence('tarot');
+      
+      // Этап 1
+      await bot.editMessageText(loadingSequence[0], {
         chat_id: chatId,
         message_id: messageId,
         parse_mode: 'Markdown'
@@ -993,12 +1049,11 @@ class BotHandlers {
 
       await new Promise(resolve => setTimeout(resolve, 2000));
 
-      // Этап 2: Призыв и сосредоточение
-      let focusText = '🌙 *Призываю мудрость древних*\n\n';
+      // Этап 2: Добавляем вопрос пользователя если есть
+      let focusText = loadingSequence[1];
       if (userQuestion) {
-        focusText += `🧘‍♀️ Сосредотачиваемся на вашем вопросе:\n"${userQuestion}"\n\n`;
+        focusText = loadingSequence[1].replace('🃏 Карты выбирают свой путь...', `🧘‍♀️ Сосредотачиваемся на вашем вопросе:\n"${userQuestion}"\n\n🃏 Карты выбирают свой путь...`);
       }
-      focusText += '🔮 Прошу духов карт показать истину...';
 
       await bot.editMessageText(focusText, {
         chat_id: chatId,
@@ -1008,11 +1063,11 @@ class BotHandlers {
 
       await new Promise(resolve => setTimeout(resolve, 1500));
 
-      // Этап 3: Выбор и подготовка карт
+      // Этап 3
       const { TAROT_CARDS, SPREAD_TYPES } = require('../data/tarot');
       const spread = SPREAD_TYPES[readingType] || SPREAD_TYPES.single;
 
-      await bot.editMessageText(`🃏 *Тасую колоду из ${78} карт Таро*\n\n🌀 Карты выбирают себя сами...\n✨ Энергия вашего вопроса направляет процесс...`, {
+      await bot.editMessageText(loadingSequence[2], {
         chat_id: chatId,
         message_id: messageId,
         parse_mode: 'Markdown'
@@ -1128,6 +1183,79 @@ class BotHandlers {
   async handlePremiumCallback(bot, chatId, messageId, data, from) {
     try {
       switch (data) {
+        case 'premium_monthly':
+          await bot.editMessageText('📅 *Месячная подписка MISTIKA Premium*\n\n💰 Стоимость: 299₽/месяц\n\n✨ Что включено:\n• Безлимитные гадания\n• Все эксклюзивные функции\n• Приоритетная поддержка\n\n🎁 Первые 7 дней бесплатно!', {
+            chat_id: chatId,
+            message_id: messageId,
+            parse_mode: 'Markdown',
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: '💳 Оформить подписку', callback_data: 'purchase_monthly' }],
+                [{ text: '⬅️ Назад к планам', callback_data: 'premium_menu' }]
+              ]
+            }
+          });
+          break;
+
+        case 'premium_quarterly':
+          await bot.editMessageText('🎯 *Подписка на 3 месяца MISTIKA Premium*\n\n💰 Стоимость: 799₽ (экономия 33%)\n💸 Обычная цена: 897₽\n\n✨ Что включено:\n• Безлимитные гадания\n• Все эксклюзивные функции\n• Приоритетная поддержка\n\n🎁 Первые 7 дней бесплатно!', {
+            chat_id: chatId,
+            message_id: messageId,
+            parse_mode: 'Markdown',
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: '💳 Оформить подписку', callback_data: 'purchase_quarterly' }],
+                [{ text: '⬅️ Назад к планам', callback_data: 'premium_menu' }]
+              ]
+            }
+          });
+          break;
+
+        case 'premium_yearly':
+          await bot.editMessageText('⭐ *Годовая подписка MISTIKA Premium*\n\n💰 Стоимость: 2999₽ (экономия 50%)\n💸 Обычная цена: 3588₽\n\n✨ Что включено:\n• Безлимитные гадания\n• Все эксклюзивные функции\n• Приоритетная поддержка\n• Эксклюзивные бонусы\n\n🎁 Первые 7 дней бесплатно!', {
+            chat_id: chatId,
+            message_id: messageId,
+            parse_mode: 'Markdown',
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: '💳 Оформить подписку', callback_data: 'purchase_yearly' }],
+                [{ text: '⬅️ Назад к планам', callback_data: 'premium_menu' }]
+              ]
+            }
+          });
+          break;
+
+        case 'premium_trial':
+          await bot.editMessageText('🎁 *Пробный период MISTIKA Premium*\n\n🆓 7 дней бесплатно!\n\n✨ Что включено:\n• Безлимитные гадания\n• Все эксклюзивные функции\n• Приоритетная поддержка\n\n📝 После пробного периода автоматически активируется месячная подписка (299₽)', {
+            chat_id: chatId,
+            message_id: messageId,
+            parse_mode: 'Markdown',
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: '🎁 Активировать пробный период', callback_data: 'purchase_trial' }],
+                [{ text: '⬅️ Назад к планам', callback_data: 'premium_menu' }]
+              ]
+            }
+          });
+          break;
+
+        case 'purchase_monthly':
+        case 'purchase_quarterly':
+        case 'purchase_yearly':
+        case 'purchase_trial':
+          const planName = data.replace('purchase_', '');
+          await bot.editMessageText('💳 *Оплата Premium*\n\nИнтеграция с платежной системой в разработке...', {
+            chat_id: chatId,
+            message_id: messageId,
+            parse_mode: 'Markdown',
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: '⬅️ Назад к планам', callback_data: 'premium_menu' }],
+                [{ text: '🏠 Главное меню', callback_data: 'back_to_menu' }]
+              ]
+            }
+          });
+          break;
           
         case 'extend_premium':
           await bot.editMessageText('💎 *Продление Premium*\n\nВыберите план подписки:', {
@@ -1136,10 +1264,10 @@ class BotHandlers {
             parse_mode: 'Markdown',
             reply_markup: {
               inline_keyboard: [
-                [{ text: '1 месяц - 299₽', callback_data: 'premium_plan_month' }],
-                [{ text: '3 месяца - 799₽ (-33%)', callback_data: 'premium_plan_3month' }],
-                [{ text: '1 год - 2999₽ (-50%)', callback_data: 'premium_plan_year' }],
-                [{ text: '⬅️ Назад', callback_data: 'premium' }]
+                [{ text: '1 месяц - 299₽', callback_data: 'premium_monthly' }],
+                [{ text: '3 месяца - 799₽ (-33%)', callback_data: 'premium_quarterly' }],
+                [{ text: '1 год - 2999₽ (-50%)', callback_data: 'premium_yearly' }],
+                [{ text: '⬅️ Назад', callback_data: 'back_to_menu' }]
               ]
             }
           });
@@ -1195,6 +1323,64 @@ class BotHandlers {
     }
   }
 
+  async handleReferralCallback(bot, chatId, messageId, data, from) {
+    try {
+      const user = await this.ensureUser(from);
+      
+      // Создаем mock callback query для совместимости с referral handlers
+      const mockCallbackQuery = {
+        id: data,
+        message: { chat: { id: chatId } },
+        from: from
+      };
+
+      switch (data) {
+        case 'referral_program':
+          await referralHandlers.handleReferralProgram(bot, mockCallbackQuery, database.apiService);
+          break;
+        case 'referral_stats':
+          await referralHandlers.handleReferralStats(bot, mockCallbackQuery, database.apiService);
+          break;
+        case 'referral_invite':
+          await referralHandlers.handleInviteFriends(bot, mockCallbackQuery, database.apiService);
+          break;
+        case 'referral_copy_link':
+          await referralHandlers.handleCopyReferralLink(bot, mockCallbackQuery, database.apiService);
+          break;
+        case 'referral_rewards':
+          await referralHandlers.handleReferralRewards(bot, mockCallbackQuery, database.apiService);
+          break;
+        case 'referral_claim':
+          await referralHandlers.handleClaimReferralRewards(bot, mockCallbackQuery, database.apiService);
+          break;
+        default:
+          await bot.editMessageText('🎁 Обработка реферальной программы...', {
+            chat_id: chatId,
+            message_id: messageId
+          });
+      }
+
+      await database.trackEvent({
+        type: 'referral_callback',
+        userId: user.id,
+        metadata: { action: data }
+      });
+
+    } catch (error) {
+      console.error('Error in referral callback:', error);
+      await bot.editMessageText('❌ Ошибка при обработке реферальной программы. Попробуйте позже.', {
+        chat_id: chatId,
+        message_id: messageId,
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '🔄 Попробовать снова', callback_data: 'referral_program' }],
+            [{ text: '⬅️ Главное меню', callback_data: 'back_to_menu' }]
+          ]
+        }
+      });
+    }
+  }
+
   async handleDailyCallback(bot, chatId, messageId, data, from) {
     try {
       switch (data) {
@@ -1209,9 +1395,10 @@ class BotHandlers {
           break;
           
         default:
-          await bot.editMessageText('📅 Загрузка карты дня...', {
+          await bot.editMessageText(getMysticalLoadingMessage('tarot'), {
             chat_id: chatId,
-            message_id: messageId
+            message_id: messageId,
+            parse_mode: 'Markdown'
           });
           
           await this.handleDailyCommand(bot, { chat: { id: chatId }, from });
@@ -1374,6 +1561,22 @@ class BotHandlers {
           await this.handleDailyCommand(bot, { chat: { id: chatId }, from });
           break;
 
+        case 'premium_menu':
+          // Очищаем активные сессии нумерологии
+          this.pendingNumerology?.delete(chatId);
+          await bot.editMessageText('💎 *Премиум возможности*\n\nПолучите доступ к эксклюзивным функциям!', {
+            chat_id: chatId,
+            message_id: messageId,
+            parse_mode: 'Markdown',
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: '📱 Узнать больше', web_app: { url: `${process.env.WEBAPP_URL}/premium` } }],
+                [{ text: '🔙 Назад', callback_data: 'back_to_menu' }]
+              ]
+            }
+          });
+          break;
+
         case 'back_to_menu':
           // Очищаем активные сессии нумерологии
           this.pendingNumerology?.delete(chatId);
@@ -1534,11 +1737,23 @@ class BotHandlers {
           break;
 
         case 'settings':
-        case 'settings_notifications':
-        case 'settings_theme':
-        case 'settings_language':
-        case 'settings_deck':
           await this.handleSettingsCommand(bot, { chat: { id: chatId }, from });
+          break;
+          
+        case 'settings_notifications':
+          await this.handleSettingsNotifications(bot, chatId, messageId, from);
+          break;
+          
+        case 'settings_theme':
+          await this.handleSettingsTheme(bot, chatId, messageId, from);
+          break;
+          
+        case 'settings_language':
+          await this.handleSettingsLanguage(bot, chatId, messageId, from);
+          break;
+          
+        case 'settings_deck':
+          await this.handleSettingsDeck(bot, chatId, messageId, from);
           break;
 
         default:
@@ -4417,6 +4632,197 @@ ${phases.map(phase => `${phase.emoji} ${phase.date} - ${phase.name}`).join('\n')
     } catch (error) {
       console.error('Error in app command:', error);
       await this.sendErrorMessage(bot, msg.chat.id);
+    }
+  }
+
+  /**
+   * Обработчик настроек уведомлений
+   */
+  async handleSettingsNotifications(bot, chatId, messageId, from) {
+    try {
+      const user = await this.ensureUser(from);
+      
+      const text = `🔔 *Настройки уведомлений*\n\nВыберите, какие уведомления вы хотите получать:`;
+      
+      const keyboard = {
+        inline_keyboard: [
+          [
+            { text: user.notifyDailyCard ? '✅' : '❌', callback_data: 'toggle_daily_notifications' },
+            { text: 'Дневная карта', callback_data: 'info_daily_notifications' }
+          ],
+          [
+            { text: user.notifyLunar ? '✅' : '❌', callback_data: 'toggle_lunar_notifications' },
+            { text: 'Лунный календарь', callback_data: 'info_lunar_notifications' }
+          ],
+          [
+            { text: user.notifyPremium ? '✅' : '❌', callback_data: 'toggle_premium_notifications' },
+            { text: 'Премиум функции', callback_data: 'info_premium_notifications' }
+          ],
+          [
+            { text: '⬅️ Назад к настройкам', callback_data: 'settings' }
+          ]
+        ]
+      };
+
+      await bot.editMessageText(text, {
+        chat_id: chatId,
+        message_id: messageId,
+        parse_mode: 'Markdown',
+        reply_markup: keyboard
+      });
+
+    } catch (error) {
+      console.error('Error in settings notifications:', error);
+      await bot.editMessageText('❌ Ошибка при загрузке настроек уведомлений.', {
+        chat_id: chatId,
+        message_id: messageId,
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '⬅️ Назад к настройкам', callback_data: 'settings' }]
+          ]
+        }
+      });
+    }
+  }
+
+  /**
+   * Обработчик настроек темы
+   */
+  async handleSettingsTheme(bot, chatId, messageId, from) {
+    try {
+      const user = await this.ensureUser(from);
+      
+      const text = `🎨 *Настройки темы*\n\nВыберите предпочитаемую тему оформления:`;
+      
+      const keyboard = {
+        inline_keyboard: [
+          [
+            { text: user.theme === 'dark' ? '🌙 Темная ✅' : '🌙 Темная', callback_data: 'theme_dark' },
+            { text: user.theme === 'light' ? '☀️ Светлая ✅' : '☀️ Светлая', callback_data: 'theme_light' }
+          ],
+          [
+            { text: user.theme === 'mystical' ? '🔮 Мистическая ✅' : '🔮 Мистическая', callback_data: 'theme_mystical' }
+          ],
+          [
+            { text: '⬅️ Назад к настройкам', callback_data: 'settings' }
+          ]
+        ]
+      };
+
+      await bot.editMessageText(text, {
+        chat_id: chatId,
+        message_id: messageId,
+        parse_mode: 'Markdown',
+        reply_markup: keyboard
+      });
+
+    } catch (error) {
+      console.error('Error in settings theme:', error);
+      await bot.editMessageText('❌ Ошибка при загрузке настроек темы.', {
+        chat_id: chatId,
+        message_id: messageId,
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '⬅️ Назад к настройкам', callback_data: 'settings' }]
+          ]
+        }
+      });
+    }
+  }
+
+  /**
+   * Обработчик настроек языка
+   */
+  async handleSettingsLanguage(bot, chatId, messageId, from) {
+    try {
+      const user = await this.ensureUser(from);
+      
+      const text = `🌐 *Настройки языка*\n\nВыберите предпочитаемый язык интерфейса:`;
+      
+      const keyboard = {
+        inline_keyboard: [
+          [
+            { text: user.language === 'ru' ? '🇷🇺 Русский ✅' : '🇷🇺 Русский', callback_data: 'lang_ru' },
+            { text: user.language === 'en' ? '🇺🇸 English ✅' : '🇺🇸 English', callback_data: 'lang_en' }
+          ],
+          [
+            { text: user.language === 'es' ? '🇪🇸 Español ✅' : '🇪🇸 Español', callback_data: 'lang_es' },
+            { text: user.language === 'fr' ? '🇫🇷 Français ✅' : '🇫🇷 Français', callback_data: 'lang_fr' }
+          ],
+          [
+            { text: '⬅️ Назад к настройкам', callback_data: 'settings' }
+          ]
+        ]
+      };
+
+      await bot.editMessageText(text, {
+        chat_id: chatId,
+        message_id: messageId,
+        parse_mode: 'Markdown',
+        reply_markup: keyboard
+      });
+
+    } catch (error) {
+      console.error('Error in settings language:', error);
+      await bot.editMessageText('❌ Ошибка при загрузке настроек языка.', {
+        chat_id: chatId,
+        message_id: messageId,
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '⬅️ Назад к настройкам', callback_data: 'settings' }]
+          ]
+        }
+      });
+    }
+  }
+
+  /**
+   * Обработчик настроек колоды
+   */
+  async handleSettingsDeck(bot, chatId, messageId, from) {
+    try {
+      const user = await this.ensureUser(from);
+      
+      const text = `🔮 *Настройки колоды*\n\nВыберите предпочитаемую колоду карт Таро:`;
+      
+      const keyboard = {
+        inline_keyboard: [
+          [
+            { text: user.deckType === 'classic' ? 'Классическая ✅' : 'Классическая', callback_data: 'deck_classic' }
+          ],
+          [
+            { text: user.deckType === 'rider-waite' ? 'Райдера-Уэйта ✅' : 'Райдера-Уэйта', callback_data: 'deck_rider_waite' }
+          ],
+          [
+            { text: user.deckType === 'mystical' ? 'Мистическая ✅' : 'Мистическая', callback_data: 'deck_mystical' }
+          ],
+          [
+            { text: user.deckType === 'ai-generated' ? 'AI Generated ✅' : 'AI Generated', callback_data: 'deck_ai' }
+          ],
+          [
+            { text: '⬅️ Назад к настройкам', callback_data: 'settings' }
+          ]
+        ]
+      };
+
+      await bot.editMessageText(text, {
+        chat_id: chatId,
+        message_id: messageId,
+        parse_mode: 'Markdown',
+        reply_markup: keyboard
+      });
+
+    } catch (error) {
+      console.error('Error in settings deck:', error);
+      await bot.editMessageText('❌ Ошибка при загрузке настроек колоды.', {
+        chat_id: chatId,
+        message_id: messageId,
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '⬅️ Назад к настройкам', callback_data: 'settings' }]
+          ]
+        }
+      });
     }
   }
 }

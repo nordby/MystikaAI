@@ -1,7 +1,7 @@
 // client/src/services/api.js
 import axios from 'axios';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3000/api/v1';
 
 class ApiService {
   constructor() {
@@ -16,7 +16,7 @@ class ApiService {
     // Interceptor для добавления токена
     this.client.interceptors.request.use(
       (config) => {
-        const token = localStorage.getItem('auth_token');
+        const token = localStorage.getItem('mistika_token');
         if (token) {
           config.headers.Authorization = `Bearer ${token}`;
         }
@@ -30,7 +30,7 @@ class ApiService {
       (response) => response.data,
       (error) => {
         if (error.response?.status === 401) {
-          localStorage.removeItem('auth_token');
+          localStorage.removeItem('mistika_token');
           window.location.href = '/';
         }
         return Promise.reject(error);
@@ -173,6 +173,16 @@ class ApiService {
 
   async checkKandinskyHealth() {
     return this.client.get('/ai/kandinsky/health');
+  }
+
+  async processVoiceInput(audioBlob) {
+    const formData = new FormData();
+    formData.append('audio', audioBlob);
+    return this.client.post('/ai/voice', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    });
   }
 
   // Analytics

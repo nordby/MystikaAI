@@ -5,6 +5,7 @@ const rateLimiter = require('./middleware/rateLimiter');
 const errorHandler = require('./middleware/errorHandler');
 const userMiddleware = require('./middleware/user');
 const analyticsMiddleware = require('./middleware/analytics');
+const authMiddleware = require('./middleware/auth');
 
 class MistikaTelegramBot extends TelegramBot {
   constructor(token, options = {}) {
@@ -18,6 +19,7 @@ class MistikaTelegramBot extends TelegramBot {
   setupDefaultMiddlewares() {
     this.use(errorHandler.wrap);
     this.use(rateLimiter.check);
+    this.use(authMiddleware.authenticate);
     this.use(userMiddleware.loadUser);
     this.use(analyticsMiddleware.track);
   }

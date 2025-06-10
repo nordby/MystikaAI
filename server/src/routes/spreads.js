@@ -23,7 +23,7 @@ router.get('/:spreadId', spreadsController.getSpreadDetails);
  */
 router.post('/reading',
     authMiddleware,
-    rateLimitMiddleware({ windowMs: 15 * 60 * 1000, max: 20 }),
+    rateLimitMiddleware.readingLimiter(),
     spreadsController.createSpreadReading
 );
 
@@ -51,7 +51,7 @@ router.get('/reading/:readingId',
  */
 router.post('/custom',
     authMiddleware,
-    rateLimitMiddleware({ windowMs: 60 * 60 * 1000, max: 5 }),
+    rateLimitMiddleware.strictLimiter(),
     spreadsController.createCustomSpread
 );
 

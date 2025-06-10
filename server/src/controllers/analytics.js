@@ -1,5 +1,5 @@
 // server/src/controllers/analytics.js
-const databaseConfig = require('../config/database');
+// const databaseConfig = require('../config/database'); // Удалено - используем ленивую загрузку
 const { Op } = require('sequelize');
 const logger = require('../utils/logger');
 
@@ -39,7 +39,7 @@ const trackEvent = async (req, res) => {
  */
 const getAppAnalytics = async (req, res) => {
     try {
-        const models = databaseConfig.getModels();
+        const models = require('../models').getModels();
         const { User } = models;
 
         if (!req.user.isAdmin) {

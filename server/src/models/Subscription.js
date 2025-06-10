@@ -1,8 +1,8 @@
 // server/src/models/Subscription.js
-const { DataTypes } = require('sequelize');
-const sequelize = require('../database/connection');
+const { DataTypes, Op } = require('sequelize');
 
-const Subscription = sequelize.define('Subscription', {
+module.exports = (sequelize) => {
+  const Subscription = sequelize.define('Subscription', {
   id: {
     type: DataTypes.UUID,
     defaultValue: DataTypes.UUIDV4,
@@ -215,14 +215,14 @@ const Subscription = sequelize.define('Subscription', {
       where: {
         status: 'active',
         endDate: {
-          [sequelize.Sequelize.Op.gt]: new Date()
+          [Op.gt]: new Date()
         }
       }
     },
     expired: {
       where: {
         endDate: {
-          [sequelize.Sequelize.Op.lt]: new Date()
+          [Op.lt]: new Date()
         }
       }
     },
@@ -230,7 +230,7 @@ const Subscription = sequelize.define('Subscription', {
       where: {
         status: 'active',
         endDate: {
-          [sequelize.Sequelize.Op.between]: [
+          [Op.between]: [
             new Date(),
             new Date(Date.now() + days * 24 * 60 * 60 * 1000)
           ]
@@ -398,7 +398,7 @@ Subscription.getForRenewal = function() {
   return this.scope('autoRenewal').findAll({
     where: {
       nextBillingDate: {
-        [sequelize.Sequelize.Op.between]: [tomorrow, dayAfter]
+        [Op.between]: [tomorrow, dayAfter]
       }
     },
     include: [{
@@ -477,4 +477,5 @@ Subscription.associate = function(models) {
   });
 };
 
-module.exports = Subscription;
+  return Subscription;
+};

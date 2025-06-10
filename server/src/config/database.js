@@ -92,11 +92,8 @@ class DatabaseConfig {
       // Тестирование подключения
       await this.sequelize.authenticate();
       
-      // Загрузка моделей
-      await this.loadModels();
-
-      // Синхронизация базы данных
-      await this.syncDatabase();
+      // Модели будут загружены через models/index.js
+      logger.info('Database connection established, model loading deferred to models/index.js');
 
       this.isConnected = true;
       logger.info('Database initialized successfully');
@@ -110,76 +107,22 @@ class DatabaseConfig {
   }
 
   /**
-   * Загрузка моделей
+   * Загрузка моделей (удалено - модели загружаются через models/index.js)
    */
   async loadModels() {
-    try {
-      // Загрузка моделей
-      const User = require('../models/User_simple')(this.sequelize);
-      const TarotReading = require('../models/TarotReading')(this.sequelize);
-
-      // Создание объекта models
-      const models = {
-        User,
-        TarotReading
-      };
-
-      // Настройка ассоциаций (временно отключено для отладки)
-      // Object.keys(models).forEach(modelName => {
-      //   if (models[modelName].associate) {
-      //     models[modelName].associate(models);
-      //   }
-      // });
-
-      // Добавление моделей в sequelize
-      this.sequelize.models = models;
-
-      logger.info('Database models loaded successfully');
-
-    } catch (error) {
-      logger.error('Failed to load database models', { error: error.message });
-      throw error;
-    }
+    // Модели теперь загружаются централизованно через models/index.js
+    // Этот метод оставлен для совместимости
+    logger.info('Model loading deferred to models/index.js');
+    return;
   }
 
   /**
-   * Синхронизация схемы базы данных
+   * Синхронизация схемы базы данных (удалено - синхронизация выполняется через models/index.js)
    */
   async syncDatabase() {
-    try {
-      logger.info('Synchronizing database schema...');
-      logger.info('Available models:', Object.keys(this.sequelize.models));
-      
-      // Попробуем синхронизировать каждую модель отдельно
-      for (const modelName of Object.keys(this.sequelize.models)) {
-        try {
-          logger.info(`Syncing model: ${modelName}`);
-          await this.sequelize.models[modelName].sync({ force: true });
-          logger.info(`Model ${modelName} synced successfully`);
-        } catch (error) {
-          logger.error(`Failed to sync model ${modelName}:`, error.message);
-          throw error;
-        }
-      }
-      
-      logger.info('Database schema synchronized successfully');
-      
-      // Проверим, что таблицы созданы
-      try {
-        const tableNames = await this.sequelize.getQueryInterface().showAllTables();
-        logger.info('Created tables:', tableNames);
-      } catch (error) {
-        logger.warn('Could not list tables:', error.message);
-      }
-
-      // Запуск сидеров после синхронизации
-      // await this.runSeeders(this.sequelize.models);
-      logger.info('Database initialization completed successfully');
-
-    } catch (error) {
-      logger.error('Failed to load database models', { error: error.message });
-      throw error;
-    }
+    // Синхронизация БД теперь выполняется в models/index.js
+    logger.info('Database sync deferred to models/index.js');
+    return;
   }
 
   /**

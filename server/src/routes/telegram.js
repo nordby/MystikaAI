@@ -11,7 +11,7 @@ const logger = require('../utils/logger');
  * Webhook для обработки обновлений от Telegram
  */
 router.post('/webhook',
-    rateLimitMiddleware({ windowMs: 60 * 1000, max: 1000 }),
+    rateLimitMiddleware.webhookLimiter(),
     async (req, res) => {
         try {
             const update = req.body;
@@ -30,7 +30,7 @@ router.post('/webhook',
  */
 router.post('/send-message',
     authMiddleware,
-    rateLimitMiddleware({ windowMs: 60 * 1000, max: 30 }),
+    rateLimitMiddleware.globalLimiter(),
     async (req, res) => {
         try {
             const { chatId, message, options = {} } = req.body;
@@ -65,7 +65,7 @@ router.post('/send-message',
  */
 router.post('/send-card',
     authMiddleware,
-    rateLimitMiddleware({ windowMs: 60 * 1000, max: 20 }),
+    rateLimitMiddleware.strictLimiter(),
     async (req, res) => {
         try {
             const { chatId, cardData } = req.body;
@@ -100,7 +100,7 @@ router.post('/send-card',
  */
 router.post('/send-notification',
     authMiddleware,
-    rateLimitMiddleware({ windowMs: 60 * 1000, max: 50 }),
+    rateLimitMiddleware.globalLimiter(),
     async (req, res) => {
         try {
             const { userId, notification } = req.body;
@@ -267,7 +267,7 @@ router.get('/webhook-info',
  */
 router.post('/broadcast',
     authMiddleware,
-    rateLimitMiddleware({ windowMs: 60 * 60 * 1000, max: 5 }),
+    rateLimitMiddleware.strictLimiter(),
     async (req, res) => {
         try {
             if (!req.user.isAdmin) {

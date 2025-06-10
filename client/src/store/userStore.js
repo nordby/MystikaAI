@@ -34,7 +34,7 @@ const useUserStore = create(
       fetchProfile: async () => {
         set({ isLoading: true, error: null });
         try {
-          const token = localStorage.getItem('token');
+          const token = localStorage.getItem('mistika_token');
           const response = await fetch('/api/users/profile', {
             headers: {
               'Authorization': `Bearer ${token}`
@@ -55,7 +55,7 @@ const useUserStore = create(
       updateProfile: async (profileData) => {
         set({ isLoading: true, error: null });
         try {
-          const token = localStorage.getItem('token');
+          const token = localStorage.getItem('mistika_token');
           const response = await fetch('/api/users/profile', {
             method: 'PUT',
             headers: {
@@ -89,7 +89,7 @@ const useUserStore = create(
 
       savePreferences: async () => {
         try {
-          const token = localStorage.getItem('token');
+          const token = localStorage.getItem('mistika_token');
           const { preferences } = get();
           
           await fetch('/api/users/preferences', {
@@ -108,7 +108,7 @@ const useUserStore = create(
       fetchReadings: async (page = 1, limit = 10) => {
         set({ isLoading: true, error: null });
         try {
-          const token = localStorage.getItem('token');
+          const token = localStorage.getItem('mistika_token');
           const response = await fetch(`/api/readings?page=${page}&limit=${limit}`, {
             headers: {
               'Authorization': `Bearer ${token}`
@@ -134,7 +134,7 @@ const useUserStore = create(
 
       addToFavorites: async (readingId) => {
         try {
-          const token = localStorage.getItem('token');
+          const token = localStorage.getItem('mistika_token');
           const response = await fetch(`/api/readings/${readingId}/favorite`, {
             method: 'POST',
             headers: {
@@ -157,7 +157,7 @@ const useUserStore = create(
 
       removeFromFavorites: async (readingId) => {
         try {
-          const token = localStorage.getItem('token');
+          const token = localStorage.getItem('mistika_token');
           const response = await fetch(`/api/readings/${readingId}/favorite`, {
             method: 'DELETE',
             headers: {
@@ -194,7 +194,7 @@ const useUserStore = create(
 
       fetchStats: async () => {
         try {
-          const token = localStorage.getItem('token');
+          const token = localStorage.getItem('mistika_token');
           const response = await fetch('/api/users/stats', {
             headers: {
               'Authorization': `Bearer ${token}`
