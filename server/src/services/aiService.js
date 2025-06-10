@@ -6,7 +6,7 @@ class AIService {
   constructor() {
     this.claudeApiKey = process.env.CLAUDE_API_KEY;
     this.openaiApiKey = process.env.OPENAI_API_KEY;
-    this.defaultModel = 'claude-3-5-haiku-20241022';
+    this.defaultModel = 'claude-3-haiku-20240307';
     this.maxRetries = 3;
     this.retryDelay = 1000;
   }

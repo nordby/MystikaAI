@@ -204,7 +204,7 @@ class BotHandlers {
       });
 
       // Показываем кнопку WebApp
-      await bot.sendMessage(chatId, '🔮 Откройте полное приложение MISTIKA:', {
+      await bot.sendMessage(chatId, '🔮 За пеленой тайн скрывается больше…', {
         reply_markup: keyboards.webApp
       });
 
@@ -1095,7 +1095,7 @@ class BotHandlers {
       }));
 
       // Этап 4: Создание образов карт
-      await bot.editMessageText(`🎨 *Создаю мистические образы*\n\n${spread.name}\n\n🖼️ Материализую энергии карт в образы...\n⚡ Каждая карта несет уникальную вибрацию...`, {
+      await bot.editMessageText(`🎨 *Создаю мистические образы*\n\n🖼️ Материализую энергии карт в образы...\n⚡ Каждая карта несет уникальную вибрацию...`, {
         chat_id: chatId,
         message_id: messageId,
         parse_mode: 'Markdown'
@@ -1106,7 +1106,7 @@ class BotHandlers {
       try {
         const imageResponse = await Promise.race([
           database.generateSpreadImages(cardsWithReverse, readingType),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('Image generation timeout')), 180000))
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Image generation timeout')), 280000))
         ]);
         
         if (imageResponse && imageResponse.success) {
@@ -2787,7 +2787,7 @@ ${phases.map(phase => `${phase.emoji} ${phase.date} - ${phase.name}`).join('\n')
     await bot.sendMessage(chatId, mysticalText, { parse_mode: 'Markdown' });
 
     // Пауза для драматического эффекта
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await new Promise(resolve => setTimeout(resolve, 500));
 
     // Отправляем изображение карты если есть
     if (cardImage && cardImage.imageData) {

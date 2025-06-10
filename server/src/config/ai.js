@@ -506,7 +506,7 @@ class AIConfig {
         width: 680,
         height: 1024,
         steps: 20,
-        timeout: 180000
+        timeout: 280000
       },
       voiceTranscription: {
         language: 'ru',
