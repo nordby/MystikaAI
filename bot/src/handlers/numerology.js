@@ -167,10 +167,13 @@ class NumerologyHandler {
         session.data.fullName
       );
 
+      // Сохраняем профиль пользователя
+      this.saveUserProfile(ctx.from.id, session.data.birthDate, session.data.fullName);
+
       await this.sendProfileResult(ctx, profile);
       
-      // Очищаем сессию
-      this.userSessions.delete(ctx.from.id);
+      // НЕ очищаем сессию, чтобы данные остались для других функций
+      // this.userSessions.delete(ctx.from.id);
     } catch (error) {
       console.error('Ошибка расчета профиля:', error);
       await ctx.reply('❌ Ошибка расчета. Попробуйте позже.');
@@ -253,6 +256,79 @@ class NumerologyHandler {
     }
   }
 
+  // Подробный анализ
+  async handleDetailedAnalysis(ctx) {
+    try {
+      const userId = ctx.from.id;
+      const userProfile = this.getUserProfile(userId);
+      
+      if (!userProfile || !userProfile.profile) {
+        await ctx.reply('❌ Профиль не найден. Необходимо создать профиль заново.');
+        return;
+      }
+
+      await this.sendDetailedAnalysis(ctx, userProfile.profile);
+    } catch (error) {
+      console.error('Ошибка подробного анализа:', error);
+      await ctx.reply('Ошибка получения подробного анализа.');
+    }
+  }
+
+  // Отправка подробного анализа
+  async sendDetailedAnalysis(ctx, profile) {
+    try {
+      let message = `📊 *Подробный нумерологический анализ*\n\n`;
+
+      // Число жизненного пути
+      message += `🛤 *Число жизненного пути: ${profile.lifePath.number}*\n`;
+      message += `${profile.lifePath.meaning?.description || ''}\n\n`;
+      
+      if (profile.lifePath.meaning?.positive) {
+        message += `✅ *Сильные стороны:*\n`;
+        profile.lifePath.meaning.positive.forEach(strength => {
+          message += `• ${strength}\n`;
+        });
+        message += '\n';
+      }
+
+      if (profile.lifePath.meaning?.negative) {
+        message += `⚠️ *Вызовы:*\n`;
+        profile.lifePath.meaning.negative.forEach(challenge => {
+          message += `• ${challenge}\n`;
+        });
+        message += '\n';
+      }
+
+      // Рекомендации по карьере
+      if (profile.lifePath.meaning?.career) {
+        message += `💼 *Подходящие профессии:*\n`;
+        profile.lifePath.meaning.career.forEach(career => {
+          message += `• ${career}\n`;
+        });
+        message += '\n';
+      }
+
+      // Отношения
+      if (profile.lifePath.meaning?.relationships) {
+        message += `💕 *В отношениях:*\n${profile.lifePath.meaning.relationships}\n\n`;
+      }
+
+      const keyboard = createInlineKeyboard([
+        [{ text: '👥 Совместимость', callback_data: 'numerology_compatibility' }],
+        [{ text: '🔮 Прогноз', callback_data: 'numerology_forecast' }],
+        [{ text: '🔙 Назад', callback_data: 'numerology_menu' }]
+      ]);
+
+      await ctx.editMessageText(message, { 
+        parse_mode: 'Markdown', 
+        reply_markup: keyboard 
+      });
+    } catch (error) {
+      console.error('Ошибка отправки подробного анализа:', error);
+      await ctx.reply('Ошибка отображения анализа.');
+    }
+  }
+
   // Анализ имени
   async handleNameAnalysis(ctx) {
     try {
@@ -279,6 +355,151 @@ class NumerologyHandler {
     } catch (error) {
       console.error('Ошибка анализа имени:', error);
       await ctx.reply('Ошибка. Попробуйте позже.');
+    }
+  }
+
+  // Обработка даты рождения партнера
+  async processPartnerBirthDate(ctx, text, session) {
+    const dateRegex = /^(\d{1,2})\.(\d{1,2})\.(\d{4})$/;
+    const match = text.match(dateRegex);
+
+    if (!match) {
+      await ctx.reply('❌ Неверный формат даты. Введите дату в формате ДД.ММ.ГГГГ (например: 15.03.1990)');
+      return;
+    }
+
+    const [, day, month, year] = match;
+    const partnerBirthDate = new Date(year, month - 1, day);
+
+    if (isNaN(partnerBirthDate.getTime()) || partnerBirthDate > new Date()) {
+      await ctx.reply('❌ Некорректная дата. Проверьте правильность ввода.');
+      return;
+    }
+
+    session.data.partnerBirthDate = partnerBirthDate;
+    session.step = 'waiting_partner_name';
+    this.userSessions.set(ctx.from.id, session);
+
+    await ctx.reply(`✅ Дата рождения партнера: ${day}.${month}.${year}
+
+👤 Теперь введите полное имя партнера:`, {
+      reply_markup: createInlineKeyboard([
+        [{ text: '❌ Отмена', callback_data: 'numerology_menu' }]
+      ])
+    });
+  }
+
+  // Обработка имени партнера
+  async processPartnerName(ctx, text, session) {
+    if (text.length < 2) {
+      await ctx.reply('❌ Слишком короткое имя. Введите полное имя партнера.');
+      return;
+    }
+
+    session.data.partnerName = text;
+    
+    try {
+      // Получаем данные пользователя из профиля
+      const userProfile = this.getUserProfile(ctx.from.id);
+      if (!userProfile || !userProfile.birthDate) {
+        await ctx.reply('❌ Для расчета совместимости нужны ваши данные. Пожалуйста, сначала заполните свой профиль.');
+        this.userSessions.delete(ctx.from.id);
+        return;
+      }
+
+      // Добавляем данные пользователя в сессию
+      session.data.userBirthDate = userProfile.birthDate;
+      session.data.userName = userProfile.fullName;
+
+      await this.calculateCompatibility(ctx, session);
+      this.userSessions.delete(ctx.from.id);
+    } catch (error) {
+      console.error('Ошибка расчета совместимости:', error);
+      await ctx.reply('❌ Ошибка расчета. Попробуйте позже.');
+      this.userSessions.delete(ctx.from.id);
+    }
+  }
+
+  // Расчет совместимости
+  async calculateCompatibility(ctx, session) {
+    try {
+      const userLifePath = await numerologyService.calculateLifePath(session.data.userBirthDate);
+      const partnerLifePath = await numerologyService.calculateLifePath(session.data.partnerBirthDate);
+      
+      const compatibility = await numerologyService.calculateCompatibility(userLifePath, partnerLifePath);
+
+      let message = `👥 *Анализ совместимости*\n\n`;
+      message += `👤 *Ваше число жизненного пути:* ${userLifePath}\n`;
+      message += `💕 *Число партнера:* ${partnerLifePath}\n\n`;
+      message += `📊 *Совместимость:* ${compatibility.percentage}%\n`;
+      message += `🎯 *Уровень:* ${this.getCompatibilityLevel(compatibility.level)}\n\n`;
+      message += `💬 *Описание:*\n${compatibility.description}\n\n`;
+      
+      if (compatibility.advice && compatibility.advice.length > 0) {
+        message += `💡 *Рекомендации:*\n`;
+        compatibility.advice.forEach(advice => {
+          message += `• ${advice}\n`;
+        });
+      }
+
+      const keyboard = createInlineKeyboard([
+        [{ text: '🔄 Другой партнер', callback_data: 'numerology_compatibility' }],
+        [{ text: '🔙 Назад', callback_data: 'numerology_menu' }]
+      ]);
+
+      await ctx.reply(message, { 
+        parse_mode: 'Markdown', 
+        reply_markup: keyboard 
+      });
+    } catch (error) {
+      console.error('Ошибка расчета совместимости:', error);
+      await ctx.reply('Ошибка расчета совместимости.');
+    }
+  }
+
+  // Прогноз
+  async handleForecast(ctx) {
+    try {
+      const userId = ctx.from.id;
+      const userProfile = this.getUserProfile(userId);
+      
+      if (!userProfile || !userProfile.birthDate) {
+        await ctx.reply('❌ Для прогноза нужны данные о дате рождения. Пожалуйста, сначала заполните профиль.');
+        return;
+      }
+
+      const forecast = await numerologyService.generatePersonalForecast(userProfile.birthDate);
+      
+      let message = `🔮 *Персональный нумерологический прогноз*\n\n`;
+      
+      message += `📅 *Персональный год ${forecast.personalYear.number}:*\n`;
+      message += `${forecast.personalYear.meaning}\n\n`;
+      
+      message += `📆 *Персональный месяц ${forecast.personalMonth.number}:*\n`;
+      message += `${forecast.personalMonth.meaning}\n\n`;
+      
+      message += `📋 *Персональный день ${forecast.personalDay.number}:*\n`;
+      message += `${forecast.personalDay.meaning}\n\n`;
+      
+      if (forecast.advice && forecast.advice.length > 0) {
+        message += `💡 *Рекомендации:*\n`;
+        forecast.advice.slice(0, 3).forEach(advice => {
+          message += `• ${advice}\n`;
+        });
+      }
+
+      const keyboard = createInlineKeyboard([
+        [{ text: '📊 Подробный прогноз', callback_data: 'numerology_detailed_forecast' }],
+        [{ text: '🔙 Назад', callback_data: 'numerology_menu' }]
+      ]);
+
+      await ctx.editMessageText(message, { 
+        parse_mode: 'Markdown', 
+        reply_markup: keyboard 
+      });
+    } catch (error) {
+      console.error('Ошибка прогноза:', error);
+      await ctx.reply('Ошибка получения прогноза.');
     }
   }
 
@@ -345,6 +566,64 @@ ${this.getPersonalYearMeaning(personalYear)}
       console.error('Ошибка персонального года:', error);
       await ctx.reply('Ошибка. Попробуйте позже.');
     }
+  }
+
+  // Получение уровня совместимости
+  getCompatibilityLevel(level) {
+    const levels = {
+      'high': '💚 Высокая',
+      'medium': '💛 Средняя', 
+      'low': '💔 Низкая'
+    };
+    return levels[level] || '❓ Неопределенная';
+  }
+
+  // Сохранение профиля пользователя (синхронизация с основным индексом)
+  async saveUserProfile(userId, birthDate, fullName) {
+    // Сохраняем в локальной сессии
+    const session = this.userSessions.get(userId) || { data: {} };
+    session.data.birthDate = birthDate;
+    session.data.fullName = fullName;
+    session.data.userBirthDate = birthDate; // Для совместимости
+    this.userSessions.set(userId, session);
+    
+    // Рассчитываем полный профиль
+    try {
+      const numerologyService = require('../../../server/src/services/numerologyService');
+      const profile = await numerologyService.generateFullAnalysis(birthDate, fullName);
+      
+      // Синхронизируем с основным хранилищем через внешний обработчик
+      if (this.externalProfileHandler) {
+        this.externalProfileHandler.saveProfile(userId, {
+          profile,
+          birthDate,
+          fullName,
+          lastAnalysis: new Date()
+        });
+      }
+    } catch (error) {
+      console.error('Ошибка сохранения профиля:', error);
+    }
+  }
+
+  // Получение профиля пользователя (с проверкой основного хранилища)
+  getUserProfile(userId) {
+    // Сначала проверяем основное хранилище
+    if (this.externalProfileHandler) {
+      const externalProfile = this.externalProfileHandler.getProfile(userId);
+      if (externalProfile) {
+        return externalProfile;
+      }
+    }
+    
+    // Иначе берем из локальной сессии
+    const session = this.userSessions.get(userId);
+    return session?.data || null;
+  }
+
+  // Метод для установки внешнего обработчика профилей (для синхронизации)
+  setProfileHandler(profileHandler) {
+    this.externalProfileHandler = profileHandler;
   }
 
   // Вспомогательные методы

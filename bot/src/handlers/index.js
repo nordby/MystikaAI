@@ -2,6 +2,7 @@
 const database = require('../database');
 const config = require('../config');
 const { TAROT_CARDS } = require('../data/tarot');
+const NumerologyHandler = require('./numerology');
 
 class BotHandlers {
   constructor() {
@@ -16,6 +17,19 @@ class BotHandlers {
     
     // Постоянное хранилище профилей пользователей (не очищается)
     this.userProfiles = new Map(); // chatId -> { profile, birthDate, fullName, lastAnalysis }
+    
+    // Инициализация обработчика нумерологии
+    this.numerologyHandler = new NumerologyHandler();
+    
+    // Устанавливаем связь для синхронизации профилей
+    this.numerologyHandler.setProfileHandler({
+      saveProfile: (userId, profile) => {
+        this.userProfiles.set(userId, profile);
+      },
+      getProfile: (userId) => {
+        return this.userProfiles.get(userId);
+      }
+    });
     
     // Очистка старых состояний каждые 10 минут
     setInterval(() => {
@@ -658,7 +672,17 @@ class BotHandlers {
           await this.handleHelpCommand(bot, msg);
           break;
         default:
-          // Проверяем, ожидаем ли мы ввод для нумерологии
+          // Проверяем, ожидаем ли мы ввод для нумерологии (новая система)
+          if (this.numerologyHandler.userSessions.has(chatId)) {
+            await this.numerologyHandler.handleTextInput({
+              message: { text },
+              from: { id: msg.from.id },
+              reply: (text, options) => bot.sendMessage(chatId, text, options)
+            });
+            return;
+          }
+          
+          // Проверяем старую систему нумерологии
           if (this.pendingNumerology && this.pendingNumerology.has(chatId)) {
             const session = this.pendingNumerology.get(chatId);
             // Проверяем, что сессия не устарела (максимум 10 минут)
@@ -831,8 +855,13 @@ class BotHandlers {
 
       await bot.sendChatAction(msg.chat.id, 'typing');
 
-      // Показываем меню нумерологии вместо сразу запроса даты
-      await this.handleNumerologyMenu(bot, msg.chat.id, null, msg.from);
+      // Используем новый обработчик нумерологии
+      await this.numerologyHandler.handleNumerologyMenu({
+        editMessageText: (text, options) => bot.sendMessage(msg.chat.id, text, options),
+        reply: (text, options) => bot.sendMessage(msg.chat.id, text, options),
+        callbackQuery: false,
+        from: { id: msg.from.id }
+      });
 
       await database.trackEvent({
         type: 'command_numerology',
@@ -1378,12 +1407,21 @@ class BotHandlers {
 
         case 'numerology':
         case 'numerology_menu':
-          await this.handleNumerologyMenu(bot, chatId, messageId, from);
+          await this.numerologyHandler.handleNumerologyMenu({
+            editMessageText: (text, options) => bot.editMessageText(text, { ...options, chat_id: chatId, message_id: messageId }),
+            reply: (text, options) => bot.sendMessage(chatId, text, options),
+            callbackQuery: true,
+            from: { id: from.id }
+          });
           break;
 
         case 'numerology_create_profile':
         case 'numerology_calculate':
-          await this.handleNumerologyCalculate(bot, chatId, messageId, from);
+          await this.numerologyHandler.handleCalculateStart({
+            editMessageText: (text, options) => bot.editMessageText(text, { ...options, chat_id: chatId, message_id: messageId }),
+            reply: (text, options) => bot.sendMessage(chatId, text, options),
+            from: { id: from.id }
+          });
           break;
 
         case 'numerology_my_profile':
@@ -1414,7 +1452,81 @@ class BotHandlers {
           break;
 
         case 'numerology_detailed':
-          await this.showDetailedNumerologyAnalysis(bot, chatId, messageId, from);
+          await this.numerologyHandler.handleDetailedAnalysis({
+            editMessageText: (text, options) => bot.editMessageText(text, { ...options, chat_id: chatId, message_id: messageId }),
+            reply: (text, options) => bot.sendMessage(chatId, text, options),
+            from: { id: from.id }
+          });
+          break;
+
+        case 'numerology_compatibility':
+          await this.numerologyHandler.handleCompatibility({
+            editMessageText: (text, options) => bot.editMessageText(text, { ...options, chat_id: chatId, message_id: messageId }),
+            reply: (text, options) => bot.sendMessage(chatId, text, options),
+            from: { id: from.id }
+          });
+          break;
+
+        case 'numerology_forecast':
+          await this.numerologyHandler.handleForecast({
+            editMessageText: (text, options) => bot.editMessageText(text, { ...options, chat_id: chatId, message_id: messageId }),
+            reply: (text, options) => bot.sendMessage(chatId, text, options),
+            from: { id: from.id }
+          });
+          break;
+
+        case 'numerology_name':
+          await this.numerologyHandler.handleNameAnalysis({
+            editMessageText: (text, options) => bot.editMessageText(text, { ...options, chat_id: chatId, message_id: messageId }),
+            reply: (text, options) => bot.sendMessage(chatId, text, options),
+            from: { id: from.id }
+          });
+          break;
+
+        case 'numerology_year':
+          await this.numerologyHandler.handlePersonalYear({
+            editMessageText: (text, options) => bot.editMessageText(text, { ...options, chat_id: chatId, message_id: messageId }),
+            reply: (text, options) => bot.sendMessage(chatId, text, options),
+            from: { id: from.id }
+          });
+          break;
+
+        case 'numerology_profile':
+          // Отображение сохраненного профиля
+          const userProfile = this.userProfiles.get(chatId);
+          if (!userProfile || !userProfile.profile) {
+            await bot.editMessageText('❌ Профиль не найден. Создайте профиль сначала.', {
+              chat_id: chatId,
+              message_id: messageId,
+              reply_markup: {
+                inline_keyboard: [
+                  [{ text: '🔢 Создать профиль', callback_data: 'numerology_calculate' }],
+                  [{ text: '🔙 Назад', callback_data: 'numerology_menu' }]
+                ]
+              }
+            });
+          } else {
+            const profile = userProfile.profile;
+            let message = `👤 *Ваш нумерологический профиль*\n\n`;
+            message += `📛 *Имя:* ${userProfile.fullName}\n`;
+            message += `📅 *Дата рождения:* ${userProfile.birthDate.toLocaleDateString('ru-RU')}\n\n`;
+            message += `🛤 *Жизненный путь:* ${profile.lifePath.number}\n`;
+            message += `⭐ *Судьба:* ${profile.destiny.number}\n`;
+            message += `💫 *Душа:* ${profile.soul.number}\n`;
+            message += `👤 *Личность:* ${profile.personality.number}\n`;
+
+            await bot.editMessageText(message, {
+              chat_id: chatId,
+              message_id: messageId,
+              parse_mode: 'Markdown',
+              reply_markup: {
+                inline_keyboard: [
+                  [{ text: '📊 Подробный анализ', callback_data: 'numerology_detailed' }],
+                  [{ text: '🔙 Назад', callback_data: 'numerology_menu' }]
+                ]
+              }
+            });
+          }
           break;
 
         case 'help':
