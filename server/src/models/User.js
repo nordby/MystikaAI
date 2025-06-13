@@ -118,11 +118,7 @@ module.exports = (sequelize) => {
     },
     referredBy: {
       type: DataTypes.INTEGER,
-      allowNull: true,
-      references: {
-        model: 'Users',
-        key: 'id'
-      }
+      allowNull: true
     },
     createdAt: {
       type: DataTypes.DATE,
@@ -235,6 +231,12 @@ module.exports = (sequelize) => {
     User.hasMany(models.User, {
       foreignKey: 'referredBy',
       as: 'referrals'
+    });
+
+    // Ассоциация с подписками
+    User.hasMany(models.Subscription, {
+      foreignKey: 'userId',
+      as: 'subscriptions'
     });
   };
 

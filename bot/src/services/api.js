@@ -113,6 +113,34 @@ class ApiService {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
 
+  /**
+   * HTTP GET запрос
+   */
+  async get(endpoint, options = {}) {
+    return await this.makeRequest('GET', endpoint, null, options);
+  }
+
+  /**
+   * HTTP POST запрос
+   */
+  async post(endpoint, data = null, options = {}) {
+    return await this.makeRequest('POST', endpoint, data, options);
+  }
+
+  /**
+   * HTTP PUT запрос
+   */
+  async put(endpoint, data = null, options = {}) {
+    return await this.makeRequest('PUT', endpoint, data, options);
+  }
+
+  /**
+   * HTTP DELETE запрос
+   */
+  async delete(endpoint, options = {}) {
+    return await this.makeRequest('DELETE', endpoint, null, options);
+  }
+
   // ===== USER API =====
 
   /**

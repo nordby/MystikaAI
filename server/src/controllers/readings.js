@@ -207,6 +207,12 @@ class ReadingsController {
 
       const models = require('../models').getModels();
       const { User, TarotReading, Card } = models;
+      
+      logger.info('Models info', {
+        userModel: User ? User.name : 'undefined',
+        tarotReadingModel: TarotReading ? TarotReading.name : 'undefined',
+        cardModel: Card ? Card.name : 'undefined'
+      });
 
       // Извлекаем токен и декодируем его (упрощенная версия)
       const token = authHeader.split(' ')[1];
@@ -226,8 +232,17 @@ class ReadingsController {
       }
 
       // Найти пользователя
+      logger.info('Looking for user', { userId });
+      
       const user = await User.findByPk(userId);
+      logger.info('User search result', { 
+        found: !!user, 
+        userId,
+        userDetails: user ? { id: user.id, telegramId: user.telegramId } : null 
+      });
+      
       if (!user) {
+        logger.error('User not found for daily reading', { userId, token: token.substring(0, 20) + '...' });
         return res.status(404).json({
           success: false,
           message: 'User not found'
@@ -344,6 +359,13 @@ class ReadingsController {
       }
 
       // Создаем запись дневного гадания
+      logger.info('Creating tarot reading with user data', {
+        userId: user.id,
+        userIdType: typeof user.id,
+        userTableName: user.constructor.tableName,
+        userPrimaryKey: user.constructor.primaryKeyAttribute
+      });
+
       const dailyReading = await TarotReading.create({
         userId: user.id,
         type: 'daily_card',

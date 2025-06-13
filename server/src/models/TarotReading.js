@@ -12,7 +12,7 @@ module.exports = (sequelize) => {
       type: DataTypes.INTEGER,
       allowNull: false,
       references: {
-        model: 'Users',
+        model: 'users',
         key: 'id'
       }
     },
@@ -182,6 +182,14 @@ module.exports = (sequelize) => {
   }, {
     tableName: 'tarot_readings',
     timestamps: true,
+    validate: {
+      userExists() {
+        // Custom validation to check if user exists
+        if (!this.userId) {
+          throw new Error('User ID is required');
+        }
+      }
+    },
     indexes: [
       {
         fields: ['userId']

@@ -67,12 +67,19 @@ const getSubscriptionPlans = async (req, res) => {
 const createStarsInvoice = async (req, res) => {
     try {
         const { planId } = req.body;
-        const userId = req.user?.id || req.body.userId;
+        const userId = req.body.userId; // Это telegramId от бота
         
         if (!planId) {
             return res.status(400).json({
                 success: false,
                 message: 'ID плана обязателен'
+            });
+        }
+        
+        if (!userId) {
+            return res.status(400).json({
+                success: false,
+                message: 'ID пользователя обязателен'
             });
         }
 
@@ -81,7 +88,7 @@ const createStarsInvoice = async (req, res) => {
             'monthly_premium': {
                 name: 'Премиум месяц',
                 description: 'Полный доступ ко всем функциям на месяц',
-                price: 50,
+                price: 1,
                 duration: 30
             },
             'yearly_premium': {
@@ -105,7 +112,7 @@ const createStarsInvoice = async (req, res) => {
             title: plan.name,
             description: plan.description,
             payload: JSON.stringify({
-                userId: userId,
+                userId: userId, // Это telegramId из бота
                 planId: planId,
                 duration: plan.duration,
                 timestamp: Date.now()
@@ -174,7 +181,7 @@ const handlePreCheckout = async (req, res) => {
 
         // Проверяем план
         const plans = {
-            'monthly_premium': { price: 50, duration: 30 },
+            'monthly_premium': { price: 1, duration: 30 },
             'yearly_premium': { price: 360, duration: 365 }
         };
 
@@ -194,9 +201,9 @@ const handlePreCheckout = async (req, res) => {
             });
         }
 
-        // Проверяем пользователя
+        // Проверяем пользователя (userId в payload это telegramId)
         const { User } = getModels();
-        const user = await User.findByPk(payloadData.userId);
+        const user = await User.findOne({ where: { telegramId: payloadData.userId } });
         if (!user) {
             return res.json({
                 ok: false,
@@ -205,6 +212,12 @@ const handlePreCheckout = async (req, res) => {
         }
 
         // Все проверки пройдены
+        logger.info('Pre-checkout validation passed', { 
+            userId: payloadData.userId,
+            planId: payloadData.planId,
+            amount: total_amount
+        });
+        
         res.json({ ok: true });
 
     } catch (error) {
@@ -251,10 +264,10 @@ const handleSuccessfulPayment = async (req, res) => {
 
         const { User, Subscription } = getModels();
         
-        // Находим пользователя
-        const user = await User.findByPk(payloadData.userId);
+        // Находим пользователя (userId в payload это telegramId)
+        const user = await User.findOne({ where: { telegramId: payloadData.userId } });
         if (!user) {
-            logger.error('User not found for payment', { userId: payloadData.userId });
+            logger.error('User not found for payment', { telegramId: payloadData.userId });
             return res.status(404).json({
                 success: false,
                 message: 'Пользователь не найден'
@@ -265,25 +278,35 @@ const handleSuccessfulPayment = async (req, res) => {
         const now = new Date();
         const expiresAt = new Date(now.getTime() + (payloadData.duration * 24 * 60 * 60 * 1000));
 
-        // Создаем или обновляем подписку
-        const [subscription, created] = await Subscription.upsert({
-            userId: payloadData.userId,
+        // Деактивируем старые подписки
+        await Subscription.update(
+            { status: 'cancelled' },
+            { where: { userId: user.id, status: 'active' } }
+        );
+        
+        // Создаем новую подписку
+        const subscription = await Subscription.create({
+            userId: user.id, // Используем внутренний ID пользователя
             planId: payloadData.planId,
+            planName: payloadData.planId === 'monthly_premium' ? 'Премиум месяц' : 'Премиум год',
             status: 'active',
+            type: payloadData.planId === 'monthly_premium' ? 'monthly' : 'yearly',
+            price: total_amount,
+            currency: 'XTR',
             startDate: now,
             endDate: expiresAt,
             paymentMethod: 'telegram_stars',
-            paymentData: {
+            autoRenewal: false,
+            metadata: {
                 telegram_payment_charge_id,
                 provider_payment_charge_id,
                 amount: total_amount,
                 currency: currency,
                 timestamp: Date.now()
-            },
-            autoRenew: false, // Пока без автопродления
-            createdAt: now,
-            updatedAt: now
+            }
         });
+        
+        const created = true;
 
         // Обновляем статус пользователя
         await user.update({
@@ -328,16 +351,34 @@ const getSubscriptionStatus = async (req, res) => {
         
         const { User, Subscription } = getModels();
         
-        const user = await User.findByPk(userId, {
-            include: [{
-                model: Subscription,
-                as: 'subscriptions',
-                where: { status: 'active' },
-                required: false,
-                order: [['createdAt', 'DESC']],
-                limit: 1
-            }]
-        });
+        // Если userId это число (Telegram ID), ищем по telegramId
+        let user;
+        if (!isNaN(userId) && !req.user) {
+            // Это запрос от бота с Telegram ID
+            user = await User.findOne({
+                where: { telegramId: userId },
+                include: [{
+                    model: Subscription,
+                    as: 'subscriptions',
+                    where: { status: 'active' },
+                    required: false,
+                    order: [['createdAt', 'DESC']],
+                    limit: 1
+                }]
+            });
+        } else {
+            // Это аутентифицированный запрос с внутренним ID
+            user = await User.findByPk(userId, {
+                include: [{
+                    model: Subscription,
+                    as: 'subscriptions',
+                    where: { status: 'active' },
+                    required: false,
+                    order: [['createdAt', 'DESC']],
+                    limit: 1
+                }]
+            });
+        }
 
         if (!user) {
             return res.status(404).json({
@@ -364,15 +405,7 @@ const getSubscriptionStatus = async (req, res) => {
                 }
             });
         } else {
-            // Обновляем статус пользователя если подписка истекла
-            if (user.isPremium) {
-                await user.update({
-                    isPremium: false,
-                    premiumUntil: null,
-                    subscriptionPlan: null
-                });
-            }
-            
+            // Пользователь не имеет активной подписки
             res.json({
                 success: true,
                 isPremium: false,
@@ -381,7 +414,7 @@ const getSubscriptionStatus = async (req, res) => {
         }
 
     } catch (error) {
-        logger.error('Get subscription status error:', error);
+        logger.error('Get subscription status error:', error.message);
         res.status(500).json({
             success: false,
             message: 'Ошибка получения статуса подписки'

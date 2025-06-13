@@ -284,17 +284,19 @@ class NumerologyService {
 
       // Попытка получить ИИ-прогноз
       let aiForecast = null;
-      try {
-        aiForecast = await this.generateAIForecast({
-          lifePath,
-          personalYear,
-          personalMonth,
-          personalDay,
-          birthDate,
-          currentDate
-        });
-      } catch (error) {
-        logger.warn('AI forecast failed, using fallback', { error: error.message });
+      if (process.env.CLAUDE_API_KEY) {
+        try {
+          aiForecast = await this.generateAIForecast({
+            lifePath,
+            personalYear,
+            personalMonth,
+            personalDay,
+            birthDate,
+            currentDate
+          });
+        } catch (error) {
+          logger.warn('AI forecast failed, using fallback', { error: error.message });
+        }
       }
 
       return {
@@ -338,17 +340,19 @@ class NumerologyService {
 
       // Попытка получить ИИ-анализ
       let aiAnalysis = null;
-      try {
-        aiAnalysis = await this.generateAIAnalysis({
-          lifePath,
-          destiny,
-          soul,
-          personality,
-          birthDate,
-          fullName
-        });
-      } catch (error) {
-        logger.warn('AI analysis failed, using fallback', { error: error.message });
+      if (process.env.CLAUDE_API_KEY) {
+        try {
+          aiAnalysis = await this.generateAIAnalysis({
+            lifePath,
+            destiny,
+            soul,
+            personality,
+            birthDate,
+            fullName
+          });
+        } catch (error) {
+          logger.warn('AI analysis failed, using fallback', { error: error.message });
+        }
       }
 
       const analysis = {

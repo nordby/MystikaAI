@@ -11,8 +11,8 @@ async function handlePremium(bot, msg, userToken) {
 
     try {
         // Получаем статус подписки пользователя
-        const subscriptionResponse = await apiService.get(`/payments/subscription/${userId}`);
-        const { isPremium, subscription } = subscriptionResponse.data;
+        const subscriptionResponse = await apiService.get(`/api/v1/payments/subscription/${userId}`);
+        const { isPremium, subscription } = subscriptionResponse;
 
         if (isPremium && subscription) {
             // Пользователь уже имеет премиум
@@ -37,13 +37,13 @@ async function handlePremium(bot, msg, userToken) {
                         [
                             {
                                 text: '🔮 Сделать гадание',
-                                web_app: { url: `${process.env.WEBAPP_URL}/spreads` }
+                                web_app: { url: `${process.env.WEBAPP_URL || 'https://mistika.app'}/spreads` }
                             }
                         ],
                         [
                             {
                                 text: '📊 Моя статистика',
-                                web_app: { url: `${process.env.WEBAPP_URL}/profile` }
+                                web_app: { url: `${process.env.WEBAPP_URL || 'https://mistika.app'}/profile` }
                             }
                         ]
                     ]
@@ -56,7 +56,7 @@ async function handlePremium(bot, msg, userToken) {
         await showSubscriptionPlans(bot, chatId, userId);
 
     } catch (error) {
-        logger.error('Premium handler error:', error);
+        logger.error('Premium handler error:', error.message);
         await bot.sendMessage(chatId,
             '❌ <b>Ошибка получения информации о подписке</b>\n\n' +
             'Попробуйте еще раз через несколько секунд.', {
@@ -78,8 +78,8 @@ async function handlePremium(bot, msg, userToken) {
  */
 async function showSubscriptionPlans(bot, chatId, userId) {
     try {
-        const plansResponse = await apiService.get('/payments/plans');
-        const { plans } = plansResponse.data;
+        const plansResponse = await apiService.get('/api/v1/payments/plans');
+        const { plans } = plansResponse;
 
         let plansText = '💎 <b>MISTIKA Premium</b>\n\n' +
             '🌟 <b>Откройте полный потенциал мистических практик!</b>\n\n';
@@ -121,7 +121,7 @@ async function showSubscriptionPlans(bot, chatId, userId) {
         });
 
     } catch (error) {
-        logger.error('Show subscription plans error:', error);
+        logger.error('Show subscription plans error:', error.message);
         throw error;
     }
 }
@@ -130,17 +130,18 @@ async function showSubscriptionPlans(bot, chatId, userId) {
  * Обработчик покупки премиум подписки
  */
 async function handleBuyPremium(bot, callbackQuery, userToken) {
+    logger.info('handleBuyPremium called', { callbackQuery, userToken });
+    
     const chatId = callbackQuery.message.chat.id;
     const userId = callbackQuery.from.id;
     const planId = callbackQuery.data.replace('buy_premium_', '');
 
     try {
-        await bot.answerCallbackQuery(callbackQuery.id, {
-            text: 'Создаю invoice для оплаты...'
-        });
+        logger.info('Starting premium purchase', { userId, planId, chatId });
 
         // Создаем Telegram Stars invoice
-        const invoiceResponse = await apiService.post('/payments/stars/invoice', {
+        logger.info('Creating stars invoice', { planId, userId });
+        const invoiceResponse = await apiService.post('/api/v1/payments/stars/invoice', {
             planId: planId,
             userId: userId
         }, {
@@ -149,7 +150,8 @@ async function handleBuyPremium(bot, callbackQuery, userToken) {
             }
         });
 
-        const { invoice } = invoiceResponse.data;
+        logger.info('Invoice response received', { invoiceResponse });
+        const { invoice } = invoiceResponse;
 
         // Отправляем invoice пользователю
         await bot.sendInvoice(chatId, 
@@ -176,14 +178,16 @@ async function handleBuyPremium(bot, callbackQuery, userToken) {
         logger.info('Invoice sent successfully', {
             userId: userId,
             planId: planId,
-            price: invoiceResponse.data.price
+            price: invoiceResponse.price
         });
 
     } catch (error) {
-        logger.error('Buy premium error:', error);
-        
-        await bot.answerCallbackQuery(callbackQuery.id, {
-            text: 'Ошибка создания платежа'
+        logger.error('Buy premium error:', { 
+            message: error.message, 
+            stack: error.stack,
+            userId: userId,
+            planId: planId,
+            chatId: chatId
         });
 
         await bot.sendMessage(chatId,
@@ -247,7 +251,7 @@ async function handleHowToGetStars(bot, callbackQuery) {
         });
 
     } catch (error) {
-        logger.error('How to get stars error:', error);
+        logger.error('How to get stars error:', error.message);
         await bot.answerCallbackQuery(callbackQuery.id, {
             text: 'Ошибка загрузки информации'
         });
@@ -265,7 +269,7 @@ async function handlePremiumInfo(bot, callbackQuery, userToken) {
         await bot.answerCallbackQuery(callbackQuery.id);
         await showSubscriptionPlans(bot, chatId, userId);
     } catch (error) {
-        logger.error('Premium info callback error:', error);
+        logger.error('Premium info callback error:', error.message);
         await bot.answerCallbackQuery(callbackQuery.id, {
             text: 'Ошибка загрузки информации'
         });
@@ -276,8 +280,9 @@ async function handlePremiumInfo(bot, callbackQuery, userToken) {
  * Обработка pre-checkout запроса
  */
 async function handlePreCheckoutQuery(bot, preCheckoutQuery) {
+    const { id, invoice_payload, total_amount, currency, from } = preCheckoutQuery;
+    
     try {
-        const { id, invoice_payload, total_amount, currency, from } = preCheckoutQuery;
         
         logger.info('Pre-checkout query received', {
             queryId: id,
@@ -288,7 +293,7 @@ async function handlePreCheckoutQuery(bot, preCheckoutQuery) {
         });
 
         // Отправляем данные на сервер для валидации
-        const response = await apiService.post('/payments/stars/pre-checkout', {
+        const response = await apiService.post('/api/v1/payments/stars/pre-checkout', {
             id: id,
             invoice_payload: invoice_payload,
             total_amount: total_amount,
@@ -297,19 +302,35 @@ async function handlePreCheckoutQuery(bot, preCheckoutQuery) {
         });
 
         // Отвечаем Telegram на pre-checkout query
-        await bot.answerPreCheckoutQuery(id, response.data.ok, {
-            error_message: response.data.error_message
+        logger.info('Server response received', { 
+            queryId: id, 
+            response: response
+        });
+        
+        logger.info('Answering pre-checkout query', { 
+            queryId: id, 
+            ok: response.ok, 
+            errorMessage: response.error_message 
+        });
+        
+        await bot.answerPreCheckoutQuery(id, response.ok, {
+            error_message: response.error_message
         });
 
     } catch (error) {
-        logger.error('Pre-checkout query error:', error);
+        logger.error('Pre-checkout query error:', {
+            message: error.message,
+            stack: error.stack,
+            queryId: id,
+            userId: from.id
+        });
         
         try {
             await bot.answerPreCheckoutQuery(preCheckoutQuery.id, false, {
                 error_message: 'Внутренняя ошибка сервера'
             });
         } catch (answerError) {
-            logger.error('Failed to answer pre-checkout query:', answerError);
+            logger.error('Failed to answer pre-checkout query:', answerError.message);
         }
     }
 }
@@ -325,11 +346,13 @@ async function handleSuccessfulPayment(bot, msg) {
 
         logger.info('Successful payment received', {
             userId: userId,
-            payment: successful_payment
+            payment: successful_payment,
+            telegramChargeId: successful_payment?.telegram_payment_charge_id,
+            totalAmount: successful_payment?.total_amount
         });
 
         // Отправляем данные о платеже на сервер
-        const response = await apiService.post('/payments/stars/successful-payment', {
+        const response = await apiService.post('/api/v1/payments/stars/successful-payment', {
             telegram_payment_charge_id: successful_payment.telegram_payment_charge_id,
             provider_payment_charge_id: successful_payment.provider_payment_charge_id,
             invoice_payload: successful_payment.invoice_payload,
@@ -337,8 +360,8 @@ async function handleSuccessfulPayment(bot, msg) {
             currency: successful_payment.currency
         });
 
-        if (response.data.success) {
-            const { subscription } = response.data;
+        if (response.success) {
+            const { subscription } = response;
             const expiresAt = new Date(subscription.expiresAt).toLocaleDateString('ru-RU');
             
             await bot.sendMessage(chatId,
@@ -358,7 +381,7 @@ async function handleSuccessfulPayment(bot, msg) {
                         [
                             {
                                 text: '🔮 Сделать гадание',
-                                web_app: { url: `${process.env.WEBAPP_URL}/spreads` }
+                                web_app: { url: `${process.env.WEBAPP_URL || 'https://mistika.app'}/spreads` }
                             }
                         ],
                         [
@@ -375,13 +398,13 @@ async function handleSuccessfulPayment(bot, msg) {
                 }
             });
         } else {
-            throw new Error(response.data.message || 'Payment processing failed');
+            throw new Error(response.message || 'Payment processing failed');
         }
 
     } catch (error) {
-        logger.error('Successful payment handling error:', error);
+        logger.error('Successful payment handling error:', error.message);
         
-        await bot.telegram.sendMessage(msg.chat.id,
+        await bot.sendMessage(msg.chat.id,
             '⚠️ <b>Платеж получен, но возникла ошибка при активации</b>\n\n' +
             'Обратитесь в поддержку для решения вопроса.\n' +
             'Ваш платеж будет обработан вручную.', {

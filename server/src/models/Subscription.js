@@ -10,12 +10,8 @@ module.exports = (sequelize) => {
   },
   
   userId: {
-    type: DataTypes.UUID,
-    allowNull: false,
-    references: {
-      model: 'Users',
-      key: 'id'
-    }
+    type: DataTypes.INTEGER,
+    allowNull: false
   },
   
   planId: {

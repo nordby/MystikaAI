@@ -1,7 +1,6 @@
 // server/src/middleware/auth.js
 const jwt = require('jsonwebtoken');
 const logger = require('../utils/logger');
-const { User } = require('../models');
 
 /**
  * Middleware для проверки JWT токена
@@ -29,6 +28,12 @@ async function authMiddleware(req, res, next) {
     // Проверка и декодирование токена
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'default-secret');
     
+    // Получаем модель User через ленивую загрузку
+    const { User } = require('../models');
+    if (!User) {
+      throw new Error('User model not initialized');
+    }
+    
     // Поиск пользователя
     const user = await User.findByPk(decoded.userId);
     
@@ -55,7 +60,9 @@ async function authMiddleware(req, res, next) {
   } catch (error) {
     logger.error('Auth middleware error', {
       error: error.message,
-      token: req.headers.authorization?.substring(0, 20) + '...'
+      stack: error.stack,
+      tokenPreview: req.headers.authorization?.substring(0, 20) + '...',
+      jwtSecret: process.env.JWT_SECRET ? 'SET' : 'NOT_SET'
     });
 
     if (error.name === 'JsonWebTokenError') {
@@ -97,6 +104,12 @@ async function optionalAuthMiddleware(req, res, next) {
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'default-secret');
+    
+    const { User } = require('../models');
+    if (!User) {
+      return next();
+    }
+    
     const user = await User.findByPk(decoded.userId);
     
     if (user && user.isActive) {

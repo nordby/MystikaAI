@@ -114,7 +114,7 @@ class MistikaTelegramBot {
         url: this.config.webhookUrl,
         certificate: this.config.webhookCert,
         max_connections: this.config.maxConnections || 40,
-        allowed_updates: ['message', 'callback_query', 'inline_query', 'pre_checkout_query']
+        allowed_updates: ['message', 'callback_query', 'inline_query', 'pre_checkout_query', 'successful_payment']
       };
 
       if (this.config.webhookSecret) {
