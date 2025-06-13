@@ -175,6 +175,42 @@ class ApiService {
     return this.client.get('/ai/kandinsky/health');
   }
 
+  // Расширенные методы генерации изображений
+  async generateMultipleCardImages(cards, options = {}) {
+    return this.client.post('/ai/generate-multiple-cards', {
+      cards,
+      style: options.style || 'mystic',
+      maxConcurrent: options.maxConcurrent || 3
+    });
+  }
+
+  async generateCardImageWithFallback(cardName, cardDescription, options = {}) {
+    return this.client.post('/ai/generate-card-with-fallback', {
+      cardName,
+      cardDescription: cardDescription || 'Карта Таро',
+      style: options.style || 'mystic',
+      timeout: options.timeout || 30000,
+      mockFallback: options.mockFallback !== false
+    });
+  }
+
+  async pregeneratePopularCards(popularCards, styles = ['mystic', 'classic']) {
+    return this.client.post('/ai/pregenerate-cards', {
+      popularCards,
+      styles,
+      priority: 'low',
+      delay: 5000
+    });
+  }
+
+  async getAvailableStyles() {
+    return this.client.get('/ai/styles');
+  }
+
+  async testImageGeneration() {
+    return this.client.post('/ai/test-generation');
+  }
+
   async processVoiceInput(audioBlob) {
     const formData = new FormData();
     formData.append('audio', audioBlob);

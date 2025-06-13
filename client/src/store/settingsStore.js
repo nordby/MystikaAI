@@ -69,6 +69,15 @@ const useSettingsStore = create(
         performanceMode: false
       },
 
+      // Card Generation Settings
+      cardGeneration: {
+        defaultStyle: 'mystic',
+        autoGenerate: true,
+        highQuality: false,
+        parallelGeneration: true,
+        fallbackEnabled: true
+      },
+
       // Available themes
       availableThemes: [
         { id: 'light', name: 'Light', description: 'Clean and bright interface' },
@@ -156,6 +165,18 @@ const useSettingsStore = create(
         get().saveSettings();
       },
 
+      updateCardGeneration: (cardGeneration) => {
+        console.log('🏪 Store: updating cardGeneration:', cardGeneration);
+        set(state => {
+          const newState = {
+            cardGeneration: { ...state.cardGeneration, ...cardGeneration }
+          };
+          console.log('🏪 Store: new cardGeneration state:', newState.cardGeneration);
+          return newState;
+        });
+        // НЕ вызываем saveSettings() здесь - настройки генерации карт сохраняются через профиль
+      },
+
       // Save settings to backend
       saveSettings: async () => {
         try {
@@ -172,7 +193,8 @@ const useSettingsStore = create(
             readingSettings: settings.readingSettings,
             privacy: settings.privacy,
             notifications: settings.notifications,
-            advanced: settings.advanced
+            advanced: settings.advanced,
+            cardGeneration: settings.cardGeneration
           };
 
           await fetch('/api/users/settings', {
@@ -263,6 +285,13 @@ const useSettingsStore = create(
             experimentalFeatures: false,
             debugMode: false,
             performanceMode: false
+          },
+          cardGeneration: {
+            defaultStyle: 'mystic',
+            autoGenerate: true,
+            highQuality: false,
+            parallelGeneration: true,
+            fallbackEnabled: true
           }
         });
         get().saveSettings();
@@ -281,6 +310,7 @@ const useSettingsStore = create(
           privacy: settings.privacy,
           notifications: settings.notifications,
           advanced: settings.advanced,
+          cardGeneration: settings.cardGeneration,
           exportDate: new Date().toISOString()
         };
         
@@ -327,7 +357,8 @@ const validateSettings = (settings) => {
     readingSettings: { autoSave: true, confirmBeforeExit: true, showInterpretations: true, defaultSpread: 'threeCard', guidedMode: false },
     privacy: { shareReadings: false, publicProfile: false, dataCollection: true, analytics: true },
     notifications: { email: true, browser: true, dailyReading: false, weeklyInsight: true, newFeatures: true, marketing: false },
-    advanced: { developerMode: false, experimentalFeatures: false, debugMode: false, performanceMode: false }
+    advanced: { developerMode: false, experimentalFeatures: false, debugMode: false, performanceMode: false },
+    cardGeneration: { defaultStyle: 'mystic', autoGenerate: true, highQuality: false, parallelGeneration: true, fallbackEnabled: true }
   };
 
   return {
@@ -339,7 +370,8 @@ const validateSettings = (settings) => {
     readingSettings: { ...defaults.readingSettings, ...(settings.readingSettings || {}) },
     privacy: { ...defaults.privacy, ...(settings.privacy || {}) },
     notifications: { ...defaults.notifications, ...(settings.notifications || {}) },
-    advanced: { ...defaults.advanced, ...(settings.advanced || {}) }
+    advanced: { ...defaults.advanced, ...(settings.advanced || {}) },
+    cardGeneration: { ...defaults.cardGeneration, ...(settings.cardGeneration || {}) }
   };
 };
 

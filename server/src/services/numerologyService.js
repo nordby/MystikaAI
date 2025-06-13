@@ -1,8 +1,10 @@
 // server/src/services/numerologyService.js
 const logger = require('../utils/logger');
+const aiService = require('./aiService');
 
 class NumerologyService {
   constructor() {
+    this.aiService = aiService;
     this.numberMeanings = {
       1: {
         name: 'Единица',
@@ -273,23 +275,37 @@ class NumerologyService {
   /**
    * Персональный нумерологический прогноз
    */
-  generatePersonalForecast(birthDate, currentDate = new Date()) {
+  async generatePersonalForecast(birthDate, currentDate = new Date()) {
     try {
       const lifePath = this.calculateLifePath(birthDate);
       const personalYear = this.calculatePersonalYear(birthDate, currentDate);
       const personalMonth = this.calculatePersonalMonth(birthDate, currentDate);
       const personalDay = this.calculatePersonalDay(birthDate, currentDate);
 
+      // Попытка получить ИИ-прогноз
+      let aiForecast = null;
+      try {
+        aiForecast = await this.generateAIForecast({
+          lifePath,
+          personalYear,
+          personalMonth,
+          personalDay,
+          birthDate,
+          currentDate
+        });
+      } catch (error) {
+        logger.warn('AI forecast failed, using fallback', { error: error.message });
+      }
+
       return {
         lifePath: {
           number: lifePath,
           meaning: this.numberMeanings[lifePath]
         },
-        personalYear: {
-          number: personalYear,
-          meaning: this.getPersonalYearMeaning(personalYear),
-          period: `${currentDate.getFullYear()}`
-        },
+        personalYear: personalYear,
+        yearDescription: aiForecast?.yearDescription || this.getPersonalYearMeaning(personalYear),
+        yearThemes: aiForecast?.yearThemes || ['Основная тема года'],
+        yearAdvice: aiForecast?.yearAdvice || this.generateAdvice(lifePath, personalYear, personalMonth, personalDay),
         personalMonth: {
           number: personalMonth,
           meaning: this.getPersonalPeriodMeaning(personalMonth),
@@ -300,7 +316,8 @@ class NumerologyService {
           meaning: this.getPersonalPeriodMeaning(personalDay),
           period: currentDate.toLocaleDateString('ru-RU')
         },
-        advice: this.generateAdvice(lifePath, personalYear, personalMonth, personalDay)
+        advice: aiForecast?.advice || this.generateAdvice(lifePath, personalYear, personalMonth, personalDay),
+        aiEnhanced: aiForecast ? true : false
       };
 
     } catch (error) {
@@ -312,36 +329,56 @@ class NumerologyService {
   /**
    * Полный нумерологический анализ
    */
-  generateFullAnalysis(birthDate, fullName) {
+  async generateFullAnalysis(birthDate, fullName) {
     try {
       const lifePath = this.calculateLifePath(birthDate);
       const destiny = this.calculateDestinyNumber(fullName);
       const soul = this.calculateSoulNumber(birthDate);
       const personality = this.calculatePersonalityNumber(fullName);
 
+      // Попытка получить ИИ-анализ
+      let aiAnalysis = null;
+      try {
+        aiAnalysis = await this.generateAIAnalysis({
+          lifePath,
+          destiny,
+          soul,
+          personality,
+          birthDate,
+          fullName
+        });
+      } catch (error) {
+        logger.warn('AI analysis failed, using fallback', { error: error.message });
+      }
+
       const analysis = {
         lifePath: {
           number: lifePath,
           meaning: this.numberMeanings[lifePath],
-          description: 'Ваш жизненный путь и основные уроки'
+          description: aiAnalysis?.lifePath?.description || 'Ваш жизненный путь и основные уроки',
+          aiInsight: aiAnalysis?.lifePath?.insight
         },
         destiny: {
           number: destiny,
           meaning: this.numberMeanings[destiny],
-          description: 'Ваше предназначение и потенциал'
+          description: aiAnalysis?.destiny?.description || 'Ваше предназначение и потенциал',
+          aiInsight: aiAnalysis?.destiny?.insight
         },
         soul: {
           number: soul,
           meaning: this.numberMeanings[soul],
-          description: 'Ваши внутренние желания и мотивации'
+          description: aiAnalysis?.soul?.description || 'Ваши внутренние желания и мотивации',
+          aiInsight: aiAnalysis?.soul?.insight
         },
         personality: {
           number: personality,
           meaning: this.numberMeanings[personality],
-          description: 'Как вас воспринимают окружающие'
+          description: aiAnalysis?.personality?.description || 'Как вас воспринимают окружающие',
+          aiInsight: aiAnalysis?.personality?.insight
         },
-        summary: this.generateSummary(lifePath, destiny, soul, personality),
-        recommendations: this.generateRecommendations(lifePath, destiny, soul, personality)
+        summary: aiAnalysis?.summary || this.generateSummary(lifePath, destiny, soul, personality),
+        recommendations: aiAnalysis?.recommendations || this.generateRecommendations(lifePath, destiny, soul, personality),
+        aiEnhanced: aiAnalysis ? true : false
       };
 
       return analysis;
@@ -582,6 +619,242 @@ class NumerologyService {
     } catch (error) {
       logger.error('Error getting favorable dates', { error: error.message, birthDate, year });
       throw error;
+    }
+  }
+
+  /**
+   * Генерация ИИ-анализа для нумерологического профиля
+   */
+  async generateAIAnalysis({ lifePath, destiny, soul, personality, birthDate, fullName }) {
+    try {
+      const age = new Date().getFullYear() - new Date(birthDate).getFullYear();
+      const currentYear = new Date().getFullYear();
+      
+      const prompt = `Проведи глубокий нумерологический анализ человека с именем "${fullName}".
+
+НУМЕРОЛОГИЧЕСКИЕ ДАННЫЕ:
+• Число жизненного пути: ${lifePath}
+• Число судьбы: ${destiny}
+• Число души: ${soul}
+• Число личности: ${personality}
+• Возраст: ${age} лет
+• Текущий год: ${currentYear}
+
+ТРЕБОВАНИЯ К АНАЛИЗУ:
+1. Анализируй ВЗАИМОДЕЙСТВИЕ всех чисел между собой
+2. Учитывай уникальную комбинацию чисел
+3. Давай персонализированные инсайты
+4. Используй только русский язык без иностранных слов
+5. Будь конкретным и практичным
+
+СТРУКТУРА ОТВЕТА:
+**ЧИСЛО ЖИЗНЕННОГО ПУТИ ${lifePath}:**
+[Глубокий анализ основного жизненного урока и пути развития, 3-4 предложения]
+
+**ЧИСЛО СУДЬБЫ ${destiny}:**
+[Анализ предназначения и талантов, как реализовать потенциал, 3-4 предложения]
+
+**ЧИСЛО ДУШИ ${soul}:**
+[Анализ внутренних мотиваций и истинных желаний, 2-3 предложения]
+
+**ЧИСЛО ЛИЧНОСТИ ${personality}:**
+[Анализ внешнего образа и первого впечатления, 2-3 предложения]
+
+**ОБЩИЙ АНАЛИЗ:**
+[Синтез всех чисел, ключевые особенности личности, основные жизненные темы, 4-5 предложений]
+
+**РЕКОМЕНДАЦИИ:**
+[5-7 конкретных практических советов для жизни и развития]
+
+Пиши глубоко, мудро, но понятно. Избегай общих фраз.`;
+
+      const response = await this.aiService.interpretReading(
+        [], // Нумерология не использует карты
+        prompt,
+        { id: 'numerology_user', language: 'ru' },
+        {
+          spreadType: 'numerology_analysis',
+          language: 'ru',
+          style: 'detailed'
+        }
+      );
+
+      return this.parseAINumerologyResponse(response.interpretation);
+
+    } catch (error) {
+      logger.error('Error generating AI numerology analysis', { 
+        error: error.message,
+        lifePath,
+        destiny,
+        soul,
+        personality
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Генерация ИИ-прогноза для персонального года
+   */
+  async generateAIForecast({ lifePath, personalYear, personalMonth, personalDay, birthDate, currentDate }) {
+    try {
+      const age = new Date().getFullYear() - new Date(birthDate).getFullYear();
+      const currentMonth = currentDate.toLocaleDateString('ru-RU', { month: 'long' });
+      
+      const prompt = `Создай персональный нумерологический прогноз для ${currentDate.getFullYear()} года.
+
+НУМЕРОЛОГИЧЕСКИЕ ДАННЫЕ:
+• Число жизненного пути: ${lifePath}
+• Персональный год: ${personalYear}
+• Персональный месяц: ${personalMonth}
+• Персональный день: ${personalDay}
+• Возраст: ${age} лет
+• Текущий месяц: ${currentMonth}
+
+ТРЕБОВАНИЯ К ПРОГНОЗУ:
+1. Анализируй энергии всех циклов в комплексе
+2. Учитывай жизненный путь как основу
+3. Давай конкретные советы для текущего периода
+4. Используй только русский язык
+5. Будь практичным и вдохновляющим
+
+СТРУКТУРА ОТВЕТА:
+**ЭНЕРГИЯ ГОДА ${personalYear}:**
+[Подробное описание энергий и возможностей текущего года, 4-5 предложений]
+
+**КЛЮЧЕВЫЕ ТЕМЫ ГОДА:**
+• [Тема 1]
+• [Тема 2]
+• [Тема 3]
+• [Тема 4]
+
+**РЕКОМЕНДАЦИИ ДЛЯ ГОДА:**
+[5-6 конкретных практических советов для реализации потенциала года]
+
+**СОВЕТЫ НА ТЕКУЩИЙ ПЕРИОД:**
+[Специальные рекомендации с учетом текущего месяца и дня, 3-4 совета]
+
+Пиши вдохновляюще, но конкретно. Избегай общих фраз.`;
+
+      const response = await this.aiService.interpretReading(
+        [],
+        prompt,
+        { id: 'forecast_user', language: 'ru' },
+        {
+          spreadType: 'numerology_forecast',
+          language: 'ru',
+          style: 'detailed'
+        }
+      );
+
+      return this.parseAIForecastResponse(response.interpretation);
+
+    } catch (error) {
+      logger.error('Error generating AI forecast', { 
+        error: error.message,
+        lifePath,
+        personalYear,
+        personalMonth,
+        personalDay
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Парсинг ответа ИИ для прогноза
+   */
+  parseAIForecastResponse(text) {
+    try {
+      const parsed = {
+        yearDescription: '',
+        yearThemes: [],
+        yearAdvice: '',
+        advice: ''
+      };
+
+      // Извлекаем секции
+      const yearEnergyMatch = text.match(/\*\*ЭНЕРГИЯ ГОДА.*?\*\*(.*?)(?=\*\*КЛЮЧЕВЫЕ ТЕМЫ|\*\*РЕКОМЕНДАЦИИ|$)/is);
+      const themesMatch = text.match(/\*\*КЛЮЧЕВЫЕ ТЕМЫ ГОДА:\*\*(.*?)(?=\*\*РЕКОМЕНДАЦИИ|\*\*СОВЕТЫ|$)/is);
+      const yearAdviceMatch = text.match(/\*\*РЕКОМЕНДАЦИИ ДЛЯ ГОДА:\*\*(.*?)(?=\*\*СОВЕТЫ НА ТЕКУЩИЙ ПЕРИОД|$)/is);
+      const currentAdviceMatch = text.match(/\*\*СОВЕТЫ НА ТЕКУЩИЙ ПЕРИОД:\*\*(.*?)$/is);
+
+      if (yearEnergyMatch) {
+        parsed.yearDescription = yearEnergyMatch[1].trim();
+      }
+
+      if (themesMatch) {
+        const themesText = themesMatch[1].trim();
+        parsed.yearThemes = themesText
+          .split('\n')
+          .filter(line => line.includes('•'))
+          .map(line => line.replace(/•/, '').trim())
+          .filter(theme => theme.length > 0);
+      }
+
+      if (yearAdviceMatch) {
+        parsed.yearAdvice = yearAdviceMatch[1].trim();
+      }
+
+      if (currentAdviceMatch) {
+        parsed.advice = currentAdviceMatch[1].trim();
+      }
+
+      // Объединяем советы если нужно
+      if (!parsed.advice && parsed.yearAdvice) {
+        parsed.advice = parsed.yearAdvice;
+      }
+
+      return parsed;
+
+    } catch (error) {
+      logger.error('Error parsing AI forecast response', { error: error.message, text });
+      return null;
+    }
+  }
+
+  /**
+   * Парсинг ответа ИИ для нумерологического анализа
+   */
+  parseAINumerologyResponse(text) {
+    try {
+      const parsed = {
+        lifePath: { description: '', insight: '' },
+        destiny: { description: '', insight: '' },
+        soul: { description: '', insight: '' },
+        personality: { description: '', insight: '' },
+        summary: '',
+        recommendations: ''
+      };
+
+      // Извлекаем секции по ключевым словам
+      const sections = {
+        lifePath: text.match(/\*\*ЧИСЛО ЖИЗНЕННОГО ПУТИ.*?\*\*(.*?)(?=\*\*ЧИСЛО СУДЬБЫ|\*\*ОБЩИЙ АНАЛИЗ|$)/is),
+        destiny: text.match(/\*\*ЧИСЛО СУДЬБЫ.*?\*\*(.*?)(?=\*\*ЧИСЛО ДУШИ|\*\*ОБЩИЙ АНАЛИЗ|$)/is),
+        soul: text.match(/\*\*ЧИСЛО ДУШИ.*?\*\*(.*?)(?=\*\*ЧИСЛО ЛИЧНОСТИ|\*\*ОБЩИЙ АНАЛИЗ|$)/is),
+        personality: text.match(/\*\*ЧИСЛО ЛИЧНОСТИ.*?\*\*(.*?)(?=\*\*ОБЩИЙ АНАЛИЗ|$)/is),
+        summary: text.match(/\*\*ОБЩИЙ АНАЛИЗ:\*\*(.*?)(?=\*\*РЕКОМЕНДАЦИИ|$)/is),
+        recommendations: text.match(/\*\*РЕКОМЕНДАЦИИ:\*\*(.*?)$/is)
+      };
+
+      // Заполняем извлеченными данными
+      Object.keys(sections).forEach(key => {
+        if (sections[key] && sections[key][1]) {
+          const content = sections[key][1].trim();
+          if (key === 'summary' || key === 'recommendations') {
+            parsed[key] = content;
+          } else {
+            parsed[key].description = content;
+            parsed[key].insight = content;
+          }
+        }
+      });
+
+      return parsed;
+
+    } catch (error) {
+      logger.error('Error parsing AI numerology response', { error: error.message, text });
+      return null;
     }
   }
 }

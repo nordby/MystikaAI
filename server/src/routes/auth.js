@@ -1,6 +1,7 @@
 // server/src/routes/auth.js
 const express = require('express');
 const authController = require('../controllers/auth');
+const auth = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -8,7 +9,12 @@ const router = express.Router();
 router.post('/telegram', authController.telegramAuth);
 router.post('/bot', authController.telegramBotAuth);
 router.post('/refresh', authController.refreshToken);
-router.get('/profile', authController.getProfile);
+
+// Защищенные роуты (требуют авторизации)
+router.get('/profile', auth, authController.getProfile);
+router.put('/profile', auth, authController.updateProfile);
+
+// Роуты для bot API
 router.get('/user/:telegramId', authController.getUserByTelegramId);
 router.put('/user/:telegramId', authController.updateUserByTelegramId);
 

@@ -1,11 +1,10 @@
 // server/src/controllers/payments.js
-const paymentService = require('../services/paymentService');
 const logger = require('../utils/logger');
 
 // Lazy loading for models
 const getModels = () => {
-  const { Subscription } = require('../models');
-  return { Subscription };
+  const { User, Subscription } = require('../models');
+  return { User, Subscription };
 };
 
 /**
@@ -13,7 +12,40 @@ const getModels = () => {
  */
 const getSubscriptionPlans = async (req, res) => {
     try {
-        const plans = await paymentService.getAvailablePlans();
+        // Планы подписки для Telegram Stars
+        const plans = [
+            {
+                id: 'monthly_premium',
+                name: 'Премиум месяц',
+                description: 'Полный доступ ко всем функциям на месяц',
+                price: 50, // Telegram Stars
+                currency: 'XTR',
+                duration: 30, // дней
+                features: [
+                    'Безлимитные гадания',
+                    'Все расклады Таро',
+                    'ИИ-анализ карт',
+                    'Генерация изображений',
+                    'Персональные рекомендации',
+                    'Приоритетная поддержка'
+                ]
+            },
+            {
+                id: 'yearly_premium',
+                name: 'Премиум год',
+                description: 'Полный доступ на год со скидкой 40%',
+                price: 360, // Telegram Stars (вместо 600)
+                currency: 'XTR',
+                duration: 365, // дней
+                features: [
+                    'Все возможности месячного плана',
+                    'Скидка 40%',
+                    'Эксклюзивные расклады',
+                    'Персональный таролог-ИИ',
+                    'Расширенная статистика'
+                ]
+            }
+        ];
         
         res.json({
             success: true,
@@ -30,12 +62,12 @@ const getSubscriptionPlans = async (req, res) => {
 };
 
 /**
- * Создание платежа
+ * Создание Telegram Stars invoice
  */
-const createPayment = async (req, res) => {
+const createStarsInvoice = async (req, res) => {
     try {
-        const userId = req.user.id;
-        const { planId, paymentMethod = 'card' } = req.body;
+        const { planId } = req.body;
+        const userId = req.user?.id || req.body.userId;
         
         if (!planId) {
             return res.status(400).json({
@@ -44,55 +76,245 @@ const createPayment = async (req, res) => {
             });
         }
 
-        const payment = await paymentService.createPayment({
-            userId,
-            planId,
-            paymentMethod
-        });
+        // Получаем план
+        const plans = {
+            'monthly_premium': {
+                name: 'Премиум месяц',
+                description: 'Полный доступ ко всем функциям на месяц',
+                price: 50,
+                duration: 30
+            },
+            'yearly_premium': {
+                name: 'Премиум год', 
+                description: 'Полный доступ на год со скидкой 40%',
+                price: 360,
+                duration: 365
+            }
+        };
+
+        const plan = plans[planId];
+        if (!plan) {
+            return res.status(400).json({
+                success: false,
+                message: 'Неизвестный план подписки'
+            });
+        }
+
+        // Создаем данные для invoice
+        const invoiceData = {
+            title: plan.name,
+            description: plan.description,
+            payload: JSON.stringify({
+                userId: userId,
+                planId: planId,
+                duration: plan.duration,
+                timestamp: Date.now()
+            }),
+            currency: 'XTR', // Telegram Stars
+            prices: [{
+                label: plan.name,
+                amount: plan.price // В Stars
+            }],
+            provider_token: '', // Пустой для Stars
+            start_parameter: `premium_${planId}_${userId}`,
+            photo_url: 'https://via.placeholder.com/512x512/4A5568/FFFFFF?text=MISTIKA+Premium',
+            photo_width: 512,
+            photo_height: 512,
+            need_name: false,
+            need_phone_number: false,
+            need_email: false,
+            need_shipping_address: false,
+            send_phone_number_to_provider: false,
+            send_email_to_provider: false,
+            is_flexible: false
+        };
 
         res.json({
             success: true,
-            payment
+            invoice: invoiceData,
+            planId: planId,
+            price: plan.price,
+            currency: 'XTR'
         });
 
     } catch (error) {
-        logger.error('Ошибка создания платежа:', error);
+        logger.error('Ошибка создания Stars invoice:', error);
         res.status(500).json({
             success: false,
-            message: 'Не удалось создать платеж'
+            message: 'Не удалось создать invoice'
         });
     }
 };
 
 /**
- * Подтверждение платежа
+ * Обработка pre-checkout запроса от Telegram
  */
-const confirmPayment = async (req, res) => {
+const handlePreCheckout = async (req, res) => {
     try {
-        const { paymentId, paymentData } = req.body;
+        const { id, invoice_payload, total_amount, currency } = req.body;
         
-        if (!paymentId) {
-            return res.status(400).json({
-                success: false,
-                message: 'ID платежа обязателен'
+        logger.info('Pre-checkout query received', {
+            queryId: id,
+            payload: invoice_payload,
+            amount: total_amount,
+            currency: currency
+        });
+
+        // Проверяем валидность платежа
+        let payloadData;
+        try {
+            payloadData = JSON.parse(invoice_payload);
+        } catch (parseError) {
+            logger.error('Invalid payload format', { payload: invoice_payload });
+            return res.json({
+                ok: false,
+                error_message: 'Неверный формат данных платежа'
             });
         }
 
-        const confirmedPayment = await paymentService.confirmPayment({
-            paymentId,
-            paymentData
+        // Проверяем план
+        const plans = {
+            'monthly_premium': { price: 50, duration: 30 },
+            'yearly_premium': { price: 360, duration: 365 }
+        };
+
+        const plan = plans[payloadData.planId];
+        if (!plan) {
+            return res.json({
+                ok: false,
+                error_message: 'Неизвестный план подписки'
+            });
+        }
+
+        // Проверяем сумму
+        if (total_amount !== plan.price || currency !== 'XTR') {
+            return res.json({
+                ok: false,
+                error_message: 'Неверная сумма или валюта'
+            });
+        }
+
+        // Проверяем пользователя
+        const { User } = getModels();
+        const user = await User.findByPk(payloadData.userId);
+        if (!user) {
+            return res.json({
+                ok: false,
+                error_message: 'Пользователь не найден'
+            });
+        }
+
+        // Все проверки пройдены
+        res.json({ ok: true });
+
+    } catch (error) {
+        logger.error('Pre-checkout handling error:', error);
+        res.json({
+            ok: false,
+            error_message: 'Внутренняя ошибка сервера'
+        });
+    }
+};
+
+/**
+ * Обработка успешного платежа
+ */
+const handleSuccessfulPayment = async (req, res) => {
+    try {
+        const { 
+            telegram_payment_charge_id,
+            provider_payment_charge_id,
+            invoice_payload,
+            total_amount,
+            currency 
+        } = req.body;
+
+        logger.info('Successful payment received', {
+            telegramChargeId: telegram_payment_charge_id,
+            providerChargeId: provider_payment_charge_id,
+            payload: invoice_payload,
+            amount: total_amount,
+            currency: currency
+        });
+
+        // Парсим данные платежа
+        let payloadData;
+        try {
+            payloadData = JSON.parse(invoice_payload);
+        } catch (parseError) {
+            logger.error('Invalid payment payload', { payload: invoice_payload });
+            return res.status(400).json({
+                success: false,
+                message: 'Неверный формат данных платежа'
+            });
+        }
+
+        const { User, Subscription } = getModels();
+        
+        // Находим пользователя
+        const user = await User.findByPk(payloadData.userId);
+        if (!user) {
+            logger.error('User not found for payment', { userId: payloadData.userId });
+            return res.status(404).json({
+                success: false,
+                message: 'Пользователь не найден'
+            });
+        }
+
+        // Рассчитываем даты подписки
+        const now = new Date();
+        const expiresAt = new Date(now.getTime() + (payloadData.duration * 24 * 60 * 60 * 1000));
+
+        // Создаем или обновляем подписку
+        const [subscription, created] = await Subscription.upsert({
+            userId: payloadData.userId,
+            planId: payloadData.planId,
+            status: 'active',
+            startDate: now,
+            endDate: expiresAt,
+            paymentMethod: 'telegram_stars',
+            paymentData: {
+                telegram_payment_charge_id,
+                provider_payment_charge_id,
+                amount: total_amount,
+                currency: currency,
+                timestamp: Date.now()
+            },
+            autoRenew: false, // Пока без автопродления
+            createdAt: now,
+            updatedAt: now
+        });
+
+        // Обновляем статус пользователя
+        await user.update({
+            isPremium: true,
+            premiumUntil: expiresAt,
+            subscriptionPlan: payloadData.planId
+        });
+
+        logger.info('Premium subscription activated', {
+            userId: payloadData.userId,
+            planId: payloadData.planId,
+            expiresAt: expiresAt,
+            isNewSubscription: created
         });
 
         res.json({
             success: true,
-            payment: confirmedPayment
+            subscription: {
+                id: subscription.id,
+                planId: payloadData.planId,
+                status: 'active',
+                expiresAt: expiresAt
+            },
+            message: 'Премиум подписка успешно активирована!'
         });
 
     } catch (error) {
-        logger.error('Ошибка подтверждения платежа:', error);
+        logger.error('Successful payment handling error:', error);
         res.status(500).json({
             success: false,
-            message: 'Не удалось подтвердить платеж'
+            message: 'Ошибка при активации подписки'
         });
     }
 };
@@ -102,235 +324,75 @@ const confirmPayment = async (req, res) => {
  */
 const getSubscriptionStatus = async (req, res) => {
     try {
-        const userId = req.user.id;
+        const userId = req.user?.id || req.params.userId;
         
-        const subscription = await paymentService.getUserSubscription(userId);
-
-        res.json({
-            success: true,
-            subscription
-        });
-
-    } catch (error) {
-        logger.error('Ошибка получения статуса подписки:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Не удалось получить статус подписки'
-        });
-    }
-};
-
-/**
- * Отмена подписки
- */
-const cancelSubscription = async (req, res) => {
-    try {
-        const userId = req.user.id;
+        const { User, Subscription } = getModels();
         
-        const canceledSubscription = await paymentService.cancelSubscription(userId);
-
-        res.json({
-            success: true,
-            subscription: canceledSubscription
+        const user = await User.findByPk(userId, {
+            include: [{
+                model: Subscription,
+                as: 'subscriptions',
+                where: { status: 'active' },
+                required: false,
+                order: [['createdAt', 'DESC']],
+                limit: 1
+            }]
         });
 
-    } catch (error) {
-        logger.error('Ошибка отмены подписки:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Не удалось отменить подписку'
-        });
-    }
-};
-
-/**
- * Возобновление подписки
- */
-const resumeSubscription = async (req, res) => {
-    try {
-        const userId = req.user.id;
-        
-        const resumedSubscription = await paymentService.resumeSubscription(userId);
-
-        res.json({
-            success: true,
-            subscription: resumedSubscription
-        });
-
-    } catch (error) {
-        logger.error('Ошибка возобновления подписки:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Не удалось возобновить подписку'
-        });
-    }
-};
-
-/**
- * Получение истории платежей
- */
-const getPaymentHistory = async (req, res) => {
-    try {
-        const userId = req.user.id;
-        const { page = 1, limit = 10 } = req.query;
-        
-        const history = await paymentService.getPaymentHistory({
-            userId,
-            page: parseInt(page),
-            limit: parseInt(limit)
-        });
-
-        res.json({
-            success: true,
-            history
-        });
-
-    } catch (error) {
-        logger.error('Ошибка получения истории платежей:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Не удалось получить историю платежей'
-        });
-    }
-};
-
-/**
- * Webhook для обработки уведомлений о платежах
- */
-const handlePaymentWebhook = async (req, res) => {
-    try {
-        const webhookData = req.body;
-        const signature = req.headers['x-payment-signature'];
-        
-        // Проверяем подпись webhook
-        const isValid = await paymentService.verifyWebhookSignature(webhookData, signature);
-        
-        if (!isValid) {
-            return res.status(400).json({
+        if (!user) {
+            return res.status(404).json({
                 success: false,
-                message: 'Неверная подпись webhook'
+                message: 'Пользователь не найден'
             });
         }
 
-        await paymentService.processWebhook(webhookData);
-
-        res.json({
-            success: true,
-            message: 'Webhook обработан'
-        });
-
-    } catch (error) {
-        logger.error('Ошибка обработки webhook:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Ошибка обработки webhook'
-        });
-    }
-};
-
-/**
- * Получение счета для оплаты
- */
-const getInvoice = async (req, res) => {
-    try {
-        const { paymentId } = req.params;
-        const userId = req.user.id;
+        const subscription = user.subscriptions?.[0];
+        const now = new Date();
         
-        const invoice = await paymentService.getInvoice({
-            paymentId,
-            userId
-        });
-
-        res.json({
-            success: true,
-            invoice
-        });
-
-    } catch (error) {
-        logger.error('Ошибка получения счета:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Не удалось получить счет'
-        });
-    }
-};
-
-/**
- * Применение промокода
- */
-const applyPromoCode = async (req, res) => {
-    try {
-        const userId = req.user.id;
-        const { promoCode, planId } = req.body;
-        
-        if (!promoCode) {
-            return res.status(400).json({
-                success: false,
-                message: 'Промокод обязателен'
+        // Проверяем актуальность подписки
+        if (subscription && subscription.endDate > now) {
+            res.json({
+                success: true,
+                isPremium: true,
+                subscription: {
+                    id: subscription.id,
+                    planId: subscription.planId,
+                    status: subscription.status,
+                    startDate: subscription.startDate,
+                    endDate: subscription.endDate,
+                    daysLeft: Math.ceil((subscription.endDate - now) / (1000 * 60 * 60 * 24))
+                }
+            });
+        } else {
+            // Обновляем статус пользователя если подписка истекла
+            if (user.isPremium) {
+                await user.update({
+                    isPremium: false,
+                    premiumUntil: null,
+                    subscriptionPlan: null
+                });
+            }
+            
+            res.json({
+                success: true,
+                isPremium: false,
+                subscription: null
             });
         }
 
-        const discount = await paymentService.applyPromoCode({
-            userId,
-            promoCode,
-            planId
-        });
-
-        res.json({
-            success: true,
-            discount
-        });
-
     } catch (error) {
-        logger.error('Ошибка применения промокода:', error);
-        res.status(400).json({
-            success: false,
-            message: error.message || 'Не удалось применить промокод'
-        });
-    }
-};
-
-/**
- * Получение статистики платежей (для админа)
- */
-const getPaymentStats = async (req, res) => {
-    try {
-        // Проверяем права администратора
-        if (!req.user.isAdmin) {
-            return res.status(403).json({
-                success: false,
-                message: 'Недостаточно прав'
-            });
-        }
-
-        const { period = '30d' } = req.query;
-        
-        const stats = await paymentService.getPaymentStats(period);
-
-        res.json({
-            success: true,
-            stats
-        });
-
-    } catch (error) {
-        logger.error('Ошибка получения статистики платежей:', error);
+        logger.error('Get subscription status error:', error);
         res.status(500).json({
             success: false,
-            message: 'Не удалось получить статистику'
+            message: 'Ошибка получения статуса подписки'
         });
     }
 };
 
 module.exports = {
     getSubscriptionPlans,
-    createPayment,
-    confirmPayment,
-    getSubscriptionStatus,
-    cancelSubscription,
-    resumeSubscription,
-    getPaymentHistory,
-    handlePaymentWebhook,
-    getInvoice,
-    applyPromoCode,
-    getPaymentStats
+    createStarsInvoice,
+    handlePreCheckout,
+    handleSuccessfulPayment,
+    getSubscriptionStatus
 };

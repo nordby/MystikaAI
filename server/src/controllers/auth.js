@@ -87,7 +87,9 @@ class AuthController {
           subscriptionType: user.subscriptionType,
           totalReadings: user.totalReadings,
           dailyReadingsUsed: user.dailyReadingsUsed,
-          isActive: user.isActive
+          isActive: user.isActive,
+          preferences: user.preferences,
+          deckType: user.deckType
         },
         token
       });
@@ -243,6 +245,17 @@ class AuthController {
         });
       }
 
+      // Генерируем JWT токен для существующего пользователя
+      const token = jwt.sign(
+        { 
+          userId: user.id,
+          telegramId: user.telegramId,
+          type: 'bot'
+        },
+        process.env.JWT_SECRET || 'default-secret',
+        { expiresIn: '30d' }
+      );
+
       res.json({
         success: true,
         user: {
@@ -256,8 +269,11 @@ class AuthController {
           subscriptionType: user.subscriptionType,
           totalReadings: user.totalReadings,
           dailyReadingsUsed: user.dailyReadingsUsed,
-          isActive: user.isActive
-        }
+          isActive: user.isActive,
+          preferences: user.preferences,
+          deckType: user.deckType
+        },
+        token
       });
 
     } catch (error) {
@@ -280,6 +296,12 @@ class AuthController {
     try {
       const { telegramId } = req.params;
       const updateData = req.body;
+      
+      logger.info('Updating user by telegram ID', { 
+        telegramId, 
+        updateData: JSON.stringify(updateData, null, 2) 
+      });
+      
       // Получаем модель User через ленивую загрузку
       const { User } = require('../models');
       if (!User) {
@@ -295,9 +317,21 @@ class AuthController {
         });
       }
 
+      logger.info('User before update', { 
+        preferences: JSON.stringify(user.preferences, null, 2) 
+      });
+
       await user.update({
         ...updateData,
         lastSeenAt: new Date()
+      });
+
+      // Перезагружаем пользователя для получения актуальных данных
+      await user.reload();
+
+      logger.info('User after update', { 
+        deckType: user.deckType,
+        preferences: JSON.stringify(user.preferences, null, 2) 
       });
 
       res.json({
@@ -313,7 +347,9 @@ class AuthController {
           subscriptionType: user.subscriptionType,
           totalReadings: user.totalReadings,
           dailyReadingsUsed: user.dailyReadingsUsed,
-          isActive: user.isActive
+          isActive: user.isActive,
+          preferences: user.preferences,
+          deckType: user.deckType
         }
       });
 
@@ -366,6 +402,68 @@ class AuthController {
       res.status(500).json({
         success: false,
         message: 'Failed to get profile'
+      });
+    }
+  }
+
+  /**
+   * Обновление профиля текущего пользователя
+   */
+  async updateProfile(req, res) {
+    try {
+      const { User } = require('../models');
+      if (!User) {
+        throw new Error('User model not initialized');
+      }
+      
+      const user = await User.findByPk(req.user.id);
+
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: 'User not found'
+        });
+      }
+
+      const { preferences, ...profileData } = req.body;
+
+      // Обновляем основные данные профиля
+      await user.update({
+        ...profileData,
+        lastSeenAt: new Date()
+      });
+
+      // Обновляем настройки пользователя (preferences) в отдельном поле JSON
+      if (preferences) {
+        const currentPreferences = user.preferences || {};
+        const updatedPreferences = {
+          ...currentPreferences,
+          ...preferences
+        };
+        
+        await user.update({
+          preferences: updatedPreferences
+        });
+      }
+
+      // Перезагружаем пользователя с обновленными данными
+      await user.reload();
+
+      res.json({
+        success: true,
+        user: user.toSafeObject(),
+        message: 'Profile updated successfully'
+      });
+
+    } catch (error) {
+      logger.error('Update profile error', {
+        error: error.message,
+        userId: req.user?.id
+      });
+
+      res.status(500).json({
+        success: false,
+        message: 'Failed to update profile'
       });
     }
   }

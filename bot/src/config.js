@@ -221,7 +221,7 @@ class BotConfig {
             { text: '🎯 3 месяца - 799₽', callback_data: 'premium_quarterly' }
           ],
           [
-            { text: '⭐ Год - 2999₽', callback_data: 'premium_yearly' },
+            { text: '⭐ Год - 2999₽', callback_data: 'premium_menu' },
             { text: '🎁 Пробный период', callback_data: 'premium_trial' }
           ],
           [{ text: '⬅️ Назад', callback_data: 'back_to_menu' }]

@@ -51,14 +51,14 @@ async function handleDaily(bot, msg, userToken) {
                 parse_mode: 'HTML',
                 reply_markup: {
                     inline_keyboard: [
-                        [
+                        ...(process.env.WEBAPP_URL ? [[
                             {
                                 text: '🎴 Другие расклады',
                                 web_app: { 
                                     url: `${process.env.WEBAPP_URL}/spreads` 
                                 }
                             }
-                        ],
+                        ]] : []),
                         [
                             {
                                 text: '📖 История гаданий',
@@ -167,14 +167,14 @@ async function handleDaily(bot, msg, userToken) {
                                 callback_data: 'daily_card'
                             }
                         ],
-                        [
+                        ...(process.env.WEBAPP_URL ? [[
                             {
                                 text: '🎴 Другие расклады',
                                 web_app: { 
                                     url: `${process.env.WEBAPP_URL}/spreads` 
                                 }
                             }
-                        ]
+                        ]] : [])
                     ]
                 }
             });

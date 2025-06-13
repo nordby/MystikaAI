@@ -114,6 +114,14 @@ class NumerologyHandler {
         case 'waiting_name_analysis':
           await this.processNameAnalysis(ctx, text);
           break;
+          
+        case 'waiting_user_birthdate_for_compatibility':
+          await this.processUserBirthDateForCompatibility(ctx, text, session);
+          break;
+          
+        case 'waiting_user_name_for_compatibility':
+          await this.processUserNameForCompatibility(ctx, text, session);
+          break;
       }
     } catch (error) {
       console.error('Ошибка обработки текста:', error);
@@ -340,15 +348,27 @@ class NumerologyHandler {
     try {
       const userId = ctx.from.id;
       
+      console.log('Starting name analysis for user:', userId);
+      
+      // Очищаем предыдущие сессии
+      this.userSessions.delete(userId);
+      
       this.userSessions.set(userId, {
         step: 'waiting_name_analysis',
-        data: {}
+        data: {},
+        timestamp: Date.now()
       });
 
       const message = `📝 *Анализ имени*
 
 Введите имя для нумерологического анализа:
-(можно ввести как полное имя, так и отдельные имена)`;
+
+💡 Можно ввести:
+• Полное имя (Иван Петров)
+• Только имя (Анна)
+• Имя с отчеством (Мария Ивановна)
+
+⭐ Я рассчитаю числа судьбы и имени для анализа характера.`;
 
       const keyboard = createInlineKeyboard([
         [{ text: '❌ Отмена', callback_data: 'numerology_menu' }]
@@ -360,7 +380,7 @@ class NumerologyHandler {
       });
     } catch (error) {
       console.error('Ошибка анализа имени:', error);
-      await ctx.reply('Ошибка. Попробуйте позже.');
+      await ctx.reply('❌ Ошибка инициализации анализа имени. Попробуйте позже.');
     }
   }
 
@@ -408,8 +428,18 @@ class NumerologyHandler {
       // Получаем данные пользователя из профиля
       const userProfile = this.getUserProfile(ctx.from.id);
       if (!userProfile || !userProfile.birthDate) {
-        await ctx.reply('❌ Для расчета совместимости нужны ваши данные. Пожалуйста, сначала заполните свой профиль.');
-        this.userSessions.delete(ctx.from.id);
+        // Если у пользователя нет профиля, запрашиваем его данные
+        session.step = 'waiting_user_birthdate_for_compatibility';
+        this.userSessions.set(ctx.from.id, session);
+        
+        await ctx.reply(`✅ Данные партнера сохранены: ${session.data.partnerName}
+
+👤 Теперь введите вашу дату рождения в формате ДД.ММ.ГГГГ
+Например: 15.03.1990`, {
+          reply_markup: createInlineKeyboard([
+            [{ text: '❌ Отмена', callback_data: 'numerology_menu' }]
+          ])
+        });
         return;
       }
 
@@ -512,22 +542,44 @@ class NumerologyHandler {
   // Обработка анализа имени
   async processNameAnalysis(ctx, text) {
     try {
-      const destinyNumber = await numerologyService.calculateDestinyNumber(text);
-      const nameNumber = await numerologyService.calculateNameNumber(text);
+      console.log('Processing name analysis for:', text);
       
-      let message = `📝 *Анализ имени "${text}"*\n\n`;
+      if (!text || text.trim().length < 2) {
+        await ctx.reply('❌ Слишком короткое имя. Введите полное имя для анализа.');
+        return;
+      }
+
+      const cleanName = text.trim();
+      
+      const destinyNumber = await numerologyService.calculateDestinyNumber(cleanName);
+      const nameNumber = await numerologyService.calculateNameNumber(cleanName);
+      
+      console.log('Calculated numbers:', { destinyNumber, nameNumber });
+      
+      let message = `📝 *Анализ имени "${cleanName}"*\n\n`;
       message += `⭐ *Число судьбы:* ${destinyNumber}\n`;
       message += `📛 *Число имени:* ${nameNumber}\n\n`;
       
-      // Получаем описание числа
-      const meaning = numerologyService.numberMeanings[destinyNumber];
-      if (meaning) {
-        message += `💬 *Значение:* ${meaning.description}\n\n`;
-        message += `🔑 *Ключевые слова:* ${meaning.keywords.join(', ')}`;
+      // Получаем описание числа судьбы
+      const destinyMeaning = numerologyService.numberMeanings[destinyNumber];
+      if (destinyMeaning) {
+        message += `💫 *Характеристика судьбы:*\n${destinyMeaning.description}\n\n`;
+        message += `🔑 *Ключевые качества:* ${destinyMeaning.keywords.join(', ')}\n\n`;
       }
+      
+      // Получаем описание числа имени (если отличается)
+      if (nameNumber !== destinyNumber) {
+        const nameMeaning = numerologyService.numberMeanings[nameNumber];
+        if (nameMeaning) {
+          message += `💎 *Влияние имени:*\n${nameMeaning.description}\n\n`;
+        }
+      }
+      
+      message += `💡 *Рекомендация:* Используйте эти знания для лучшего понимания своих талантов и предназначения.`;
 
       const keyboard = createInlineKeyboard([
         [{ text: '🔄 Другое имя', callback_data: 'numerology_name' }],
+        [{ text: '🔢 Полный профиль', callback_data: 'numerology_calculate' }],
         [{ text: '🔙 Назад', callback_data: 'numerology_menu' }]
       ]);
 
@@ -536,30 +588,59 @@ class NumerologyHandler {
         reply_markup: keyboard 
       });
 
+      console.log('Name analysis completed successfully');
       this.userSessions.delete(ctx.from.id);
     } catch (error) {
       console.error('Ошибка анализа имени:', error);
-      await ctx.reply('Ошибка анализа. Попробуйте еще раз.');
+      await ctx.reply('❌ Ошибка анализа. Проверьте правильность ввода имени и попробуйте еще раз.');
+      // Не удаляем сессию, чтобы пользователь мог попробовать снова
     }
   }
 
   // Персональный год
   async handlePersonalYear(ctx) {
     try {
-      // Здесь можно получить профиль пользователя из базы данных
-      // Для примера используем расчет на основе текущей даты
+      // Получаем профиль пользователя
+      const userProfile = this.getUserProfile(ctx.from.id);
+      
+      if (!userProfile || !userProfile.birthDate) {
+        const message = `🎯 *Персональный год*
+
+❗ Для точного расчета персонального года нужна ваша дата рождения.
+
+Пожалуйста, сначала создайте свой нумерологический профиль.`;
+
+        const keyboard = createInlineKeyboard([
+          [{ text: '🔢 Создать профиль', callback_data: 'numerology_calculate' }],
+          [{ text: '🔙 Назад', callback_data: 'numerology_menu' }]
+        ]);
+
+        await ctx.editMessageText(message, { 
+          parse_mode: 'Markdown', 
+          reply_markup: keyboard 
+        });
+        return;
+      }
+
+      // Используем сервис для правильного расчета
+      const forecast = await numerologyService.generatePersonalForecast(userProfile.birthDate);
       const currentYear = new Date().getFullYear();
-      const personalYear = this.calculatePersonalYear(currentYear, ctx.from.id);
 
       const message = `🎯 *Персональный год ${currentYear}*
 
-📊 *Ваше число года:* ${personalYear}
+📊 *Ваше число года:* ${forecast.personalYear}
 
-${this.getPersonalYearMeaning(personalYear)}
+💫 *Энергия года:*
+${forecast.yearDescription}
 
-Это время для ${this.getYearFocus(personalYear)}`;
+🎯 *Ключевые темы:*
+${forecast.yearThemes.map(theme => `• ${theme}`).join('\n')}
+
+💡 *Рекомендации:*
+${forecast.yearAdvice}`;
 
       const keyboard = createInlineKeyboard([
+        [{ text: '📊 Полный прогноз', callback_data: 'numerology_forecast' }],
         [{ text: '📱 Подробный анализ', url: `${process.env.WEBAPP_URL}/numerology` }],
         [{ text: '🔙 Назад', callback_data: 'numerology_menu' }]
       ]);
@@ -570,7 +651,7 @@ ${this.getPersonalYearMeaning(personalYear)}
       });
     } catch (error) {
       console.error('Ошибка персонального года:', error);
-      await ctx.reply('Ошибка. Попробуйте позже.');
+      await ctx.reply('❌ Ошибка расчета. Попробуйте позже.');
     }
   }
 
@@ -666,6 +747,57 @@ ${this.getPersonalYearMeaning(personalYear)}
       9: "завершения проектов и подведения итогов"
     };
     return focuses[year] || "личностного роста";
+  }
+
+  // Обработка даты рождения пользователя для совместимости
+  async processUserBirthDateForCompatibility(ctx, text, session) {
+    const dateRegex = /^(\d{1,2})\.(\d{1,2})\.(\d{4})$/;
+    const match = text.match(dateRegex);
+
+    if (!match) {
+      await ctx.reply('❌ Неверный формат даты. Введите дату в формате ДД.ММ.ГГГГ (например: 15.03.1990)');
+      return;
+    }
+
+    const [, day, month, year] = match;
+    const birthDate = new Date(year, month - 1, day);
+
+    if (isNaN(birthDate.getTime()) || birthDate > new Date()) {
+      await ctx.reply('❌ Некорректная дата. Проверьте правильность ввода.');
+      return;
+    }
+
+    session.data.userBirthDate = birthDate;
+    session.step = 'waiting_user_name_for_compatibility';
+    this.userSessions.set(ctx.from.id, session);
+
+    await ctx.reply(`✅ Ваша дата рождения: ${day}.${month}.${year}
+
+👤 Теперь введите ваше полное имя (Фамилия Имя Отчество):`, {
+      reply_markup: createInlineKeyboard([
+        [{ text: '❌ Отмена', callback_data: 'numerology_menu' }]
+      ])
+    });
+  }
+
+  // Обработка имени пользователя для совместимости
+  async processUserNameForCompatibility(ctx, text, session) {
+    if (text.length < 2) {
+      await ctx.reply('❌ Слишком короткое имя. Введите полное имя.');
+      return;
+    }
+
+    session.data.userName = text;
+    
+    try {
+      // Теперь у нас есть все данные для расчета совместимости
+      await this.calculateCompatibility(ctx, session);
+      this.userSessions.delete(ctx.from.id);
+    } catch (error) {
+      console.error('Ошибка расчета совместимости:', error);
+      await ctx.reply('❌ Ошибка расчета. Попробуйте позже.');
+      this.userSessions.delete(ctx.from.id);
+    }
   }
 }
 

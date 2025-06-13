@@ -12,98 +12,48 @@ const paymentsController = require('../controllers/payments');
 router.get('/plans', paymentsController.getSubscriptionPlans);
 
 /**
- * POST /api/payments/create
- * Создание платежа
+ * POST /api/payments/stars/invoice
+ * Создание Telegram Stars invoice
  */
-router.post('/create',
+router.post('/stars/invoice',
     authMiddleware,
     rateLimitMiddleware.strictLimiter(),
-    paymentsController.createPayment
+    paymentsController.createStarsInvoice
 );
 
 /**
- * POST /api/payments/confirm
- * Подтверждение платежа
+ * POST /api/payments/stars/pre-checkout
+ * Обработка pre-checkout запроса от Telegram
  */
-router.post('/confirm',
-    authMiddleware,
-    rateLimitMiddleware.strictLimiter(),
-    paymentsController.confirmPayment
+router.post('/stars/pre-checkout',
+    rateLimitMiddleware.webhookLimiter(),
+    paymentsController.handlePreCheckout
 );
 
 /**
- * GET /api/payments/subscription
+ * POST /api/payments/stars/successful-payment
+ * Обработка успешного платежа через Telegram Stars
+ */
+router.post('/stars/successful-payment',
+    rateLimitMiddleware.webhookLimiter(),
+    paymentsController.handleSuccessfulPayment
+);
+
+/**
+ * GET /api/payments/subscription/status
  * Получение статуса подписки пользователя
  */
-router.get('/subscription',
+router.get('/subscription/status',
     authMiddleware,
     paymentsController.getSubscriptionStatus
 );
 
 /**
- * POST /api/payments/cancel-subscription
- * Отмена подписки
+ * GET /api/payments/subscription/:userId
+ * Получение статуса подписки по ID пользователя (для бота)
  */
-router.post('/cancel-subscription',
-    authMiddleware,
-    rateLimitMiddleware.strictLimiter(),
-    paymentsController.cancelSubscription
-);
-
-/**
- * POST /api/payments/resume-subscription
- * Возобновление подписки
- */
-router.post('/resume-subscription',
-    authMiddleware,
-    rateLimitMiddleware.strictLimiter(),
-    paymentsController.resumeSubscription
-);
-
-/**
- * GET /api/payments/history
- * Получение истории платежей
- */
-router.get('/history',
-    authMiddleware,
-    paymentsController.getPaymentHistory
-);
-
-/**
- * GET /api/payments/invoice/:paymentId
- * Получение счета для оплаты
- */
-router.get('/invoice/:paymentId',
-    authMiddleware,
-    paymentsController.getInvoice
-);
-
-/**
- * POST /api/payments/promo-code
- * Применение промокода
- */
-router.post('/promo-code',
-    authMiddleware,
-    rateLimitMiddleware.strictLimiter(),
-    paymentsController.applyPromoCode
-);
-
-/**
- * POST /api/payments/webhook
- * Webhook для обработки уведомлений о платежах
- */
-router.post('/webhook',
-    rateLimitMiddleware.webhookLimiter(),
-    paymentsController.handlePaymentWebhook
-);
-
-/**
- * GET /api/payments/stats
- * Получение статистики платежей (только для админов)
- */
-router.get('/stats',
-    authMiddleware,
-    paymentsController.getPaymentStats
+router.get('/subscription/:userId',
+    paymentsController.getSubscriptionStatus
 );
 
 module.exports = router;

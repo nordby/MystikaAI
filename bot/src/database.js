@@ -224,6 +224,56 @@ class BotDatabase {
     });
   }
 
+  /**
+   * Параллельная генерация нескольких карт
+   */
+  async generateMultipleCardImages(cards, options = {}) {
+    return await this.makeRequest('POST', '/ai/generate-multiple-cards', {
+      cards,
+      style: options.style || 'mystic',
+      maxConcurrent: options.maxConcurrent || 3
+    });
+  }
+
+  /**
+   * Генерация с fallback на моковые изображения
+   */
+  async generateCardImageWithFallback(cardName, cardDescription, options = {}) {
+    return await this.makeRequest('POST', '/ai/generate-card-with-fallback', {
+      cardName,
+      cardDescription,
+      style: options.style || 'mystic',
+      timeout: options.timeout || 30000,
+      mockFallback: options.mockFallback !== false
+    });
+  }
+
+  /**
+   * Предварительная генерация популярных карт
+   */
+  async pregeneratePopularCards(popularCards, styles = ['mystic', 'classic']) {
+    return await this.makeRequest('POST', '/ai/pregenerate-cards', {
+      popularCards,
+      styles,
+      priority: 'low',
+      delay: 5000
+    });
+  }
+
+  /**
+   * Получение доступных стилей колод
+   */
+  async getAvailableStyles() {
+    return await this.makeRequest('GET', '/ai/styles');
+  }
+
+  /**
+   * Тестовая генерация
+   */
+  async testImageGeneration() {
+    return await this.makeRequest('POST', '/ai/test-generation');
+  }
+
   async checkKandinskyHealth() {
     return await this.makeRequest('GET', '/ai/kandinsky/health');
   }

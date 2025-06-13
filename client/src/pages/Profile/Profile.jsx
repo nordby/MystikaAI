@@ -3,7 +3,8 @@ import React, { useState, useEffect } from 'react';
 import  useAuthStore  from '../../store/authStore';
 import  useUserStore  from '../../store/userStore';
 import   useSettingsStore   from '../../store/settingsStore';
-import { getUserProfile, updateUserProfile } from '../../services/api';
+import useAuth from '../../hooks/useAuth';
+import api from '../../services/api';
 import { formatDate, isValidEmail } from '../../utils/helpers';
 import { THEMES, LANGUAGES, SUCCESS_MESSAGES } from '../../utils/constants';
 import Button from '../../components/common/Button';
@@ -14,7 +15,13 @@ import './Profile.css';
 const Profile = () => {
   const { user, setUser, isAuthenticated, logout } = useAuthStore();
   const { preferences, setPreferences } = useUserStore();
-  const { theme, setTheme, language, setLanguage } = useSettingsStore();
+  const { updateProfile } = useAuth();
+  const { 
+    theme, setTheme, 
+    language, setLanguage, 
+    cardGeneration, 
+    updateCardGeneration 
+  } = useSettingsStore();
   
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -33,8 +40,8 @@ const Profile = () => {
   });
 
   const [settingsData, setSettingsData] = useState({
-    theme: theme || THEME_CONFIG.AUTO,
-    language: language || LOCALES.RU,
+    theme: theme || 'dark',
+    language: language || 'ru',
     notifications: {
       daily: true,
       readings: true,
@@ -45,8 +52,17 @@ const Profile = () => {
       showProfile: true,
       showReadings: false,
       showStatistics: true
+    },
+    cardGeneration: cardGeneration || {
+      defaultStyle: 'mystic',
+      autoGenerate: true,
+      highQuality: false,
+      parallelGeneration: true,
+      fallbackEnabled: true
     }
   });
+
+  const [availableStyles, setAvailableStyles] = useState({});
 
   const [avatarFile, setAvatarFile] = useState(null);
   const [avatarPreview, setAvatarPreview] = useState(null);
@@ -66,13 +82,55 @@ const Profile = () => {
 
   useEffect(() => {
     if (preferences) {
+      console.log('👤 Loading user preferences:', preferences);
       setSettingsData(prev => ({
         ...prev,
         notifications: { ...prev.notifications, ...preferences.notifications },
-        privacy: { ...prev.privacy, ...preferences.privacy }
+        privacy: { ...prev.privacy, ...preferences.privacy },
+        cardGeneration: { ...prev.cardGeneration, ...preferences.cardGeneration }
+      }));
+      
+      // Также обновляем store, если есть настройки генерации карт
+      if (preferences.cardGeneration) {
+        console.log('👤 Updating store with user cardGeneration:', preferences.cardGeneration);
+        updateCardGeneration(preferences.cardGeneration);
+      }
+    }
+  }, [preferences, updateCardGeneration]);
+
+  // Синхронизация с настройками из store
+  useEffect(() => {
+    if (cardGeneration) {
+      console.log('🔄 Syncing cardGeneration from store:', cardGeneration);
+      setSettingsData(prev => ({
+        ...prev,
+        cardGeneration: { ...prev.cardGeneration, ...cardGeneration }
       }));
     }
-  }, [preferences]);
+  }, [cardGeneration]);
+
+  // Загружаем доступные стили колод
+  useEffect(() => {
+    const loadAvailableStyles = async () => {
+      try {
+        const response = await api.getAvailableStyles();
+        if (response.success) {
+          setAvailableStyles(response.styles);
+        }
+      } catch (error) {
+        console.error('Failed to load available styles:', error);
+        // Устанавливаем дефолтные стили в случае ошибки
+        setAvailableStyles({
+          mystic: { name: 'Мистический', emoji: '🔮' },
+          classic: { name: 'Классический', emoji: '📜' },
+          modern: { name: 'Современный', emoji: '🔳' },
+          fantasy: { name: 'Фэнтези', emoji: '🧚' }
+        });
+      }
+    };
+    
+    loadAvailableStyles();
+  }, []);
 
   const handleInputChange = (field, value) => {
     setFormData(prev => ({
@@ -89,6 +147,16 @@ const Profile = () => {
         [field]: value
       }
     }));
+
+    // Если изменяются настройки генерации карт, сразу обновляем в store
+    if (section === 'cardGeneration') {
+      const updatedCardGeneration = {
+        ...settingsData.cardGeneration,
+        [field]: value
+      };
+      console.log('🔧 Updating card generation settings:', updatedCardGeneration);
+      updateCardGeneration(updatedCardGeneration);
+    }
   };
 
   const handleSaveProfile = async () => {
@@ -106,20 +174,28 @@ const Profile = () => {
         return;
       }
 
-      const updatedUser = await updateProfile({
+      const result = await updateProfile({
         ...formData,
         preferences: {
           notifications: settingsData.notifications,
-          privacy: settingsData.privacy
+          privacy: settingsData.privacy,
+          cardGeneration: settingsData.cardGeneration
         }
       });
       
-      setUser(updatedUser);
-      setPreferences(updatedUser.preferences);
-      addNotification(SUCCESS_MESSAGES.PROFILE_UPDATED, 'success');
+      // Также обновляем в store для мгновенного применения
+      console.log('💾 Saving card generation settings to server:', settingsData.cardGeneration);
+      updateCardGeneration(settingsData.cardGeneration);
+      
+      if (result.success) {
+        setUser(result.user);
+        setPreferences(result.user.preferences);
+        console.log('✅ Profile saved successfully, user preferences:', result.user.preferences);
+        addNotification('Профиль успешно обновлен!', 'success');
+      }
     } catch (error) {
       console.error('Ошибка сохранения профиля:', error);
-      addNotification(ERROR_MESSAGES.NETWORK_ERROR, 'error');
+      addNotification('Ошибка сохранения профиля. Попробуйте еще раз.', 'error');
     } finally {
       setSaving(false);
     }
@@ -214,6 +290,47 @@ const Profile = () => {
   const handleLanguageChange = (newLanguage) => {
     setLanguage(newLanguage);
     setSettingsData(prev => ({ ...prev, language: newLanguage }));
+  };
+
+  const handleTestGeneration = async () => {
+    try {
+      setLoading(true);
+      addNotification('Запуск тестовой генерации...', 'info');
+      
+      // Показываем текущие настройки
+      const currentSettings = cardGeneration || settingsData.cardGeneration;
+      console.log('🧪 Testing with settings:', currentSettings);
+      addNotification(
+        `Тестирование со стилем: ${currentSettings.defaultStyle || 'mystic'}`, 
+        'info'
+      );
+      
+      const result = await api.testImageGeneration();
+      
+      if (result.success) {
+        addNotification(
+          `Тест успешен! ${result.isMock ? 'Использован fallback режим' : 'AI генерация работает'}`, 
+          'success'
+        );
+      } else {
+        addNotification(`Тест не прошел: ${result.error}`, 'error');
+      }
+    } catch (error) {
+      console.error('Test generation error:', error);
+      addNotification('Ошибка тестирования генерации', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleShowCurrentSettings = () => {
+    const currentSettings = cardGeneration || settingsData.cardGeneration;
+    console.log('📋 Current card generation settings:', currentSettings);
+    addNotification(
+      `Текущие настройки: стиль "${currentSettings.defaultStyle}", ` +
+      `параллельная генерация: ${currentSettings.parallelGeneration ? 'ВКЛ' : 'ВЫКЛ'}`,
+      'info'
+    );
   };
 
   const addNotification = (message, type) => {
@@ -385,19 +502,17 @@ const Profile = () => {
             <div className="setting-group">
               <h4>Тема оформления</h4>
               <div className="theme-options">
-                {Object.entries(THEME_CONFIG).map(([key, value]) => (
+                {[{key: 'dark', label: '🌙 Темная'}, {key: 'light', label: '☀️ Светлая'}, {key: 'auto', label: '🔄 Автоматическая'}].map(({key, label}) => (
                   <label key={key} className="theme-option">
                     <input
                       type="radio"
                       name="theme"
-                      value={value}
-                      checked={settingsData.theme === value}
-                      onChange={() => handleThemeChange(value)}
+                      value={key}
+                      checked={settingsData.theme === key}
+                      onChange={() => handleThemeChange(key)}
                     />
                     <span className="theme-label">
-                      {value === THEME_CONFIG.DARK && '🌙 Темная'}
-                      {value === THEME_CONFIG.LIGHT && '☀️ Светлая'}
-                      {value === THEME_CONFIG.AUTO && '🔄 Автоматическая'}
+                      {label}
                     </span>
                   </label>
                 ))}
@@ -412,11 +527,11 @@ const Profile = () => {
                 onChange={(e) => handleLanguageChange(e.target.value)}
                 className="language-select"
               >
-                <option value={LOCALES.RU}>🇷🇺 Русский</option>
-                <option value={LOCALES.EN}>🇺🇸 English</option>
-                <option value={LOCALES.ES}>🇪🇸 Español</option>
-                <option value={LOCALES.FR}>🇫🇷 Français</option>
-                <option value={LOCALES.DE}>🇩🇪 Deutsch</option>
+                <option value="ru">🇷🇺 Русский</option>
+                <option value="en">🇺🇸 English</option>
+                <option value="es">🇪🇸 Español</option>
+                <option value="fr">🇫🇷 Français</option>
+                <option value="de">🇩🇪 Deutsch</option>
               </select>
             </div>
 
@@ -460,6 +575,139 @@ const Profile = () => {
                     </span>
                   </label>
                 ))}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Настройки генерации изображений */}
+        <div className="profile-section">
+          <div className="section-header">
+            <h2>🎨 Генерация изображений карт</h2>
+            <p>Настройки AI генерации персональных изображений карт Таро</p>
+          </div>
+
+          <div className="settings-grid">
+            {/* Стиль колоды по умолчанию */}
+            <div className="setting-group">
+              <h4>Стиль колоды по умолчанию</h4>
+              <div className="style-options">
+                {Object.entries(availableStyles).map(([key, style]) => (
+                  <label key={key} className="style-option">
+                    <input
+                      type="radio"
+                      name="defaultStyle"
+                      value={key}
+                      checked={settingsData.cardGeneration.defaultStyle === key}
+                      onChange={() => {
+                        handleSettingsChange('cardGeneration', 'defaultStyle', key);
+                        addNotification(`Стиль изменен на "${style.name}"`, 'success');
+                      }}
+                    />
+                    <span className="style-label">
+                      {style.emoji} {style.name}
+                    </span>
+                    {style.description && (
+                      <span className="style-description">{style.description}</span>
+                    )}
+                  </label>
+                ))}
+              </div>
+              <div className="current-style-info">
+                <small>
+                  💡 Текущий стиль: <strong>
+                    {availableStyles[settingsData.cardGeneration.defaultStyle]?.name || settingsData.cardGeneration.defaultStyle}
+                  </strong>
+                </small>
+              </div>
+            </div>
+
+            {/* Параметры генерации */}
+            <div className="setting-group">
+              <h4>Параметры генерации</h4>
+              <div className="generation-settings">
+                <label className="generation-option">
+                  <input
+                    type="checkbox"
+                    checked={settingsData.cardGeneration.autoGenerate}
+                    onChange={(e) => handleSettingsChange('cardGeneration', 'autoGenerate', e.target.checked)}
+                  />
+                  <span className="generation-label">
+                    <strong>Автоматическая генерация</strong>
+                    <small>Генерировать изображения автоматически при получении новых карт</small>
+                  </span>
+                </label>
+
+                <label className="generation-option">
+                  <input
+                    type="checkbox"
+                    checked={settingsData.cardGeneration.parallelGeneration}
+                    onChange={(e) => {
+                      handleSettingsChange('cardGeneration', 'parallelGeneration', e.target.checked);
+                      addNotification(
+                        `Параллельная генерация ${e.target.checked ? 'включена' : 'отключена'}`, 
+                        'success'
+                      );
+                    }}
+                  />
+                  <span className="generation-label">
+                    <strong>Параллельная генерация</strong>
+                    <small>Генерировать несколько изображений одновременно (быстрее)</small>
+                  </span>
+                </label>
+
+                <label className="generation-option">
+                  <input
+                    type="checkbox"
+                    checked={settingsData.cardGeneration.fallbackEnabled}
+                    onChange={(e) => handleSettingsChange('cardGeneration', 'fallbackEnabled', e.target.checked)}
+                  />
+                  <span className="generation-label">
+                    <strong>Резервные изображения</strong>
+                    <small>Использовать стандартные изображения при сбое генерации</small>
+                  </span>
+                </label>
+
+                {user?.isPremium && (
+                  <label className="generation-option">
+                    <input
+                      type="checkbox"
+                      checked={settingsData.cardGeneration.highQuality}
+                      onChange={(e) => handleSettingsChange('cardGeneration', 'highQuality', e.target.checked)}
+                    />
+                    <span className="generation-label">
+                      <strong>Высокое качество</strong>
+                      <small>Генерация в высоком разрешении (только для Premium)</small>
+                    </span>
+                  </label>
+                )}
+              </div>
+            </div>
+
+            {/* Тест генерации */}
+            <div className="setting-group">
+              <h4>Тестирование</h4>
+              <div className="test-generation">
+                <p className="test-description">
+                  Протестируйте генерацию изображений с выбранными настройками
+                </p>
+                <div className="test-buttons">
+                  <Button
+                    variant="outline"
+                    onClick={handleTestGeneration}
+                    disabled={loading}
+                    className="test-button"
+                  >
+                    {loading ? 'Тестирование...' : '🧪 Тестовая генерация'}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={handleShowCurrentSettings}
+                    className="test-button"
+                  >
+                    📋 Показать текущие настройки
+                  </Button>
+                </div>
               </div>
             </div>
           </div>

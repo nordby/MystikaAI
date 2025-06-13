@@ -1,39 +1,65 @@
 // bot/src/handlers/premium.js
-const { formatPremiumFeatures, formatSubscriptionStatus } = require('../utils/messages');
-const { createPremiumKeyboard, createSubscriptionKeyboard } = require('../utils/keyboards');
+const apiService = require('../services/api');
+const logger = require('../utils/logger');
 
 /**
- * Обработчик информации о премиум возможностях
+ * Обработчик команды /premium - показ планов подписки
  */
-async function handlePremiumInfo(bot, callbackQuery, api) {
-    const chatId = callbackQuery.message.chat.id;
-    const userId = callbackQuery.from.id;
+async function handlePremium(bot, msg, userToken) {
+    const chatId = msg.chat.id;
+    const userId = msg.from.id;
 
     try {
-        await bot.answerCallbackQuery(callbackQuery.id);
+        // Получаем статус подписки пользователя
+        const subscriptionResponse = await apiService.get(`/payments/subscription/${userId}`);
+        const { isPremium, subscription } = subscriptionResponse.data;
 
-        // Получаем информацию о текущей подписке
-        const subscriptionResponse = await api.get('/payments/subscription');
-        const subscription = subscriptionResponse.data.subscription;
+        if (isPremium && subscription) {
+            // Пользователь уже имеет премиум
+            const daysLeft = subscription.daysLeft;
+            const expiresAt = new Date(subscription.endDate).toLocaleDateString('ru-RU');
+            
+            await bot.sendMessage(chatId,
+                '💎 <b>У вас активна Премиум подписка!</b>\n\n' +
+                `📅 <b>Действует до:</b> ${expiresAt}\n` +
+                `⏰ <b>Осталось дней:</b> ${daysLeft}\n` +
+                `📦 <b>План:</b> ${subscription.planId === 'monthly_premium' ? 'Месячный' : 'Годовой'}\n\n` +
+                '✨ <b>Ваши возможности:</b>\n' +
+                '• Безлимитные гадания\n' +
+                '• Все расклады Таро\n' +
+                '• ИИ-анализ карт\n' +
+                '• Генерация изображений\n' +
+                '• Персональные рекомендации\n' +
+                '• Приоритетная поддержка', {
+                parse_mode: 'HTML',
+                reply_markup: {
+                    inline_keyboard: [
+                        [
+                            {
+                                text: '🔮 Сделать гадание',
+                                web_app: { url: `${process.env.WEBAPP_URL}/spreads` }
+                            }
+                        ],
+                        [
+                            {
+                                text: '📊 Моя статистика',
+                                web_app: { url: `${process.env.WEBAPP_URL}/profile` }
+                            }
+                        ]
+                    ]
+                }
+            });
+            return;
+        }
 
-        // Получаем доступные планы
-        const plansResponse = await api.get('/payments/plans');
-        const plans = plansResponse.data.plans;
-
-        const premiumText = formatPremiumFeatures(subscription, plans);
-
-        await bot.sendMessage(chatId, premiumText, {
-            parse_mode: 'HTML',
-            reply_markup: createPremiumKeyboard(subscription, plans)
-        });
+        // Показываем планы подписки
+        await showSubscriptionPlans(bot, chatId, userId);
 
     } catch (error) {
-        console.error('Ошибка получения информации о премиум:', error);
-        
+        logger.error('Premium handler error:', error);
         await bot.sendMessage(chatId,
-            '❌ <b>Ошибка</b>\n\n' +
-            'Не удалось загрузить информацию о премиум возможностях.\n' +
-            'Попробуйте позже.', {
+            '❌ <b>Ошибка получения информации о подписке</b>\n\n' +
+            'Попробуйте еще раз через несколько секунд.', {
             parse_mode: 'HTML',
             reply_markup: {
                 inline_keyboard: [[
@@ -48,123 +74,127 @@ async function handlePremiumInfo(bot, callbackQuery, api) {
 }
 
 /**
- * Обработчик выбора плана подписки
+ * Показ планов подписки
  */
-async function handleSelectPlan(bot, callbackQuery, api) {
+async function showSubscriptionPlans(bot, chatId, userId) {
+    try {
+        const plansResponse = await apiService.get('/payments/plans');
+        const { plans } = plansResponse.data;
+
+        let plansText = '💎 <b>MISTIKA Premium</b>\n\n' +
+            '🌟 <b>Откройте полный потенциал мистических практик!</b>\n\n';
+
+        const keyboards = [];
+
+        plans.forEach((plan, index) => {
+            const isYearly = plan.id === 'yearly_premium';
+            const savings = isYearly ? ' 🔥 СКИДКА 40%' : '';
+            
+            plansText += `${index + 1}. <b>${plan.name}</b>${savings}\n`;
+            plansText += `   💰 ${plan.price} ⭐ Stars\n`;
+            plansText += `   📅 ${plan.duration} дней\n`;
+            plansText += `   📝 ${plan.description}\n\n`;
+
+            keyboards.push([{
+                text: `${isYearly ? '🔥 ' : ''}${plan.name} - ${plan.price} ⭐`,
+                callback_data: `buy_premium_${plan.id}`
+            }]);
+        });
+
+        plansText += '✨ <b>Что входит в Premium:</b>\n';
+        plans[0].features.forEach(feature => {
+            plansText += `• ${feature}\n`;
+        });
+
+        keyboards.push([
+            {
+                text: '💫 Как получить Stars?',
+                callback_data: 'how_to_get_stars'
+            }
+        ]);
+
+        await bot.sendMessage(chatId, plansText, {
+            parse_mode: 'HTML',
+            reply_markup: {
+                inline_keyboard: keyboards
+            }
+        });
+
+    } catch (error) {
+        logger.error('Show subscription plans error:', error);
+        throw error;
+    }
+}
+
+/**
+ * Обработчик покупки премиум подписки
+ */
+async function handleBuyPremium(bot, callbackQuery, userToken) {
     const chatId = callbackQuery.message.chat.id;
     const userId = callbackQuery.from.id;
-    const planId = callbackQuery.data.split('_')[2];
+    const planId = callbackQuery.data.replace('buy_premium_', '');
 
     try {
         await bot.answerCallbackQuery(callbackQuery.id, {
-            text: 'Создаю платеж...'
+            text: 'Создаю invoice для оплаты...'
         });
 
-        // Создаем платеж
-        const paymentResponse = await api.post('/payments/create', {
+        // Создаем Telegram Stars invoice
+        const invoiceResponse = await apiService.post('/payments/stars/invoice', {
             planId: planId,
-            paymentMethod: 'telegram'
+            userId: userId
+        }, {
+            headers: {
+                'Authorization': `Bearer ${userToken}`
+            }
         });
 
-        if (paymentResponse.data.success) {
-            const payment = paymentResponse.data.payment;
-            
-            await bot.sendMessage(chatId,
-                '💳 <b>Оплата подписки</b>\n\n' +
-                `💎 План: ${payment.planName}\n` +
-                `💰 Сумма: ${payment.amount} ${payment.currency}\n\n` +
-                '🔒 Безопасная оплата через Telegram', {
-                parse_mode: 'HTML',
-                reply_markup: {
-                    inline_keyboard: [
-                        [
-                            {
-                                text: '💳 Оплатить',
-                                url: payment.paymentUrl
-                            }
-                        ],
-                        [
-                            {
-                                text: '📋 Другие способы оплаты',
-                                web_app: { 
-                                    url: `${process.env.WEBAPP_URL}/premium/payment/${payment.id}` 
-                                }
-                            }
-                        ],
-                        [
-                            {
-                                text: '↩️ Назад к планам',
-                                callback_data: 'premium_info'
-                            }
-                        ]
-                    ]
-                }
+        const { invoice } = invoiceResponse.data;
+
+        // Отправляем invoice пользователю
+        await bot.sendInvoice(chatId, 
+            invoice.title,
+            invoice.description,
+            invoice.payload,
+            invoice.provider_token,
+            invoice.currency,
+            invoice.prices,
+            {
+                start_parameter: invoice.start_parameter,
+                photo_url: invoice.photo_url,
+                photo_width: invoice.photo_width,
+                photo_height: invoice.photo_height,
+                need_name: invoice.need_name,
+                need_phone_number: invoice.need_phone_number,
+                need_email: invoice.need_email,
+                need_shipping_address: invoice.need_shipping_address,
+                send_phone_number_to_provider: invoice.send_phone_number_to_provider,
+                send_email_to_provider: invoice.send_email_to_provider,
+                is_flexible: invoice.is_flexible
             });
-        } else {
-            throw new Error(paymentResponse.data.message);
-        }
+
+        logger.info('Invoice sent successfully', {
+            userId: userId,
+            planId: planId,
+            price: invoiceResponse.data.price
+        });
 
     } catch (error) {
-        console.error('Ошибка создания платежа:', error);
+        logger.error('Buy premium error:', error);
         
         await bot.answerCallbackQuery(callbackQuery.id, {
             text: 'Ошибка создания платежа'
         });
 
         await bot.sendMessage(chatId,
-            '❌ <b>Ошибка оплаты</b>\n\n' +
-            'Не удалось создать платеж. Попробуйте позже или свяжитесь с поддержкой.', {
+            '❌ <b>Не удалось создать invoice</b>\n\n' +
+            'Попробуйте еще раз или обратитесь в поддержку.', {
             parse_mode: 'HTML',
-            reply_markup: {
-                inline_keyboard: [
-                    [
-                        {
-                            text: '🔄 Попробовать снова',
-                            callback_data: `select_plan_${planId}`
-                        }
-                    ],
-                    [
-                        {
-                            text: '💬 Поддержка',
-                            url: 'https://t.me/mistika_support'
-                        }
-                    ]
-                ]
-            }
-        });
-    }
-}
-
-/**
- * Обработчик статуса подписки
- */
-async function handleSubscriptionStatus(bot, callbackQuery, api) {
-    const chatId = callbackQuery.message.chat.id;
-    const userId = callbackQuery.from.id;
-
-    try {
-        await bot.answerCallbackQuery(callbackQuery.id);
-
-        const response = await api.get('/payments/subscription');
-        const subscription = response.data.subscription;
-
-        const statusText = formatSubscriptionStatus(subscription);
-
-        await bot.sendMessage(chatId, statusText, {
-            parse_mode: 'HTML',
-            reply_markup: createSubscriptionKeyboard(subscription)
-        });
-
-    } catch (error) {
-        console.error('Ошибка получения статуса подписки:', error);
-        
-        await bot.sendMessage(chatId,
-            '❌ Не удалось загрузить статус подписки', {
             reply_markup: {
                 inline_keyboard: [[
                     {
-                        text: '🔄 Обновить',
-                        callback_data: 'subscription_status'
+                        text: '🔄 Попробовать снова',
+                        callback_data: `buy_premium_${planId}`
                     }
                 ]]
             }
@@ -173,203 +203,194 @@ async function handleSubscriptionStatus(bot, callbackQuery, api) {
 }
 
 /**
- * Обработчик отмены подписки
+ * Информация о том, как получить Telegram Stars
  */
-async function handleCancelSubscription(bot, callbackQuery, api) {
+async function handleHowToGetStars(bot, callbackQuery) {
     const chatId = callbackQuery.message.chat.id;
-    const userId = callbackQuery.from.id;
 
     try {
-        // Показываем подтверждение
-        await bot.sendMessage(chatId,
-            '⚠️ <b>Отмена подписки</b>\n\n' +
-            'Вы уверены, что хотите отменить подписку?\n\n' +
-            '❗️ После отмены вы потеряете доступ к премиум функциям:\n' +
-            '• Безлимитные гадания\n' +
-            '• Эксклюзивные расклады\n' +
-            '• AI анализ фотографий\n' +
-            '• Персональные карты\n' +
-            '• Приоритетная поддержка', {
-            parse_mode: 'HTML',
-            reply_markup: {
-                inline_keyboard: [
-                    [
-                        {
-                            text: '✅ Да, отменить',
-                            callback_data: 'confirm_cancel_subscription'
-                        }
-                    ],
-                    [
-                        {
-                            text: '❌ Нет, оставить',
-                            callback_data: 'subscription_status'
-                        }
-                    ]
-                ]
-            }
-        });
-
         await bot.answerCallbackQuery(callbackQuery.id);
 
-    } catch (error) {
-        console.error('Ошибка обработки отмены подписки:', error);
-        await bot.answerCallbackQuery(callbackQuery.id, {
-            text: 'Ошибка'
-        });
-    }
-}
-
-/**
- * Подтверждение отмены подписки
- */
-async function handleConfirmCancelSubscription(bot, callbackQuery, api) {
-    const chatId = callbackQuery.message.chat.id;
-    const userId = callbackQuery.from.id;
-
-    try {
-        await bot.answerCallbackQuery(callbackQuery.id, {
-            text: 'Отменяю подписку...'
-        });
-
-        const response = await api.post('/payments/cancel-subscription');
-        
-        if (response.data.success) {
-            await bot.editMessageText(
-                '✅ <b>Подписка отменена</b>\n\n' +
-                'Ваша подписка успешно отменена.\n' +
-                'Премиум функции будут доступны до окончания текущего периода.\n\n' +
-                '💡 Вы можете возобновить подписку в любое время!', {
-                chat_id: chatId,
-                message_id: callbackQuery.message.message_id,
-                parse_mode: 'HTML',
-                reply_markup: {
-                    inline_keyboard: [
-                        [
-                            {
-                                text: '🔄 Возобновить подписку',
-                                callback_data: 'premium_info'
-                            }
-                        ],
-                        [
-                            {
-                                text: '📊 Статус подписки',
-                                callback_data: 'subscription_status'
-                            }
-                        ]
-                    ]
-                }
-            });
-        } else {
-            throw new Error(response.data.message);
-        }
-
-    } catch (error) {
-        console.error('Ошибка отмены подписки:', error);
-        
-        await bot.answerCallbackQuery(callbackQuery.id, {
-            text: 'Ошибка отмены'
-        });
-
-        await bot.editMessageText(
-            '❌ <b>Ошибка</b>\n\n' +
-            'Не удалось отменить подписку. Попробуйте позже или обратитесь в поддержку.', {
-            chat_id: chatId,
-            message_id: callbackQuery.message.message_id,
+        await bot.sendMessage(chatId,
+            '⭐ <b>Как получить Telegram Stars?</b>\n\n' +
+            '🔸 <b>В мобильном приложении Telegram:</b>\n' +
+            '1. Откройте Настройки\n' +
+            '2. Выберите "Telegram Stars"\n' +
+            '3. Нажмите "Купить Stars"\n' +
+            '4. Выберите количество и оплатите\n\n' +
+            '🔸 <b>В Telegram Premium:</b>\n' +
+            '• Получайте Stars бесплатно каждый месяц\n\n' +
+            '🔸 <b>Способы оплаты:</b>\n' +
+            '• Банковская карта\n' +
+            '• Apple Pay / Google Pay\n' +
+            '• Telegram Wallet\n\n' +
+            '💡 <b>1 Star ≈ 0.014 USD</b>\n' +
+            'Месячная подписка (50 ⭐) ≈ 0.70 USD\n' +
+            'Годовая подписка (360 ⭐) ≈ 5.04 USD', {
             parse_mode: 'HTML',
             reply_markup: {
                 inline_keyboard: [
                     [
                         {
-                            text: '🔄 Попробовать снова',
-                            callback_data: 'cancel_subscription'
+                            text: '💎 Выбрать план подписки',
+                            callback_data: 'premium_info'
                         }
                     ],
                     [
                         {
-                            text: '💬 Поддержка',
-                            url: 'https://t.me/mistika_support'
+                            text: '🌐 Подробнее о Stars',
+                            url: 'https://telegram.org/blog/telegram-stars'
                         }
                     ]
                 ]
             }
         });
+
+    } catch (error) {
+        logger.error('How to get stars error:', error);
+        await bot.answerCallbackQuery(callbackQuery.id, {
+            text: 'Ошибка загрузки информации'
+        });
     }
 }
 
 /**
- * Обработчик истории платежей
+ * Обработчик информации о премиум возможностях (callback)
  */
-async function handlePaymentHistory(bot, callbackQuery, api) {
+async function handlePremiumInfo(bot, callbackQuery, userToken) {
     const chatId = callbackQuery.message.chat.id;
     const userId = callbackQuery.from.id;
 
     try {
+        await bot.answerCallbackQuery(callbackQuery.id);
+        await showSubscriptionPlans(bot, chatId, userId);
+    } catch (error) {
+        logger.error('Premium info callback error:', error);
         await bot.answerCallbackQuery(callbackQuery.id, {
-            text: 'Загружаю историю...'
+            text: 'Ошибка загрузки информации'
+        });
+    }
+}
+
+/**
+ * Обработка pre-checkout запроса
+ */
+async function handlePreCheckoutQuery(bot, preCheckoutQuery) {
+    try {
+        const { id, invoice_payload, total_amount, currency, from } = preCheckoutQuery;
+        
+        logger.info('Pre-checkout query received', {
+            queryId: id,
+            payload: invoice_payload,
+            amount: total_amount,
+            currency: currency,
+            userId: from.id
         });
 
-        const response = await api.get('/payments/history?limit=5');
+        // Отправляем данные на сервер для валидации
+        const response = await apiService.post('/payments/stars/pre-checkout', {
+            id: id,
+            invoice_payload: invoice_payload,
+            total_amount: total_amount,
+            currency: currency,
+            user_id: from.id
+        });
+
+        // Отвечаем Telegram на pre-checkout query
+        await bot.answerPreCheckoutQuery(id, response.data.ok, {
+            error_message: response.data.error_message
+        });
+
+    } catch (error) {
+        logger.error('Pre-checkout query error:', error);
         
-        if (response.data.success && response.data.history.payments.length > 0) {
-            let historyText = '📋 <b>История платежей</b>\n\n';
-            
-            response.data.history.payments.forEach((payment, index) => {
-                const date = new Date(payment.createdAt).toLocaleDateString('ru-RU');
-                const status = payment.status === 'completed' ? '✅' : payment.status === 'pending' ? '⏳' : '❌';
-                historyText += `${index + 1}. ${date} - ${payment.amount} ${payment.currency} ${status}\n`;
-                historyText += `   ${payment.planName}\n\n`;
+        try {
+            await bot.answerPreCheckoutQuery(preCheckoutQuery.id, false, {
+                error_message: 'Внутренняя ошибка сервера'
             });
+        } catch (answerError) {
+            logger.error('Failed to answer pre-checkout query:', answerError);
+        }
+    }
+}
 
-            historyText += '💡 <i>Полная история доступна в приложении</i>';
+/**
+ * Обработка успешного платежа
+ */
+async function handleSuccessfulPayment(bot, msg) {
+    try {
+        const { successful_payment } = msg;
+        const chatId = msg.chat.id;
+        const userId = msg.from.id;
 
-            await bot.sendMessage(chatId, historyText, {
+        logger.info('Successful payment received', {
+            userId: userId,
+            payment: successful_payment
+        });
+
+        // Отправляем данные о платеже на сервер
+        const response = await apiService.post('/payments/stars/successful-payment', {
+            telegram_payment_charge_id: successful_payment.telegram_payment_charge_id,
+            provider_payment_charge_id: successful_payment.provider_payment_charge_id,
+            invoice_payload: successful_payment.invoice_payload,
+            total_amount: successful_payment.total_amount,
+            currency: successful_payment.currency
+        });
+
+        if (response.data.success) {
+            const { subscription } = response.data;
+            const expiresAt = new Date(subscription.expiresAt).toLocaleDateString('ru-RU');
+            
+            await bot.sendMessage(chatId,
+                '🎉 <b>Поздравляем! Премиум подписка активирована!</b>\n\n' +
+                `💎 <b>План:</b> ${subscription.planId === 'monthly_premium' ? 'Месячный' : 'Годовой'}\n` +
+                `📅 <b>Действует до:</b> ${expiresAt}\n\n` +
+                '✨ <b>Теперь вам доступно:</b>\n' +
+                '• Безлимитные гадания\n' +
+                '• Все расклады Таро\n' +
+                '• ИИ-анализ карт\n' +
+                '• Генерация изображений\n' +
+                '• Персональные рекомендации\n\n' +
+                '🚀 <b>Начните пользоваться прямо сейчас!</b>', {
                 parse_mode: 'HTML',
                 reply_markup: {
                     inline_keyboard: [
                         [
                             {
-                                text: '📱 Открыть в приложении',
-                                web_app: { 
-                                    url: `${process.env.WEBAPP_URL}/premium/history` 
-                                }
+                                text: '🔮 Сделать гадание',
+                                web_app: { url: `${process.env.WEBAPP_URL}/spreads` }
                             }
                         ],
                         [
                             {
-                                text: '📊 Статус подписки',
-                                callback_data: 'subscription_status'
+                                text: '🌅 Карта дня',
+                                callback_data: 'daily_card'
+                            },
+                            {
+                                text: '🌙 Лунный календарь',
+                                callback_data: 'lunar_today'
                             }
                         ]
                     ]
                 }
             });
         } else {
-            await bot.sendMessage(chatId,
-                '📋 <b>История платежей пуста</b>\n\n' +
-                'У вас пока нет платежей.\n' +
-                'Оформите премиум подписку!', {
-                parse_mode: 'HTML',
-                reply_markup: {
-                    inline_keyboard: [[
-                        {
-                            text: '💎 Оформить подписку',
-                            callback_data: 'premium_info'
-                        }
-                    ]]
-                }
-            });
+            throw new Error(response.data.message || 'Payment processing failed');
         }
 
     } catch (error) {
-        console.error('Ошибка получения истории платежей:', error);
+        logger.error('Successful payment handling error:', error);
         
-        await bot.sendMessage(chatId,
-            '❌ Не удалось загрузить историю платежей', {
+        await bot.telegram.sendMessage(msg.chat.id,
+            '⚠️ <b>Платеж получен, но возникла ошибка при активации</b>\n\n' +
+            'Обратитесь в поддержку для решения вопроса.\n' +
+            'Ваш платеж будет обработан вручную.', {
+            parse_mode: 'HTML',
             reply_markup: {
                 inline_keyboard: [[
                     {
-                        text: '🔄 Попробовать снова',
-                        callback_data: 'payment_history'
+                        text: '📞 Связаться с поддержкой',
+                        url: 'https://t.me/mistika_support'
                     }
                 ]]
             }
@@ -378,10 +399,11 @@ async function handlePaymentHistory(bot, callbackQuery, api) {
 }
 
 module.exports = {
+    handlePremium,
+    showSubscriptionPlans,
+    handleBuyPremium,
+    handleHowToGetStars,
     handlePremiumInfo,
-    handleSelectPlan,
-    handleSubscriptionStatus,
-    handleCancelSubscription,
-    handleConfirmCancelSubscription,
-    handlePaymentHistory
+    handlePreCheckoutQuery,
+    handleSuccessfulPayment
 };

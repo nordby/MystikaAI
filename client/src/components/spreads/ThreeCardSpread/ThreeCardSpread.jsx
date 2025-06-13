@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import useCardsStore from '../../../store/cardsStore';
 import useUserStore from '../../../store/userStore';
 import useSettingsStore from '../../../store/settingsStore';
+import api from '../../../services/api';
 import CardSpread from '../../cards/CardSpread/CardSpread';
 import Card from '../../cards/Card/Card';
 import './ThreeCardSpread.css';
@@ -24,7 +25,7 @@ const ThreeCardSpread = ({
   } = useCardsStore();
   
   const { incrementReadingCount } = useUserStore();
-  const { readingSettings } = useSettingsStore();
+  const { readingSettings, cardGeneration } = useSettingsStore();
   
   const [step, setStep] = useState('intro'); // intro, drawing, reading, complete
   const [userQuestion, setUserQuestion] = useState(question);
@@ -32,6 +33,8 @@ const ThreeCardSpread = ({
   const [cardRevealed, setCardRevealed] = useState([false, false, false]);
   const [currentCardIndex, setCurrentCardIndex] = useState(0);
   const [interpretation, setInterpretation] = useState('');
+  const [generatingImages, setGeneratingImages] = useState(false);
+  const [cardImages, setCardImages] = useState({});
 
   const positions = ['Past', 'Present', 'Future'];
   const positionDescriptions = {
@@ -51,15 +54,6 @@ const ThreeCardSpread = ({
     }
   }, [autoStart]);
 
-  useEffect(() => {
-    if (selectedCards.length === 3 && step === 'drawing') {
-      setStep('reading');
-      if (readingSettings.guidedMode) {
-        startGuidedReading();
-      }
-    }
-  }, [selectedCards]);
-
   const handleStartReading = () => {
     if (!userQuestion.trim()) {
       alert('Please enter a question for your reading.');
@@ -69,6 +63,69 @@ const ThreeCardSpread = ({
     setStep('drawing');
     drawCards(3);
   };
+
+  // Генерация изображений для карт
+  const generateCardImages = async (cards) => {
+    if (!cards || cards.length === 0) return;
+    
+    try {
+      setGeneratingImages(true);
+      
+      // Используем настройки пользователя из хука (автоматически обновляются)
+      const currentCardGeneration = cardGeneration || {};
+      
+      console.log('🎨 Card generation settings:', currentCardGeneration);
+      
+      if (!currentCardGeneration.autoGenerate) {
+        console.log('❌ Auto generation is disabled');
+        return; // Пользователь отключил автогенерацию
+      }
+
+      const cardsForGeneration = cards.map(card => ({
+        name: card.name,
+        description: card.meaning?.upright || 'Карта Таро'
+      }));
+
+      let result;
+      if (currentCardGeneration.parallelGeneration) {
+        // Используем параллельную генерацию
+        console.log('🔄 Using parallel generation with style:', currentCardGeneration.defaultStyle);
+        result = await api.generateMultipleCardImages(cardsForGeneration, {
+          style: currentCardGeneration.defaultStyle || 'mystic',
+          maxConcurrent: 3
+        });
+      } else {
+        // Последовательная генерация
+        result = await api.generateSpreadImages(cardsForGeneration, 'three_cards');
+      }
+
+      if (result.success) {
+        const imageMap = {};
+        result.results?.forEach((imageResult, index) => {
+          if (imageResult.success && imageResult.imageData) {
+            imageMap[cards[index].id] = imageResult.imageData;
+          }
+        });
+        setCardImages(imageMap);
+      }
+    } catch (error) {
+      console.error('Failed to generate card images:', error);
+      // Продолжаем без изображений
+    } finally {
+      setGeneratingImages(false);
+    }
+  };
+
+  // Эффект для генерации изображений когда карты выбраны
+  useEffect(() => {
+    if (selectedCards.length === 3 && step === 'drawing') {
+      generateCardImages(selectedCards);
+      setStep('reading');
+      if (readingSettings.guidedMode) {
+        startGuidedReading();
+      }
+    }
+  }, [selectedCards]);
 
   const startGuidedReading = () => {
     setCurrentCardIndex(0);

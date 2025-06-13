@@ -107,10 +107,18 @@ const useAuth = () => {
     try {
       setError(null);
       
+      console.log('📡 Updating profile with data:', updates);
+      
       const token = localStorage.getItem('auth_token');
+      if (!token) {
+        throw new Error('No auth token found');
+      }
+      
       const response = await api.put('/auth/profile', updates, {
         headers: { Authorization: `Bearer ${token}` }
       });
+
+      console.log('📡 Profile update response:', response.data);
 
       if (response.data.success) {
         setUser(response.data.user);
@@ -119,7 +127,7 @@ const useAuth = () => {
         throw new Error(response.data.message || 'Ошибка обновления профиля');
       }
     } catch (error) {
-      console.error('Ошибка обновления профиля:', error);
+      console.error('❌ Ошибка обновления профиля:', error);
       setError(error.response?.data?.message || error.message);
       throw error;
     }

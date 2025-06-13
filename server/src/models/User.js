@@ -74,6 +74,18 @@ module.exports = (sequelize) => {
           lunarPhases: false,
           premiumReminders: true
         },
+        privacy: {
+          showProfile: true,
+          showReadings: false,
+          showStatistics: true
+        },
+        cardGeneration: {
+          defaultStyle: 'mystic',
+          autoGenerate: true,
+          highQuality: false,
+          parallelGeneration: true,
+          fallbackEnabled: true
+        },
         theme: 'dark',
         cardDeck: 'classic',
         readingStyle: 'detailed'

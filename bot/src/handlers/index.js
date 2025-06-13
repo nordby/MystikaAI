@@ -103,6 +103,11 @@ class BotHandlers {
       await this.handleSettingsCommand(bot, msg);
     });
 
+    // Команда /test - тестирование новых функций
+    bot.onText(/\/test/, async (msg) => {
+      await this.handleTestCommand(bot, msg);
+    });
+
     // Команда /premium
     bot.onText(/\/premium/, async (msg) => {
       await this.handlePremiumCommand(bot, msg);
@@ -290,168 +295,174 @@ class BotHandlers {
     try {
       const user = await this.ensureUser(msg.from);
 
+      // Проверяем, есть ли уже карта дня на сегодня
+      const existingDailyCard = await this.getTodaysDailyReading(user.token);
+      if (existingDailyCard) {
+        // Показываем существующую карту дня
+        const caption = `🌅 <b>Ваша карта дня уже получена</b>\n\n🃏 <b>${existingDailyCard.cards[0].name}</b>${existingDailyCard.cards[0].reversed ? ' (перевернутая)' : ''}\n\n💫 <b>Толкование:</b>\n${existingDailyCard.interpretation}\n\n💡 <i>Карту дня можно получить только один раз в сутки. Сосредоточьтесь на энергии этой карты весь день!</i>`;
+        
+        await bot.sendMessage(msg.chat.id, caption, {
+          parse_mode: 'HTML',
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '🔮 Подробное толкование', callback_data: 'daily_details' }],
+              [{ text: '🏠 Главное меню', callback_data: 'back_to_menu' }]
+            ]
+          }
+        });
+        return;
+      }
+
       // Показываем мистическое сообщение загрузки
       const loadingMsg = await bot.sendMessage(msg.chat.id, getMysticalLoadingMessage('tarot'), {
         parse_mode: 'Markdown'
       });
 
-      // Выбираем случайную карту дня
-      const allCards = [
-        ...TAROT_CARDS.major,
-        ...TAROT_CARDS.minor.wands,
-        ...TAROT_CARDS.minor.cups,
-        ...TAROT_CARDS.minor.swords,
-        ...TAROT_CARDS.minor.pentacles
-      ];
-      
-      const randomCard = allCards[Math.floor(Math.random() * allCards.length)];
-      const isReversed = Math.random() < 0.2; // 20% шанс на перевернутую карту
-      
-      const cardWithState = {
-        ...randomCard,
-        reversed: isReversed
-      };
+      // Получаем новую дневную карту через API
+      const apiService = require('../services/api');
+      const dailyCardResponse = await apiService.getDailyCard(user.token);
 
-      // Обновляем сообщение на этапе получения интерпретации
-      await bot.editMessageText('🔮 *Карта дня выбрана*\n\n✨ Получаю персональную интерпретацию...', {
-        chat_id: msg.chat.id,
-        message_id: loadingMsg.message_id,
-        parse_mode: 'Markdown'
-      });
-
-      // Получаем AI интерпретацию для карты дня
-      let dailyInterpretation = null;
-      try {
-        const aiResponse = await this.getDailyCardInterpretation(cardWithState, user);
-        dailyInterpretation = aiResponse;
-        console.log('Daily card AI interpretation received:', JSON.stringify(aiResponse, null, 2));
-      } catch (error) {
-        console.log('Daily card AI interpretation failed:', error.message);
-      }
-
-      // Обновляем сообщение для генерации изображения
-      await bot.editMessageText('🎨 *Создаю мистическое изображение карты*\n\n🌟 Воплощаю энергию в визуальную форму...', {
-        chat_id: msg.chat.id,
-        message_id: loadingMsg.message_id,
-        parse_mode: 'Markdown'
-      });
-
-      // Генерируем изображение карты
-      let cardImage = null;
-      try {
-        const imageResponse = await database.generateCardImage(cardWithState.name, cardWithState.description || 'Карта Таро');
-        if (imageResponse && imageResponse.success) {
-          cardImage = imageResponse;
+      if (!dailyCardResponse.success) {
+        await bot.deleteMessage(msg.chat.id, loadingMsg.message_id);
+        
+        if (dailyCardResponse.data?.upgradeRequired) {
+          await bot.sendMessage(msg.chat.id,
+            '🌅 <b>Дневная карта уже получена</b>\n\n' +
+            'Вы уже получили свою карту дня сегодня.\n' +
+            'Премиум пользователи могут получать карты без ограничений!\n\n' +
+            '💎 Узнайте больше о преимуществах подписки:', {
+            parse_mode: 'HTML',
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: '💎 Премиум возможности', callback_data: 'premium_info' }],
+                [{ text: '📖 Посмотреть сегодняшнюю карту', web_app: { url: `${process.env.WEBAPP_URL}/daily` } }]
+              ]
+            }
+          });
+        } else {
+          await bot.sendMessage(msg.chat.id,
+            '❌ <b>Не удалось получить дневную карту</b>\n\n' +
+            'Попробуйте еще раз через несколько секунд.', {
+            parse_mode: 'HTML',
+            reply_markup: {
+              inline_keyboard: [[{ text: '🔄 Попробовать снова', callback_data: 'daily_card' }]]
+            }
+          });
         }
-      } catch (error) {
-        console.log('Daily card image generation failed:', error.message);
+        return;
       }
 
-      // Формируем текст интерпретации
-      let interpretationText;
-      let advice;
-      
-      if (dailyInterpretation && dailyInterpretation.success) {
-        interpretationText = dailyInterpretation.interpretation.interpretation || dailyInterpretation.interpretation.main;
-        advice = dailyInterpretation.interpretation.advice;
-      } else {
-        // Fallback интерпретация
-        interpretationText = `Карта ${cardWithState.name}${isReversed ? ' (перевернутая)' : ''} приносит важные энергии в ваш день.`;
-        advice = 'Доверьтесь своей интуиции и будьте открыты новым возможностям.';
-      }
+      const { card, isReversed, interpretation } = dailyCardResponse;
+
+      // Удаляем загрузочное сообщение
+      await bot.deleteMessage(msg.chat.id, loadingMsg.message_id);
 
       // Формируем caption с ограничением длины для Telegram (максимум 1024 символа)
-      let caption = `🌅 <b>Карта дня</b>\n\n🃏 <b>${cardWithState.name}</b>${isReversed ? ' (перевернутая)' : ''}`;
+      let caption = `🌅 <b>Карта дня</b>\n\n🃏 <b>${card.name}</b>${isReversed ? ' (перевернутая)' : ''}`;
       
-      // Добавляем интерпретацию если поместится
-      if (interpretationText) {
-        const withInterpretation = caption + `\n\n${interpretationText}`;
-        if (withInterpretation.length <= 950) { // Оставляем место для совета
+      // Добавляем интерпретацию
+      if (interpretation) {
+        const withInterpretation = caption + `\n\n💫 <b>Толкование:</b>\n${interpretation}`;
+        if (withInterpretation.length <= 1020) {
           caption = withInterpretation;
         }
       }
-      
-      // Добавляем совет если поместится
-      if (advice) {
-        const withAdvice = caption + `\n\n✨ <i>Совет дня:</i> ${advice}`;
-        if (withAdvice.length <= 1020) {
-          caption = withAdvice;
-        }
-      }
 
-      // Удаляем загрузочное сообщение
-      try {
-        await bot.deleteMessage(msg.chat.id, loadingMsg.message_id);
-      } catch (deleteError) {
-        // Игнорируем ошибки удаления
-      }
-
-      // Отправляем карту с изображением или без
-      if (cardImage && cardImage.imageData) {
-        try {
-          const imageBuffer = Buffer.from(cardImage.imageData, 'base64');
-          await bot.sendPhoto(msg.chat.id, imageBuffer, {
-            caption: caption,
-            parse_mode: 'HTML',
-            reply_markup: {
-              inline_keyboard: [
-                [{ text: '🔮 Подробное толкование', callback_data: 'daily_details' }],
-                [{ text: '🃏 Новое гадание', callback_data: 'new_reading' }]
-              ]
-            }
-          }, {
-            filename: `daily_card_${cardWithState.name.replace(/\s+/g, '_')}.png`,
-            contentType: 'image/png'
-          });
-        } catch (photoError) {
-          console.log('Failed to send daily card photo:', photoError.message);
-          // Fallback к текстовому сообщению
-          await bot.sendMessage(msg.chat.id, caption, {
-            parse_mode: 'HTML',
-            reply_markup: {
-              inline_keyboard: [
-                [{ text: '🔮 Подробное толкование', callback_data: 'daily_details' }],
-                [{ text: '🃏 Новое гадание', callback_data: 'new_reading' }]
-              ]
-            }
-          });
-        }
+      // Отправляем карту с изображением (если есть)
+      if (card.imageUrl) {
+        await bot.sendPhoto(msg.chat.id, card.imageUrl, {
+          caption: caption,
+          parse_mode: 'HTML',
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '🔮 Подробное толкование', callback_data: 'daily_details' }],
+              [{ text: '🏠 Главное меню', callback_data: 'back_to_menu' }]
+            ]
+          }
+        });
       } else {
         await bot.sendMessage(msg.chat.id, caption, {
           parse_mode: 'HTML',
           reply_markup: {
             inline_keyboard: [
               [{ text: '🔮 Подробное толкование', callback_data: 'daily_details' }],
-              [{ text: '🃏 Новое гадание', callback_data: 'new_reading' }]
+              [{ text: '🏠 Главное меню', callback_data: 'back_to_menu' }]
             ]
           }
         });
       }
 
-      // Сохраняем карту дня в базу данных
-      try {
-        const dailyCardData = {
-          userId: user.id,
-          type: 'daily_card',
-          spreadName: 'Карта дня',
-          cards: [cardWithState],
-          question: 'Карта дня',
-          interpretation: interpretationText
-        };
-        
-        await database.createReading(dailyCardData);
-      } catch (error) {
-        console.log('Failed to save daily card to database:', error.message);
-      }
-
-      await database.trackEvent({
-        type: 'command_daily',
-        userId: user.id
+      // Дополнительные кнопки для действий
+      await bot.sendMessage(msg.chat.id, 
+        '🎯 <b>Что вы хотите узнать еще?</b>', {
+        parse_mode: 'HTML',
+        reply_markup: {
+          inline_keyboard: [
+            ...(process.env.WEBAPP_URL ? [[
+              {
+                text: '🎴 Другие расклады',
+                web_app: { 
+                  url: `${process.env.WEBAPP_URL}/spreads` 
+                }
+              }
+            ]] : []),
+            [
+              ...(process.env.WEBAPP_URL ? [{
+                text: '📖 История гаданий',
+                web_app: { 
+                  url: `${process.env.WEBAPP_URL}/history` 
+                }
+              }] : []),
+              {
+                text: '🔢 Нумерология',
+                callback_data: 'numerology_today'
+              }
+            ],
+            [
+              {
+                text: '🌙 Лунный календарь',
+                callback_data: 'lunar_today'
+              }
+            ]
+          ]
+        }
       });
 
     } catch (error) {
-      console.error('Error in /daily command:', error);
-      await this.sendErrorMessage(bot, msg.chat.id);
+      console.error('Error in daily command:', error);
+      
+      // Удаляем сообщение загрузки если оно еще есть
+      try {
+        await bot.deleteMessage(msg.chat.id, loadingMsg.message_id);
+      } catch (deleteError) {
+        // Игнорируем ошибки удаления
+      }
+
+      // Отправляем сообщение об ошибке
+      await bot.sendMessage(msg.chat.id,
+        '❌ <b>Не удалось получить дневную карту</b>\n\n' +
+        'Попробуйте еще раз через несколько секунд.\n' +
+        '<i>Иногда карты просто не готовы открыться...</i>', {
+        parse_mode: 'HTML',
+        reply_markup: {
+          inline_keyboard: [
+            [
+              {
+                text: '🔄 Попробовать снова',
+                callback_data: 'daily_card'
+              }
+            ],
+            ...(process.env.WEBAPP_URL ? [[
+              {
+                text: '🎴 Другие расклады',
+                web_app: { 
+                  url: `${process.env.WEBAPP_URL}/spreads` 
+                }
+              }
+            ]] : [])
+          ]
+        }
+      });
     }
   }
 
@@ -640,6 +651,8 @@ class BotHandlers {
         await this.handleDailyCallback(bot, chatId, messageId, data, from);
       } else if (data.startsWith('lunar_')) {
         await this.handleLunarCallback(bot, chatId, messageId, data, from);
+      } else if (data.startsWith('test_')) {
+        await this.handleTestCallback(bot, chatId, messageId, data, from);
       } else {
         // Обработка общих callback
         await this.handleGeneralCallback(bot, chatId, messageId, data, from);
@@ -849,6 +862,7 @@ class BotHandlers {
     try {
       let userResponse = await database.getUserByTelegramId(telegramUser.id);
       let user = userResponse?.user;
+      let token = userResponse?.token;
       
       if (!user) {
         const userData = {
@@ -861,6 +875,12 @@ class BotHandlers {
 
         const createdResponse = await database.createUser(userData);
         user = createdResponse.user || createdResponse;
+        token = createdResponse.token;
+      }
+
+      // Добавляем токен к объекту пользователя для удобства
+      if (user && token) {
+        user.token = token;
       }
 
       return user;
@@ -879,7 +899,8 @@ class BotHandlers {
         subscriptionType: 'basic',
         totalReadings: 0,
         dailyReadingsUsed: 0,
-        isActive: true
+        isActive: true,
+        token: null
       };
     }
   }
@@ -957,7 +978,86 @@ class BotHandlers {
   }
 
   async handleHistoryCommand(bot, msg) {
-    await bot.sendMessage(msg.chat.id, '📋 История в разработке...');
+    try {
+      const user = await this.ensureUser(msg.from);
+      
+      // Показываем сообщение загрузки
+      const loadingMsg = await bot.sendMessage(msg.chat.id, '📋 *Загружаю вашу историю гаданий...*', {
+        parse_mode: 'Markdown'
+      });
+
+      // Получаем историю гаданий пользователя
+      const history = await database.getUserReadings(user.id, 10); // Последние 10 гаданий
+      
+      // Удаляем сообщение загрузки
+      try {
+        await bot.deleteMessage(msg.chat.id, loadingMsg.message_id);
+      } catch (deleteError) {
+        // Игнорируем ошибки удаления
+      }
+
+      if (!history || history.length === 0) {
+        await bot.sendMessage(msg.chat.id, 
+          '📋 <b>История гаданий пуста</b>\n\n' +
+          'Вы еще не проводили гадания.\n' +
+          'Начните с карты дня или выберите расклад!', {
+          parse_mode: 'HTML',
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '🌅 Карта дня', callback_data: 'daily_card' }],
+              [{ text: '🔮 Новое гадание', callback_data: 'new_reading' }],
+              [{ text: '🏠 Главное меню', callback_data: 'back_to_menu' }]
+            ]
+          }
+        });
+        return;
+      }
+
+      // Формируем сообщение с историей
+      let historyText = '📋 <b>Ваша история гаданий</b>\n\n';
+      
+      history.forEach((reading, index) => {
+        const date = new Date(reading.createdAt).toLocaleDateString('ru-RU');
+        const time = new Date(reading.createdAt).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+        const cardNames = reading.cards.map(card => 
+          `${card.name}${card.reversed ? ' (перевернутая)' : ''}`
+        ).join(', ');
+        
+        historyText += `${index + 1}. <b>${reading.spreadName}</b>\n`;
+        historyText += `📅 ${date} в ${time}\n`;
+        historyText += `🃏 ${cardNames}\n`;
+        if (reading.question && reading.question !== 'Карта дня') {
+          historyText += `❓ <i>${reading.question}</i>\n`;
+        }
+        historyText += '\n';
+      });
+
+      historyText += '💡 <i>Для подробного просмотра используйте веб-приложение</i>';
+
+      await bot.sendMessage(msg.chat.id, historyText, {
+        parse_mode: 'HTML',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '📱 Открыть в приложении', web_app: { url: `${process.env.WEBAPP_URL}/history` } }],
+            [{ text: '🏠 Главное меню', callback_data: 'back_to_menu' }]
+          ]
+        }
+      });
+
+    } catch (error) {
+      console.error('Error in history command:', error);
+      await bot.sendMessage(msg.chat.id, 
+        '❌ <b>Ошибка загрузки истории</b>\n\n' +
+        'Попробуйте позже или обратитесь в поддержку.', {
+        parse_mode: 'HTML',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '🔄 Попробовать снова', callback_data: 'reading_history' }],
+            [{ text: '🏠 Главное меню', callback_data: 'back_to_menu' }]
+          ]
+        }
+      });
+    }
   }
 
   async handleSettingsCommand(bot, msg) {
@@ -996,6 +1096,12 @@ class BotHandlers {
   async handleReadingCallback(bot, chatId, messageId, data, from) {
     try {
       const user = await this.ensureUser(from);
+      
+      // Логируем пользователя и его настройки для диагностики
+      console.log(`🔍 Bot: User ${user.telegramId} data:`, {
+        deckType: user.deckType,
+        preferences: JSON.stringify(user.preferences, null, 2)
+      });
       
       // Определяем тип гадания из callback data
       let readingType, userQuestion = null;
@@ -1101,20 +1207,68 @@ class BotHandlers {
         parse_mode: 'Markdown'
       });
 
-      // Генерация изображений
+      // Генерация изображений с настройками пользователя
       let cardImages = [];
       try {
-        const imageResponse = await Promise.race([
-          database.generateSpreadImages(cardsWithReverse, readingType),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('Image generation timeout')), 280000))
-        ]);
+        // Получаем настройки генерации карт пользователя
+        console.log(`🔍 Bot: User ${user.telegramId} data:`, {
+          deckType: user.deckType,
+          preferences: typeof user.preferences === 'string' ? user.preferences : JSON.stringify(user.preferences)
+        });
+        
+        // Парсим preferences если они пришли как строка
+        let userPreferences = {};
+        if (typeof user.preferences === 'string') {
+          try {
+            userPreferences = JSON.parse(user.preferences);
+          } catch (error) {
+            console.error('Error parsing user preferences:', error);
+            userPreferences = {};
+          }
+        } else {
+          userPreferences = user.preferences || {};
+        }
+        const cardGeneration = userPreferences.cardGeneration || {};
+        
+        console.log(`🎨 Bot: Using card generation settings for user ${user.telegramId}:`, cardGeneration);
+        
+        let imageResponse;
+        
+        // Проверяем, включена ли автогенерация
+        if (cardGeneration.autoGenerate !== false) { // по умолчанию включена
+          // Подготавливаем карты для генерации
+          const cardsForGeneration = cardsWithReverse.map(card => ({
+            name: card.name,
+            description: card.meaning?.upright || card.description || 'Карта Таро'
+          }));
+          
+          // Выбираем метод генерации
+          if (cardGeneration.parallelGeneration !== false) { // по умолчанию параллельная
+            console.log(`🔄 Bot: Using parallel generation with style: ${cardGeneration.defaultStyle || 'mystic'}`);
+            imageResponse = await Promise.race([
+              database.generateMultipleCardImages(cardsForGeneration, {
+                style: cardGeneration.defaultStyle || 'mystic',
+                maxConcurrent: 3
+              }),
+              new Promise((_, reject) => setTimeout(() => reject(new Error('Image generation timeout')), 280000))
+            ]);
+          } else {
+            console.log(`🔄 Bot: Using sequential generation`);
+            imageResponse = await Promise.race([
+              database.generateSpreadImages(cardsForGeneration, readingType),
+              new Promise((_, reject) => setTimeout(() => reject(new Error('Image generation timeout')), 280000))
+            ]);
+          }
+        } else {
+          console.log('❌ Bot: Auto generation disabled for user');
+        }
         
         if (imageResponse && imageResponse.success) {
           cardImages = imageResponse.results.filter(r => r.success);
-          console.log(`Generated ${cardImages.length} card images successfully`);
+          console.log(`✅ Bot: Generated ${cardImages.length} card images successfully`);
         }
       } catch (error) {
-        console.log('Card image generation failed:', error.message);
+        console.log('❌ Bot: Card image generation failed:', error.message);
       }
 
       // Этап 5: Получение мудрости
@@ -1182,144 +1336,31 @@ class BotHandlers {
 
   async handlePremiumCallback(bot, chatId, messageId, data, from) {
     try {
+      const user = await this.ensureUser(from);
+      const userToken = user.token;
+
+      // Импортируем handlers из нового premium.js
+      const premiumHandlers = require('./premium');
+
       switch (data) {
-        case 'premium_monthly':
-          await bot.editMessageText('📅 *Месячная подписка MISTIKA Premium*\n\n💰 Стоимость: 299₽/месяц\n\n✨ Что включено:\n• Безлимитные гадания\n• Все эксклюзивные функции\n• Приоритетная поддержка\n\n🎁 Первые 7 дней бесплатно!', {
-            chat_id: chatId,
-            message_id: messageId,
-            parse_mode: 'Markdown',
-            reply_markup: {
-              inline_keyboard: [
-                [{ text: '💳 Оформить подписку', callback_data: 'purchase_monthly' }],
-                [{ text: '⬅️ Назад к планам', callback_data: 'premium_menu' }]
-              ]
-            }
-          });
+        case 'premium_info':
+          await premiumHandlers.handlePremiumInfo(bot, { message: { chat: { id: chatId } }, from }, userToken);
           break;
 
-        case 'premium_quarterly':
-          await bot.editMessageText('🎯 *Подписка на 3 месяца MISTIKA Premium*\n\n💰 Стоимость: 799₽ (экономия 33%)\n💸 Обычная цена: 897₽\n\n✨ Что включено:\n• Безлимитные гадания\n• Все эксклюзивные функции\n• Приоритетная поддержка\n\n🎁 Первые 7 дней бесплатно!', {
-            chat_id: chatId,
-            message_id: messageId,
-            parse_mode: 'Markdown',
-            reply_markup: {
-              inline_keyboard: [
-                [{ text: '💳 Оформить подписку', callback_data: 'purchase_quarterly' }],
-                [{ text: '⬅️ Назад к планам', callback_data: 'premium_menu' }]
-              ]
-            }
-          });
+        case 'how_to_get_stars':
+          await premiumHandlers.handleHowToGetStars(bot, { message: { chat: { id: chatId } }, from });
           break;
 
-        case 'premium_yearly':
-          await bot.editMessageText('⭐ *Годовая подписка MISTIKA Premium*\n\n💰 Стоимость: 2999₽ (экономия 50%)\n💸 Обычная цена: 3588₽\n\n✨ Что включено:\n• Безлимитные гадания\n• Все эксклюзивные функции\n• Приоритетная поддержка\n• Эксклюзивные бонусы\n\n🎁 Первые 7 дней бесплатно!', {
-            chat_id: chatId,
-            message_id: messageId,
-            parse_mode: 'Markdown',
-            reply_markup: {
-              inline_keyboard: [
-                [{ text: '💳 Оформить подписку', callback_data: 'purchase_yearly' }],
-                [{ text: '⬅️ Назад к планам', callback_data: 'premium_menu' }]
-              ]
-            }
-          });
-          break;
-
-        case 'premium_trial':
-          await bot.editMessageText('🎁 *Пробный период MISTIKA Premium*\n\n🆓 7 дней бесплатно!\n\n✨ Что включено:\n• Безлимитные гадания\n• Все эксклюзивные функции\n• Приоритетная поддержка\n\n📝 После пробного периода автоматически активируется месячная подписка (299₽)', {
-            chat_id: chatId,
-            message_id: messageId,
-            parse_mode: 'Markdown',
-            reply_markup: {
-              inline_keyboard: [
-                [{ text: '🎁 Активировать пробный период', callback_data: 'purchase_trial' }],
-                [{ text: '⬅️ Назад к планам', callback_data: 'premium_menu' }]
-              ]
-            }
-          });
-          break;
-
-        case 'purchase_monthly':
-        case 'purchase_quarterly':
-        case 'purchase_yearly':
-        case 'purchase_trial':
-          const planName = data.replace('purchase_', '');
-          await bot.editMessageText('💳 *Оплата Premium*\n\nИнтеграция с платежной системой в разработке...', {
-            chat_id: chatId,
-            message_id: messageId,
-            parse_mode: 'Markdown',
-            reply_markup: {
-              inline_keyboard: [
-                [{ text: '⬅️ Назад к планам', callback_data: 'premium_menu' }],
-                [{ text: '🏠 Главное меню', callback_data: 'back_to_menu' }]
-              ]
-            }
-          });
-          break;
-          
-        case 'extend_premium':
-          await bot.editMessageText('💎 *Продление Premium*\n\nВыберите план подписки:', {
-            chat_id: chatId,
-            message_id: messageId,
-            parse_mode: 'Markdown',
-            reply_markup: {
-              inline_keyboard: [
-                [{ text: '1 месяц - 299₽', callback_data: 'premium_monthly' }],
-                [{ text: '3 месяца - 799₽ (-33%)', callback_data: 'premium_quarterly' }],
-                [{ text: '1 год - 2999₽ (-50%)', callback_data: 'premium_yearly' }],
-                [{ text: '⬅️ Назад', callback_data: 'back_to_menu' }]
-              ]
-            }
-          });
-          break;
-          
-        case 'premium_stats':
-          await bot.editMessageText('📊 *Premium статистика*\n\nФункция в разработке...', {
-            chat_id: chatId,
-            message_id: messageId,
-            parse_mode: 'Markdown',
-            reply_markup: {
-              inline_keyboard: [
-                [{ text: '⬅️ Назад', callback_data: 'premium' }]
-              ]
-            }
-          });
-          break;
-          
-        case 'premium_plan_month':
-        case 'premium_plan_3month':
-        case 'premium_plan_year':
-          await bot.editMessageText('💳 *Оплата Premium*\n\nИнтеграция с платежной системой в разработке...', {
-            chat_id: chatId,
-            message_id: messageId,
-            parse_mode: 'Markdown',
-            reply_markup: {
-              inline_keyboard: [
-                [{ text: '⬅️ Назад к планам', callback_data: 'extend_premium' }],
-                [{ text: '🏠 Главное меню', callback_data: 'back_to_menu' }]
-              ]
-            }
-          });
-          break;
-          
         default:
-          await bot.editMessageText('💎 Обработка Premium...', {
-            chat_id: chatId,
-            message_id: messageId
-          });
+          if (data.startsWith('buy_premium_')) {
+            await premiumHandlers.handleBuyPremium(bot, { message: { chat: { id: chatId } }, from, data }, userToken);
+          }
+          break;
       }
+
     } catch (error) {
       console.error('Error in premium callback:', error);
-      await bot.editMessageText('❌ Ошибка при обработке Premium. Попробуйте позже.', {
-        chat_id: chatId,
-        message_id: messageId,
-        reply_markup: {
-          inline_keyboard: [
-            [{ text: '🔄 Попробовать снова', callback_data: 'premium' }],
-            [{ text: '⬅️ Главное меню', callback_data: 'back_to_menu' }]
-          ]
-        }
-      });
+      await bot.sendMessage(chatId, '❌ Произошла ошибка. Попробуйте позже.');
     }
   }
 
@@ -1385,13 +1426,58 @@ class BotHandlers {
     try {
       switch (data) {
         case 'daily_details':
-          // Отправляем новое сообщение вместо редактирования (так как исходное может быть изображением)
-          await bot.sendMessage(chatId, '🔮 *Подробное толкование карты дня*\n\nЗагружаю расширенную интерпретацию...', {
-            parse_mode: 'Markdown'
-          });
+          // Получаем пользователя
+          const user = await this.ensureUser(from);
           
-          // Получаем подробную интерпретацию карты дня
-          await this.handleDailyCommand(bot, { chat: { id: chatId }, from });
+          // Получаем сегодняшнюю дневную карту из базы данных
+          const todaysReading = await this.getTodaysDailyReading(user.token);
+          
+          if (todaysReading) {
+            // Формируем подробное сообщение с summary и advice
+            const card = todaysReading.cards[0];
+            const cardName = card.name || 'Неизвестная карта';
+            const isReversed = card.reversed;
+            
+            let detailsMessage = `🔮 <b>Подробное толкование карты дня</b>\n\n`;
+            detailsMessage += `🃏 <b>${cardName}</b>${isReversed ? ' (перевернутая)' : ''}\n\n`;
+            
+            // Добавляем краткое резюме (summary)
+            if (todaysReading.summary) {
+              detailsMessage += `📝 <b>Краткое значение:</b>\n${todaysReading.summary}\n\n`;
+            }
+            
+            // Добавляем советы (advice)
+            if (todaysReading.advice) {
+              detailsMessage += `💡 <b>Советы на день:</b>\n${todaysReading.advice}\n\n`;
+            }
+            
+            // Добавляем полную интерпретацию если она отличается от summary
+            if (todaysReading.interpretation && todaysReading.interpretation !== todaysReading.summary) {
+              detailsMessage += `🔍 <b>Подробная интерпретация:</b>\n${todaysReading.interpretation}`;
+            }
+            
+            // Отправляем подробное сообщение
+            await bot.sendMessage(chatId, detailsMessage, {
+              parse_mode: 'HTML',
+              reply_markup: {
+                inline_keyboard: [
+                  [{ text: '🏠 Главное меню', callback_data: 'back_to_menu' }],
+                  [{ text: '⬅️ Главное меню', callback_data: 'back_to_menu' }]
+                ]
+              }
+            });
+          } else {
+            // Если дневной карты нет, предлагаем получить новую
+            await bot.sendMessage(chatId, '🌅 <b>Карта дня еще не получена</b>\n\nПолучите свою карту дня, чтобы увидеть подробное толкование.', {
+              parse_mode: 'HTML',
+              reply_markup: {
+                inline_keyboard: [
+                  [{ text: '🌅 Получить карту дня', callback_data: 'daily_card' }],
+                  [{ text: '⬅️ Главное меню', callback_data: 'back_to_menu' }]
+                ]
+              }
+            });
+          }
           break;
           
         default:
@@ -1488,25 +1574,8 @@ class BotHandlers {
 
       switch (data) {
         case 'new_reading':
-          // Показываем меню выбора типа гадания
-          await bot.editMessageText('🔮 *Создание нового гадания*\n\nВыберите тип расклада:\n\n💡 *Совет:* Для более точного гадания сначала задайте свой вопрос в сообщении, а затем выберите расклад.', {
-            chat_id: chatId,
-            message_id: messageId,
-            parse_mode: 'Markdown',
-            reply_markup: {
-              inline_keyboard: [
-                [
-                  { text: '🃏 Одна карта', callback_data: 'reading_single' },
-                  { text: '🃏🃏🃏 Три карты', callback_data: 'reading_three' }
-                ],
-                [
-                  { text: '🌟 Кельтский крест', callback_data: 'reading_celtic' },
-                  { text: '💕 Отношения', callback_data: 'reading_relationship' }
-                ],
-                [{ text: '❓ Задать вопрос сначала', callback_data: 'ask_question_first' }]
-              ]
-            }
-          });
+          // Возвращаемся в главное меню вместо создания меню гадания
+          await this.showMainMenu(bot, chatId, messageId);
           break;
 
         case 'ask_question_first':
@@ -1523,15 +1592,87 @@ class BotHandlers {
           break;
 
         case 'reading_history':
-          await bot.editMessageText('📋 История гаданий в разработке...', {
-            chat_id: chatId,
-            message_id: messageId,
-            reply_markup: {
-              inline_keyboard: [
-                [{ text: '🔮 Новое гадание', callback_data: 'new_reading' }]
-              ]
+          try {
+            const user = await this.ensureUser(from);
+            
+            // Показываем загрузку
+            await bot.editMessageText('📋 *Загружаю вашу историю гаданий...*', {
+              chat_id: chatId,
+              message_id: messageId,
+              parse_mode: 'Markdown'
+            });
+
+            // Получаем историю гаданий пользователя
+            const history = await database.getUserReadings(user.id, 10); // Последние 10 гаданий
+
+            if (!history || history.length === 0) {
+              await bot.editMessageText(
+                '📋 <b>История гаданий пуста</b>\n\n' +
+                'Вы еще не проводили гадания.\n' +
+                'Начните с карты дня или выберите расклад!', {
+                chat_id: chatId,
+                message_id: messageId,
+                parse_mode: 'HTML',
+                reply_markup: {
+                  inline_keyboard: [
+                    [{ text: '🌅 Карта дня', callback_data: 'daily_card' }],
+                    [{ text: '🔮 Новое гадание', callback_data: 'new_reading' }],
+                    [{ text: '🏠 Главное меню', callback_data: 'back_to_menu' }]
+                  ]
+                }
+              });
+              break;
             }
-          });
+
+            // Формируем сообщение с историей
+            let historyText = '📋 <b>Ваша история гаданий</b>\n\n';
+            
+            history.forEach((reading, index) => {
+              const date = new Date(reading.createdAt).toLocaleDateString('ru-RU');
+              const time = new Date(reading.createdAt).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+              const cardNames = reading.cards.map(card => 
+                `${card.name}${card.reversed ? ' (перевернутая)' : ''}`
+              ).join(', ');
+              
+              historyText += `${index + 1}. <b>${reading.spreadName}</b>\n`;
+              historyText += `📅 ${date} в ${time}\n`;
+              historyText += `🃏 ${cardNames}\n`;
+              if (reading.question && reading.question !== 'Карта дня') {
+                historyText += `❓ <i>${reading.question}</i>\n`;
+              }
+              historyText += '\n';
+            });
+
+            historyText += '💡 <i>Для подробного просмотра используйте веб-приложение</i>';
+
+            await bot.editMessageText(historyText, {
+              chat_id: chatId,
+              message_id: messageId,
+              parse_mode: 'HTML',
+              reply_markup: {
+                inline_keyboard: [
+                  [{ text: '📱 Открыть в приложении', web_app: { url: `${process.env.WEBAPP_URL}/history` } }],
+                  [{ text: '🏠 Главное меню', callback_data: 'back_to_menu' }]
+                ]
+              }
+            });
+
+          } catch (error) {
+            console.error('Error in reading_history callback:', error);
+            await bot.editMessageText(
+              '❌ <b>Ошибка загрузки истории</b>\n\n' +
+              'Попробуйте позже или обратитесь в поддержку.', {
+              chat_id: chatId,
+              message_id: messageId,
+              parse_mode: 'HTML',
+              reply_markup: {
+                inline_keyboard: [
+                  [{ text: '🔄 Попробовать снова', callback_data: 'reading_history' }],
+                  [{ text: '🏠 Главное меню', callback_data: 'back_to_menu' }]
+                ]
+              }
+            });
+          }
           break;
 
         case 'profile_stats':
@@ -1564,17 +1705,11 @@ class BotHandlers {
         case 'premium_menu':
           // Очищаем активные сессии нумерологии
           this.pendingNumerology?.delete(chatId);
-          await bot.editMessageText('💎 *Премиум возможности*\n\nПолучите доступ к эксклюзивным функциям!', {
-            chat_id: chatId,
-            message_id: messageId,
-            parse_mode: 'Markdown',
-            reply_markup: {
-              inline_keyboard: [
-                [{ text: '📱 Узнать больше', web_app: { url: `${process.env.WEBAPP_URL}/premium` } }],
-                [{ text: '🔙 Назад', callback_data: 'back_to_menu' }]
-              ]
-            }
-          });
+          // Используем новый обработчик премиум
+          const user = await this.ensureUser(from);
+          const userToken = user.token;
+          const premiumHandlers = require('./premium');
+          await premiumHandlers.handlePremium(bot, { chat: { id: chatId }, from }, userToken);
           break;
 
         case 'back_to_menu':
@@ -1756,6 +1891,20 @@ class BotHandlers {
           await this.handleSettingsDeck(bot, chatId, messageId, from);
           break;
 
+        // Обработка выбора стиля колоды
+        case 'deck_mystic':
+        case 'deck_classic':
+        case 'deck_modern':
+        case 'deck_fantasy':
+        case 'deck_gothic':
+        case 'deck_vintage':
+        case 'deck_art_nouveau':
+        case 'deck_baroque':
+        case 'deck_minimalist':
+        case 'deck_steampunk':
+          await this.handleDeckSelection(bot, chatId, messageId, data, from);
+          break;
+
         default:
           await bot.editMessageText('⏳ Обработка запроса...', {
             chat_id: chatId,
@@ -1864,6 +2013,33 @@ class BotHandlers {
     } catch (error) {
       console.error('Failed to get daily card AI interpretation:', error.message);
       throw error;
+    }
+  }
+
+  /**
+   * Получение сегодняшней дневной карты пользователя
+   */
+  async getTodaysDailyReading(userToken) {
+    try {
+      const apiService = require('../services/api');
+      const response = await apiService.getDailyCard(userToken);
+      
+      if (response && response.success) {
+        return {
+          cards: [{
+            name: response.card.name,
+            reversed: response.isReversed
+          }],
+          interpretation: response.interpretation,
+          summary: response.interpretation,
+          advice: 'Сосредоточьтесь на энергии этой карты весь день'
+        };
+      }
+      
+      return null;
+    } catch (error) {
+      console.error('Failed to get today\'s daily reading:', error.message);
+      return null;
     }
   }
 
@@ -4782,28 +4958,52 @@ ${phases.map(phase => `${phase.emoji} ${phase.date} - ${phase.name}`).join('\n')
   async handleSettingsDeck(bot, chatId, messageId, from) {
     try {
       const user = await this.ensureUser(from);
+      // Получаем текущий стиль из новой структуры настроек
+      const userPreferences = user.preferences || {};
+      const cardGeneration = userPreferences.cardGeneration || {};
+      const currentDeck = cardGeneration.defaultStyle || user.deckType || 'mystic';
       
-      const text = `🔮 *Настройки колоды*\n\nВыберите предпочитаемую колоду карт Таро:`;
+      console.log(`🎨 Bot: Showing deck settings for user ${user.telegramId}, current style: ${currentDeck}`);
+      
+      const text = `🔮 *Настройки стиля колоды*\n\nВыберите стиль для генерации изображений карт:\n\n💡 *Стиль влияет на то, как будут выглядеть ваши карты Таро*`;
+      
+      const deckStyles = [
+        { key: 'mystic', name: '🔮 Мистический', desc: 'Таинственный магический' },
+        { key: 'classic', name: '📜 Классический', desc: 'Традиционный Райдер-Уэйт' },
+        { key: 'modern', name: '🔳 Современный', desc: 'Минималистичный дизайн' },
+        { key: 'fantasy', name: '🧚 Фэнтези', desc: 'Волшебный сказочный' },
+        { key: 'gothic', name: '🏰 Готический', desc: 'Темный драматичный' },
+        { key: 'vintage', name: '📰 Винтажный', desc: 'Старинный ретро' },
+        { key: 'art_nouveau', name: '🌿 Ар-нуво', desc: 'Элегантный декоративный' },
+        { key: 'baroque', name: '👑 Барокко', desc: 'Роскошный пышный' }
+      ];
       
       const keyboard = {
-        inline_keyboard: [
-          [
-            { text: user.deckType === 'classic' ? 'Классическая ✅' : 'Классическая', callback_data: 'deck_classic' }
-          ],
-          [
-            { text: user.deckType === 'rider-waite' ? 'Райдера-Уэйта ✅' : 'Райдера-Уэйта', callback_data: 'deck_rider_waite' }
-          ],
-          [
-            { text: user.deckType === 'mystical' ? 'Мистическая ✅' : 'Мистическая', callback_data: 'deck_mystical' }
-          ],
-          [
-            { text: user.deckType === 'ai-generated' ? 'AI Generated ✅' : 'AI Generated', callback_data: 'deck_ai' }
-          ],
-          [
-            { text: '⬅️ Назад к настройкам', callback_data: 'settings' }
-          ]
-        ]
+        inline_keyboard: []
       };
+      
+      // Группируем по 2 стиля в ряд
+      for (let i = 0; i < deckStyles.length; i += 2) {
+        const row = [];
+        for (let j = i; j < Math.min(i + 2, deckStyles.length); j++) {
+          const style = deckStyles[j];
+          const isSelected = currentDeck === style.key;
+          const buttonText = isSelected ? `${style.name} ✅` : style.name;
+          row.push({ 
+            text: buttonText, 
+            callback_data: `deck_${style.key}` 
+          });
+        }
+        keyboard.inline_keyboard.push(row);
+      }
+      
+      // Добавляем информацию о текущем стиле и кнопки управления
+      keyboard.inline_keyboard.push([
+        { text: `📋 Текущий: ${deckStyles.find(s => s.key === currentDeck)?.name || currentDeck}`, callback_data: 'test_show_settings' }
+      ]);
+      keyboard.inline_keyboard.push([
+        { text: '⬅️ Назад к настройкам', callback_data: 'settings' }
+      ]);
 
       await bot.editMessageText(text, {
         chat_id: chatId,
@@ -4820,6 +5020,581 @@ ${phases.map(phase => `${phase.emoji} ${phase.date} - ${phase.name}`).join('\n')
         reply_markup: {
           inline_keyboard: [
             [{ text: '⬅️ Назад к настройкам', callback_data: 'settings' }]
+          ]
+        }
+      });
+    }
+  }
+
+  /**
+   * Обработчик выбора стиля колоды
+   */
+  async handleDeckSelection(bot, chatId, messageId, data, from) {
+    try {
+      const user = await this.ensureUser(from);
+      const selectedStyle = data.replace('deck_', '');
+      
+      // Получаем описание стиля
+      const styleDescriptions = {
+        mystic: 'Мистический стиль - таинственный магический с темными тонами и золотыми акцентами',
+        classic: 'Классический стиль - традиционный Райдер-Уэйт с исторической точностью',
+        modern: 'Современный стиль - минималистичный с чистыми линиями и геометрией',
+        fantasy: 'Фэнтези стиль - волшебный сказочный с магическими существами',
+        gothic: 'Готический стиль - темный драматичный с готическими мотивами',
+        vintage: 'Винтажный стиль - старинный ретро с состаренной бумагой',
+        art_nouveau: 'Ар-нуво стиль - элегантный декоративный с растительными орнаментами',
+        baroque: 'Барокко стиль - роскошный пышный с богатыми орнаментами',
+        minimalist: 'Минималистский стиль - простой лаконичный концептуальный',
+        steampunk: 'Стимпанк стиль - викторианский механический с шестеренками'
+      };
+
+      // Обновляем настройки пользователя в новой структуре
+      // Парсим preferences если они пришли как строка
+      let currentPreferences = {};
+      if (typeof user.preferences === 'string') {
+        try {
+          currentPreferences = JSON.parse(user.preferences);
+        } catch (error) {
+          console.error('Error parsing user preferences in deck selection:', error);
+          currentPreferences = {};
+        }
+      } else {
+        currentPreferences = user.preferences || {};
+      }
+      
+      const currentCardGeneration = currentPreferences.cardGeneration || {};
+      
+      const updateData = { 
+        deckType: selectedStyle, // для обратной совместимости
+        preferences: {
+          ...currentPreferences,
+          cardDeck: selectedStyle, // для обратной совместимости
+          cardGeneration: {
+            ...currentCardGeneration,
+            defaultStyle: selectedStyle
+          }
+        }
+      };
+
+      console.log(`🎨 Bot: Updating user ${user.telegramId} with data:`, JSON.stringify(updateData, null, 2));
+
+      const result = await database.updateUser(user.telegramId, updateData);
+
+      console.log(`🎨 Bot: Update result:`, JSON.stringify(result, null, 2));
+
+      // ВАЖНО: Принудительно перезагружаем пользователя для получения свежих данных
+      console.log(`🔄 Bot: Reloading user data after update...`);
+      const refreshedUser = await this.ensureUser(from);
+      console.log(`🔄 Bot: Refreshed user preferences:`, JSON.stringify(refreshedUser.preferences, null, 2));
+
+      // Проверяем, что настройки действительно сохранились
+      setTimeout(async () => {
+        try {
+          const updatedUser = await database.getUserByTelegramId(user.telegramId);
+          console.log(`🔍 Bot: User after update check:`, {
+            deckType: updatedUser?.user?.deckType,
+            preferences: JSON.stringify(updatedUser?.user?.preferences, null, 2)
+          });
+        } catch (error) {
+          console.error('Error checking updated user:', error);
+        }
+      }, 1000);
+
+      const confirmText = `✅ *Стиль колоды обновлен*\n\n🎨 *Выбранный стиль:* ${styleDescriptions[selectedStyle]}\n\n💡 Теперь все новые карты будут генерироваться в этом стиле!\n\n🧪 Проверьте командой /test → "📋 Мои настройки генерации"`;
+
+      await bot.editMessageText(confirmText, {
+        chat_id: chatId,
+        message_id: messageId,
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '🔮 Изменить стиль', callback_data: 'settings_deck' }],
+            [{ text: '⬅️ Назад к настройкам', callback_data: 'settings' }],
+            [{ text: '🏠 Главное меню', callback_data: 'back_to_menu' }]
+          ]
+        }
+      });
+
+    } catch (error) {
+      console.error('Error in deck selection:', error);
+      await bot.editMessageText('❌ Ошибка при сохранении настроек. Попробуйте позже.', {
+        chat_id: chatId,
+        message_id: messageId,
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '🔄 Попробовать снова', callback_data: 'settings_deck' }],
+            [{ text: '⬅️ Назад к настройкам', callback_data: 'settings' }]
+          ]
+        }
+      });
+    }
+  }
+
+  /**
+   * Обработчик команды /test - тестирование новых функций
+   */
+  async handleTestCommand(bot, msg) {
+    const chatId = msg.chat.id;
+    const userId = msg.from.id;
+
+    try {
+      const user = await this.ensureUser(msg.from);
+
+      await bot.sendMessage(chatId, 
+        '🧪 <b>Тестирование новых функций MISTIKA</b>\n\n' +
+        'Выберите, что вы хотите протестировать:', {
+        parse_mode: 'HTML',
+        reply_markup: {
+          inline_keyboard: [
+            [
+              {
+                text: '🎨 Тест генерации изображений',
+                callback_data: 'test_image_generation'
+              }
+            ],
+            [
+              {
+                text: '⚡ Параллельная генерация карт',
+                callback_data: 'test_parallel_generation'
+              }
+            ],
+            [
+              {
+                text: '🔄 Генерация с fallback',
+                callback_data: 'test_fallback_generation'
+              }
+            ],
+            [
+              {
+                text: '🎴 Доступные стили',
+                callback_data: 'test_available_styles'
+              }
+            ],
+            [
+              {
+                text: '💊 Здоровье Kandinsky API',
+                callback_data: 'test_kandinsky_health'
+              }
+            ],
+            [
+              {
+                text: '📋 Мои настройки генерации',
+                callback_data: 'test_show_settings'
+              }
+            ],
+            [
+              {
+                text: '🏠 Главное меню',
+                callback_data: 'back_to_menu'
+              }
+            ]
+          ]
+        }
+      });
+
+    } catch (error) {
+      console.error('Error in test command:', error);
+      await bot.sendMessage(chatId, 
+        '❌ Ошибка при запуске тестирования.\n' +
+        'Попробуйте позже.', {
+        reply_markup: {
+          inline_keyboard: [[
+            { text: '🔄 Попробовать снова', callback_data: 'restart' }
+          ]]
+        }
+      });
+    }
+  }
+
+  /**
+   * Обработчик тестирования генерации изображений
+   */
+  async handleTestImageGeneration(bot, chatId, messageId, from) {
+    try {
+      // Получаем пользователя и его настройки
+      const user = await this.ensureUser(from);
+      const userPreferences = user.preferences || {};
+      const cardGeneration = userPreferences.cardGeneration || {};
+      const style = cardGeneration.defaultStyle || 'mystic';
+      
+      await bot.editMessageText(
+        '🎨 <b>Тестирование генерации изображений</b>\n\n' +
+        `🎨 <b>Стиль:</b> ${style}\n` +
+        '⏳ Запускаем тестовую генерацию...', {
+        chat_id: chatId,
+        message_id: messageId,
+        parse_mode: 'HTML'
+      });
+
+      console.log(`🧪 Bot: Testing image generation for user ${user.telegramId} with style: ${style}`);
+
+      const result = await database.testImageGeneration();
+
+      let resultText;
+      if (result.success) {
+        resultText = '✅ <b>Тест генерации прошел успешно!</b>\n\n' +
+          `🔍 <b>Результат:</b> ${result.isMock ? 'Fallback режим' : 'AI генерация'}\n` +
+          `🆔 <b>UUID:</b> ${result.uuid}\n` +
+          `📏 <b>Размер данных:</b> ${result.imageLength} байт`;
+      } else {
+        resultText = '❌ <b>Тест генерации не удался</b>\n\n' +
+          `🚫 <b>Ошибка:</b> ${result.error}`;
+      }
+
+      await bot.editMessageText(resultText, {
+        chat_id: chatId,
+        message_id: messageId,
+        parse_mode: 'HTML',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '🔄 Повторить тест', callback_data: 'test_image_generation' }],
+            [{ text: '⬅️ Назад к тестам', callback_data: 'test_menu' }],
+            [{ text: '🏠 Главное меню', callback_data: 'back_to_menu' }]
+          ]
+        }
+      });
+
+    } catch (error) {
+      console.error('Error in image generation test:', error);
+      await bot.editMessageText(
+        '❌ <b>Ошибка при тестировании</b>\n\n' +
+        `Детали: ${error.message}`, {
+        chat_id: chatId,
+        message_id: messageId,
+        parse_mode: 'HTML',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '⬅️ Назад к тестам', callback_data: 'test_menu' }]
+          ]
+        }
+      });
+    }
+  }
+
+  /**
+   * Обработчик тестирования параллельной генерации
+   */
+  async handleTestParallelGeneration(bot, chatId, messageId, from) {
+    try {
+      // Получаем пользователя и его настройки
+      const user = await this.ensureUser(from);
+      const userPreferences = user.preferences || {};
+      const cardGeneration = userPreferences.cardGeneration || {};
+      const style = cardGeneration.defaultStyle || 'mystic';
+      
+      await bot.editMessageText(
+        '⚡ <b>Тестирование параллельной генерации</b>\n\n' +
+        `🎨 <b>Стиль:</b> ${style}\n` +
+        '⏳ Генерируем 3 карты одновременно...', {
+        chat_id: chatId,
+        message_id: messageId,
+        parse_mode: 'HTML'
+      });
+
+      console.log(`🧪 Bot: Testing parallel generation for user ${user.telegramId} with style: ${style}`);
+
+      // Создаем тестовые карты
+      const testCards = [
+        { name: 'Маг', description: 'Карта новых начинаний и возможностей' },
+        { name: 'Жрица', description: 'Карта интуиции и тайного знания' },
+        { name: 'Императрица', description: 'Карта изобилия и творчества' }
+      ];
+
+      const startTime = Date.now();
+      const result = await database.generateMultipleCardImages(testCards, {
+        style: style,
+        maxConcurrent: 3
+      });
+      const duration = Date.now() - startTime;
+
+      let resultText;
+      if (result.success) {
+        const stats = result.stats;
+        resultText = '✅ <b>Параллельная генерация завершена!</b>\n\n' +
+          `⏱️ <b>Время:</b> ${(duration / 1000).toFixed(1)} сек\n` +
+          `📊 <b>Статистика:</b>\n` +
+          `  • Всего: ${stats.total}\n` +
+          `  • Успешно: ${stats.successful}\n` +
+          `  • Ошибок: ${stats.failed}\n\n` +
+          `🎯 <b>Успешность:</b> ${Math.round((stats.successful / stats.total) * 100)}%`;
+      } else {
+        resultText = '❌ <b>Параллельная генерация не удалась</b>\n\n' +
+          `🚫 <b>Ошибка:</b> ${result.error}`;
+      }
+
+      await bot.editMessageText(resultText, {
+        chat_id: chatId,
+        message_id: messageId,
+        parse_mode: 'HTML',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '🔄 Повторить тест', callback_data: 'test_parallel_generation' }],
+            [{ text: '⬅️ Назад к тестам', callback_data: 'test_menu' }],
+            [{ text: '🏠 Главное меню', callback_data: 'back_to_menu' }]
+          ]
+        }
+      });
+
+    } catch (error) {
+      console.error('Error in parallel generation test:', error);
+      await bot.editMessageText(
+        '❌ <b>Ошибка при тестировании параллельной генерации</b>\n\n' +
+        `Детали: ${error.message}`, {
+        chat_id: chatId,
+        message_id: messageId,
+        parse_mode: 'HTML',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '⬅️ Назад к тестам', callback_data: 'test_menu' }]
+          ]
+        }
+      });
+    }
+  }
+
+  /**
+   * Обработчик проверки доступных стилей
+   */
+  async handleTestAvailableStyles(bot, chatId, messageId) {
+    try {
+      await bot.editMessageText(
+        '🎴 <b>Загрузка доступных стилей...</b>', {
+        chat_id: chatId,
+        message_id: messageId,
+        parse_mode: 'HTML'
+      });
+
+      const result = await database.getAvailableStyles();
+
+      let resultText;
+      if (result.success) {
+        resultText = '🎨 <b>Доступные стили колод:</b>\n\n';
+        Object.entries(result.styles).forEach(([key, style]) => {
+          resultText += `${style.emoji} <b>${style.name}</b>\n`;
+          if (style.description) {
+            resultText += `<i>${style.description}</i>\n\n`;
+          }
+        });
+        resultText += `📊 <b>Всего стилей:</b> ${result.count}`;
+      } else {
+        resultText = '❌ <b>Не удалось загрузить стили</b>\n\n' +
+          `🚫 <b>Ошибка:</b> ${result.error}`;
+      }
+
+      await bot.editMessageText(resultText, {
+        chat_id: chatId,
+        message_id: messageId,
+        parse_mode: 'HTML',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '🔄 Обновить список', callback_data: 'test_available_styles' }],
+            [{ text: '⬅️ Назад к тестам', callback_data: 'test_menu' }],
+            [{ text: '🏠 Главное меню', callback_data: 'back_to_menu' }]
+          ]
+        }
+      });
+
+    } catch (error) {
+      console.error('Error in styles test:', error);
+      await bot.editMessageText(
+        '❌ <b>Ошибка при загрузке стилей</b>\n\n' +
+        `Детали: ${error.message}`, {
+        chat_id: chatId,
+        message_id: messageId,
+        parse_mode: 'HTML',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '⬅️ Назад к тестам', callback_data: 'test_menu' }]
+          ]
+        }
+      });
+    }
+  }
+
+  /**
+   * Обработчик проверки здоровья Kandinsky API
+   */
+  async handleTestKandinskyHealth(bot, chatId, messageId) {
+    try {
+      await bot.editMessageText(
+        '💊 <b>Проверка здоровья Kandinsky API...</b>', {
+        chat_id: chatId,
+        message_id: messageId,
+        parse_mode: 'HTML'
+      });
+
+      const result = await database.checkKandinskyHealth();
+
+      let resultText;
+      if (result.success) {
+        const health = result.kandinsky;
+        resultText = '💊 <b>Статус Kandinsky API</b>\n\n';
+        
+        if (health.available) {
+          resultText += '✅ <b>Сервис доступен</b>\n\n';
+          resultText += `🆔 <b>Pipeline ID:</b> ${health.pipelineId}\n`;
+          resultText += `📡 <b>Статус:</b> ${health.pipelineStatus}\n`;
+        } else {
+          resultText += '❌ <b>Сервис недоступен</b>\n\n';
+          if (health.error) {
+            resultText += `🚫 <b>Ошибка:</b> ${health.error}\n`;
+          }
+          if (health.status) {
+            resultText += `📡 <b>HTTP Status:</b> ${health.status}\n`;
+          }
+        }
+        
+        resultText += `🔑 <b>API Key:</b> ${health.apiKey}\n`;
+        resultText += `🔐 <b>Secret Key:</b> ${health.secretKey}`;
+      } else {
+        resultText = '❌ <b>Ошибка проверки здоровья API</b>\n\n' +
+          `🚫 <b>Детали:</b> ${result.error}`;
+      }
+
+      await bot.editMessageText(resultText, {
+        chat_id: chatId,
+        message_id: messageId,
+        parse_mode: 'HTML',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '🔄 Повторить проверку', callback_data: 'test_kandinsky_health' }],
+            [{ text: '⬅️ Назад к тестам', callback_data: 'test_menu' }],
+            [{ text: '🏠 Главное меню', callback_data: 'back_to_menu' }]
+          ]
+        }
+      });
+
+    } catch (error) {
+      console.error('Error in Kandinsky health test:', error);
+      await bot.editMessageText(
+        '❌ <b>Ошибка при проверке здоровья API</b>\n\n' +
+        `Детали: ${error.message}`, {
+        chat_id: chatId,
+        message_id: messageId,
+        parse_mode: 'HTML',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '⬅️ Назад к тестам', callback_data: 'test_menu' }]
+          ]
+        }
+      });
+    }
+  }
+
+  /**
+   * Обработчик callback'ов для тестирования
+   */
+  async handleTestCallback(bot, chatId, messageId, data, from) {
+    try {
+      console.log(`Processing test callback: ${data} for user ${from.id}`);
+
+      switch (data) {
+        case 'test_menu':
+          await this.handleTestCommand(bot, { chat: { id: chatId }, from: from, message_id: messageId });
+          break;
+
+        case 'test_image_generation':
+          await this.handleTestImageGeneration(bot, chatId, messageId, from);
+          break;
+
+        case 'test_parallel_generation':
+          await this.handleTestParallelGeneration(bot, chatId, messageId, from);
+          break;
+
+        case 'test_available_styles':
+          await this.handleTestAvailableStyles(bot, chatId, messageId);
+          break;
+
+        case 'test_kandinsky_health':
+          await this.handleTestKandinskyHealth(bot, chatId, messageId);
+          break;
+
+        case 'test_show_settings':
+          await this.handleShowUserSettings(bot, chatId, messageId, from);
+          break;
+
+        default:
+          console.warn(`Unknown test callback: ${data}`);
+          await bot.answerCallbackQuery(query.id, {
+            text: 'Неизвестная команда теста',
+            show_alert: true
+          });
+      }
+
+    } catch (error) {
+      console.error('Error in test callback:', error);
+      await bot.editMessageText(
+        '❌ <b>Ошибка при выполнении теста</b>\n\n' +
+        `Детали: ${error.message}`, {
+        chat_id: chatId,
+        message_id: messageId,
+        parse_mode: 'HTML',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '⬅️ Назад к тестам', callback_data: 'test_menu' }],
+            [{ text: '🏠 Главное меню', callback_data: 'back_to_menu' }]
+          ]
+        }
+      });
+    }
+  }
+
+  /**
+   * Показать текущие настройки пользователя
+   */
+  async handleShowUserSettings(bot, chatId, messageId, from) {
+    try {
+      const user = await this.ensureUser(from);
+      
+      // Парсим preferences если они пришли как строка
+      let userPreferences = {};
+      if (typeof user.preferences === 'string') {
+        try {
+          userPreferences = JSON.parse(user.preferences);
+        } catch (error) {
+          console.error('Error parsing user preferences:', error);
+          userPreferences = {};
+        }
+      } else {
+        userPreferences = user.preferences || {};
+      }
+      
+      const cardGeneration = userPreferences.cardGeneration || {};
+      
+      console.log(`📋 Bot: Showing settings for user ${user.telegramId}:`, userPreferences);
+      
+      const settingsText = '📋 <b>Ваши текущие настройки генерации карт</b>\n\n' +
+        `🎨 <b>Стиль по умолчанию:</b> ${cardGeneration.defaultStyle || 'mystic'}\n` +
+        `🔄 <b>Автогенерация:</b> ${cardGeneration.autoGenerate !== false ? 'ВКЛ ✅' : 'ВЫКЛ ❌'}\n` +
+        `⚡ <b>Параллельная генерация:</b> ${cardGeneration.parallelGeneration !== false ? 'ВКЛ ✅' : 'ВЫКЛ ❌'}\n` +
+        `🔮 <b>Резервные изображения:</b> ${cardGeneration.fallbackEnabled !== false ? 'ВКЛ ✅' : 'ВЫКЛ ❌'}\n` +
+        `💎 <b>Высокое качество:</b> ${cardGeneration.highQuality ? 'ВКЛ ✅' : 'ВЫКЛ ❌'}\n\n` +
+        '💡 <i>Изменить настройки можно в веб-приложении (Профиль → Генерация изображений)</i>';
+
+      await bot.editMessageText(settingsText, {
+        chat_id: chatId,
+        message_id: messageId,
+        parse_mode: 'HTML',
+        reply_markup: {
+          inline_keyboard: [
+            ...(process.env.WEBAPP_URL ? [[{ text: '🌐 Открыть настройки', web_app: { url: `${process.env.WEBAPP_URL}/profile` } }]] : []),
+            [{ text: '⬅️ Назад к тестам', callback_data: 'test_menu' }],
+            [{ text: '🏠 Главное меню', callback_data: 'back_to_menu' }]
+          ]
+        }
+      });
+
+    } catch (error) {
+      console.error('Error showing user settings:', error);
+      await bot.editMessageText(
+        '❌ <b>Ошибка при получении настроек</b>\n\n' +
+        `Детали: ${error.message}`, {
+        chat_id: chatId,
+        message_id: messageId,
+        parse_mode: 'HTML',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '⬅️ Назад к тестам', callback_data: 'test_menu' }]
           ]
         }
       });

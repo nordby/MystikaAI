@@ -127,19 +127,340 @@ class KandinskyService {
    */
   buildCardPrompt(cardName, cardDescription, style) {
     const stylePrompts = {
-      mystic: 'мистический стиль, таинственный, магический, эзотерический',
-      classic: 'классический стиль таро, традиционный, Райдер-Уэйт',
-      modern: 'современный стиль, минималистичный, стилизованный',
-      fantasy: 'фэнтези стиль, волшебный, сказочный, яркий'
+      mystic: 'мистический стиль, таинственный, магический, эзотерический, темные тона, золотые акценты',
+      classic: 'классический стиль таро, традиционный, Райдер-Уэйт, винтажная палитра, исторический',
+      modern: 'современный стиль, минималистичный, стилизованный, чистые линии, геометрические формы',
+      fantasy: 'фэнтези стиль, волшебный, сказочный, яркий, драконы и единороги, магические существа',
+      gothic: 'готический стиль, темный, драматичный, мрачный, средневековый, готические арки',
+      vintage: 'винтажный стиль, старинный, ретро, антикварный, состаренная бумага, сепия',
+      art_nouveau: 'стиль модерн, элегантный, декоративный, изящный, растительные орнаменты',
+      minimalist: 'минималистский стиль, простой, лаконичный, монохромный, концептуальный',
+      baroque: 'барочный стиль, роскошный, пышный, золоченый, величественный, богато украшенный',
+      steampunk: 'стимпанк стиль, механический, викторианский, бронзовый, шестеренки и паровые машины'
     };
 
     const basePrompt = `Карта Таро "${cardName}", ${cardDescription}, ${stylePrompts[style] || stylePrompts.mystic}`;
     
-    const enhancedPrompt = `${basePrompt}, высокое качество, детализированное изображение, красивая композиция, профессиональная иллюстрация, золотые акценты, мистические символы, эзотерическая атмосфера, 4K качество`;
+    // Добавляем стиль-специфичные улучшения
+    const styleEnhancements = {
+      mystic: 'мистические символы, эзотерическая атмосфера, лунный свет, звездное небо',
+      classic: 'традиционная иконография, классические символы таро, историческая точность',
+      modern: 'современная графика, чистая композиция, типографские элементы',
+      fantasy: 'волшебные эффекты, фантастические пейзажи, магические артефакты',
+      gothic: 'готические витражи, средневековые замки, мистические руны, темная романтика',
+      vintage: 'старинные рамки, потертые края, ретро типографика, антикварные детали',
+      art_nouveau: 'изящные линии, цветочные мотивы, декоративные рамки, стиль Альфонса Мухи',
+      minimalist: 'простые формы, негативное пространство, монохромная палитра',
+      baroque: 'богатые орнаменты, золотые рамы, роскошные ткани, дворцовый интерьер',
+      steampunk: 'викторианские механизмы, медные трубы, паровые двигатели, ретрофутуризм'
+    };
+    
+    const enhancement = styleEnhancements[style] || styleEnhancements.mystic;
+    const enhancedPrompt = `${basePrompt}, ${enhancement}, высокое качество, детализированное изображение, красивая композиция, профессиональная иллюстрация, 4K качество`;
 
     return enhancedPrompt;
   }
 
+  /**
+   * Параллельная генерация нескольких изображений карт
+   */
+  async generateMultipleCardImages(cards, options = {}) {
+    try {
+      const {
+        style = 'mystic',
+        width = 680,
+        height = 1024,
+        maxConcurrent = 3 // Ограничиваем количество одновременных запросов
+      } = options;
+
+      logger.info('Starting parallel image generation', {
+        cardCount: cards.length,
+        style,
+        maxConcurrent
+      });
+
+      // Получаем pipeline один раз для всех запросов
+      const pipelineId = await this.getPipeline();
+
+      // Разбиваем карты на батчи для параллельной обработки
+      const batches = [];
+      for (let i = 0; i < cards.length; i += maxConcurrent) {
+        batches.push(cards.slice(i, i + maxConcurrent));
+      }
+
+      const results = [];
+
+      // Обрабатываем каждый батч параллельно
+      for (const batch of batches) {
+        const batchPromises = batch.map(async (card) => {
+          try {
+            const prompt = this.buildCardPrompt(card.name, card.description, style);
+            
+            // Запускаем генерацию
+            const uuid = await this.startGeneration(prompt, pipelineId, { width, height });
+            
+            return {
+              card,
+              uuid,
+              prompt,
+              status: 'started'
+            };
+          } catch (error) {
+            logger.error('Failed to start generation for card', {
+              cardName: card.name,
+              error: error.message
+            });
+            return {
+              card,
+              error: error.message,
+              status: 'failed'
+            };
+          }
+        });
+
+        const batchResults = await Promise.allSettled(batchPromises);
+        
+        // Извлекаем успешные результаты
+        const startedGenerations = batchResults
+          .filter(result => result.status === 'fulfilled' && result.value.status === 'started')
+          .map(result => result.value);
+
+        // Ждем завершения всех генераций в батче
+        const completedPromises = startedGenerations.map(async (generation) => {
+          try {
+            const imageData = await this.waitForGeneration(generation.uuid);
+            return {
+              success: true,
+              imageData,
+              prompt: generation.prompt,
+              uuid: generation.uuid,
+              cardName: generation.card.name,
+              card: generation.card,
+              isMock: false
+            };
+          } catch (error) {
+            logger.error('Generation failed for card', {
+              cardName: generation.card.name,
+              uuid: generation.uuid,
+              error: error.message
+            });
+            return {
+              success: false,
+              error: error.message,
+              cardName: generation.card.name,
+              card: generation.card
+            };
+          }
+        });
+
+        const completedResults = await Promise.allSettled(completedPromises);
+        results.push(...completedResults.map(result => 
+          result.status === 'fulfilled' ? result.value : { success: false, error: 'Promise rejected' }
+        ));
+
+        // Небольшая задержка между батчами, чтобы не перегружать API
+        if (batches.indexOf(batch) < batches.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+      }
+
+      const successCount = results.filter(r => r.success).length;
+      const failCount = results.length - successCount;
+
+      logger.info('Parallel image generation completed', {
+        total: results.length,
+        successful: successCount,
+        failed: failCount
+      });
+
+      return {
+        success: true,
+        results,
+        stats: {
+          total: results.length,
+          successful: successCount,
+          failed: failCount
+        }
+      };
+
+    } catch (error) {
+      logger.error('Parallel image generation failed', { error: error.message });
+      throw error;
+    }
+  }
+
+  /**
+   * Асинхронное предварительное кэширование популярных карт
+   */
+  async preGeneratePopularCards(popularCards, styles = ['mystic', 'classic'], options = {}) {
+    try {
+      const {
+        priority = 'low', // low, normal, high
+        delay = 5000 // Задержка между запросами в мс
+      } = options;
+
+      logger.info('Starting pre-generation of popular cards', {
+        cardCount: popularCards.length,
+        styles: styles.length,
+        totalImages: popularCards.length * styles.length
+      });
+
+      // Создаем список всех комбинаций карта-стиль
+      const combinations = [];
+      for (const card of popularCards) {
+        for (const style of styles) {
+          combinations.push({ card, style });
+        }
+      }
+
+      // Запускаем генерацию в фоновом режиме
+      this.backgroundGeneration(combinations, delay);
+
+      return {
+        success: true,
+        scheduled: combinations.length,
+        message: 'Background generation started'
+      };
+
+    } catch (error) {
+      logger.error('Failed to start pre-generation', { error: error.message });
+      throw error;
+    }
+  }
+
+  /**
+   * Фоновая генерация изображений
+   */
+  async backgroundGeneration(combinations, delay) {
+    for (const { card, style } of combinations) {
+      try {
+        // Проверяем, не было ли изображение уже сгенерировано
+        // (здесь можно добавить проверку кэша)
+        
+        await this.generateCardImage(card.name, card.description, { style });
+        
+        logger.info('Background generation completed', {
+          cardName: card.name,
+          style
+        });
+
+        // Задержка между генерациями
+        await new Promise(resolve => setTimeout(resolve, delay));
+
+      } catch (error) {
+        logger.warn('Background generation failed', {
+          cardName: card.name,
+          style,
+          error: error.message
+        });
+        
+        // Продолжаем с большей задержкой в случае ошибки
+        await new Promise(resolve => setTimeout(resolve, delay * 2));
+      }
+    }
+
+    logger.info('All background generations completed');
+  }
+
+  /**
+   * Оптимизированная генерация с fallback на моковые изображения
+   */
+  async generateCardImageWithFallback(cardName, cardDescription, options = {}) {
+    const {
+      timeout = 30000, // 30 секунд timeout
+      mockFallback = true
+    } = options;
+
+    try {
+      // Устанавливаем timeout для генерации
+      const generationPromise = this.generateCardImage(cardName, cardDescription, options);
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Generation timeout')), timeout)
+      );
+
+      const result = await Promise.race([generationPromise, timeoutPromise]);
+      return result;
+
+    } catch (error) {
+      logger.warn('Image generation failed, using fallback', {
+        cardName,
+        error: error.message,
+        mockFallback
+      });
+
+      if (mockFallback) {
+        // Возвращаем моковое изображение
+        return {
+          success: true,
+          imageData: null, // Будет использоваться дефолтное изображение
+          prompt: `Mock: ${cardName}`,
+          uuid: 'mock-' + Date.now(),
+          cardName,
+          isMock: true
+        };
+      }
+
+      throw error;
+    }
+  }
+
+  /**
+   * Получение списка доступных стилей колод
+   */
+  getAvailableStyles() {
+    return {
+      mystic: {
+        name: 'Мистический',
+        description: 'Таинственный магический стиль с темными тонами и золотыми акцентами',
+        emoji: '🔮'
+      },
+      classic: {
+        name: 'Классический',
+        description: 'Традиционный стиль Райдер-Уэйт с исторической точностью',
+        emoji: '📜'
+      },
+      modern: {
+        name: 'Современный',
+        description: 'Минималистичный стиль с чистыми линиями и геометрией',
+        emoji: '🔳'
+      },
+      fantasy: {
+        name: 'Фэнтези',
+        description: 'Волшебный сказочный стиль с магическими существами',
+        emoji: '🧚'
+      },
+      gothic: {
+        name: 'Готический',
+        description: 'Темный драматичный стиль с готическими мотивами',
+        emoji: '🏰'
+      },
+      vintage: {
+        name: 'Винтажный',
+        description: 'Старинный ретро стиль с состаренной бумагой',
+        emoji: '📰'
+      },
+      art_nouveau: {
+        name: 'Ар-нуво',
+        description: 'Элегантный декоративный стиль с растительными орнаментами',
+        emoji: '🌿'
+      },
+      minimalist: {
+        name: 'Минимализм',
+        description: 'Простой лаконичный концептуальный стиль',
+        emoji: '⬜'
+      },
+      baroque: {
+        name: 'Барокко',
+        description: 'Роскошный пышный стиль с богатыми орнаментами',
+        emoji: '👑'
+      },
+      steampunk: {
+        name: 'Стимпанк',
+        description: 'Викторианский механический стиль с шестеренками',
+        emoji: '⚙️'
+      }
+    };
+  }
 
   /**
    * Запуск генерации изображения согласно документации

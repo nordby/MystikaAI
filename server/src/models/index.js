@@ -18,6 +18,9 @@ async function initialize() {
     // Синхронизация схемы базы данных
     await syncDatabase();
     
+    // Запуск сидеров для заполнения данных
+    await databaseConfig.runSeeders(models);
+    
     return { sequelize, models };
   } catch (error) {
     throw error;
