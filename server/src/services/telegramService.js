@@ -452,7 +452,7 @@ ${cards.meaning}
 💎 Оформите Premium для всех возможностей
 
 <b>Поддержка:</b>
-📧 Email: support@mistika.app
+📧 Email: support@mystika.systems.cv
 💬 Telegram: @mistika_support
     `;
 

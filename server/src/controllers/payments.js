@@ -88,13 +88,13 @@ const createStarsInvoice = async (req, res) => {
             'monthly_premium': {
                 name: 'Премиум месяц',
                 description: 'Полный доступ ко всем функциям на месяц',
-                price: 1,
+                price: 100,
                 duration: 30
             },
             'yearly_premium': {
                 name: 'Премиум год', 
                 description: 'Полный доступ на год со скидкой 40%',
-                price: 360,
+                price: 300,
                 duration: 365
             }
         };
@@ -181,8 +181,8 @@ const handlePreCheckout = async (req, res) => {
 
         // Проверяем план
         const plans = {
-            'monthly_premium': { price: 1, duration: 30 },
-            'yearly_premium': { price: 360, duration: 365 }
+            'monthly_premium': { price: 100, duration: 30 },
+            'yearly_premium': { price: 300, duration: 365 }
         };
 
         const plan = plans[payloadData.planId];

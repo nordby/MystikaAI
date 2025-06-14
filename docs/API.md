@@ -6,7 +6,7 @@ MISTIKA API предоставляет доступ к функциям мист
 
 ### Базовая информация
 
-- **Базовый URL**: `https://api.mistika.app/v1`
+- **Базовый URL**: `https://api.mystika.systems.cv/v1`
 - **Формат данных**: JSON
 - **Аутентификация**: Bearer Token
 - **Версионирование**: URL-based (`/v1/`)
@@ -130,7 +130,7 @@ Authorization: Bearer {token}
       "cardNumber": 0,
       "suit": null,
       "cardType": "major_arcana",
-      "imageUrl": "https://cdn.mistika.app/cards/fool.jpg",
+      "imageUrl": "https://cdn.mystika.systems.cv/cards/fool.jpg",
       "keywordsUpright": ["новые начинания", "спонтанность", "свобода"],
       "keywordsReversed": ["безрассудство", "хаос", "беспечность"]
     },
@@ -337,7 +337,7 @@ Content-Type: application/json
       "amount": 199,
       "currency": "RUB",
       "status": "pending",
-      "paymentUrl": "https://pay.mistika.app/payment/uuid",
+      "paymentUrl": "https://pay.mystika.systems.cv/payment/uuid",
       "expiresAt": "2024-01-15T11:30:00Z"
     }
   }
@@ -510,7 +510,7 @@ Content-Type: application/json
         {
           "text": "Посмотреть карту",
           "web_app": {
-            "url": "https://mistika.app/daily"
+            "url": "https://mystika.systems.cv/daily"
           }
         }
       ]]
@@ -650,7 +650,7 @@ import { MistikaAPI } from '@mistika/sdk';
 
 const api = new MistikaAPI({
   token: 'your_jwt_token',
-  baseURL: 'https://api.mistika.app/v1'
+  baseURL: 'https://api.mystika.systems.cv/v1'
 });
 
 // Получение дневной карты
@@ -694,7 +694,7 @@ Telegram ID: 123456789 (тестовый пользователь)
 ### Sandbox режим
 
 ```
-Base URL: https://api-sandbox.mistika.app/v1
+Base URL: https://api-sandbox.mystika.systems.cv/v1
 ```
 
 В sandbox режиме:
@@ -704,7 +704,7 @@ Base URL: https://api-sandbox.mistika.app/v1
 
 ## Поддержка
 
-- **Email**: api@mistika.app
+- **Email**: api@mystika.systems.cv
 - **Telegram**: @mistika_support
-- **Документация**: https://docs.mistika.app
-- **Статус API**: https://status.mistika.app
+- **Документация**: https://docs.mystika.systems.cv
+- **Статус API**: https://status.mystika.systems.cv

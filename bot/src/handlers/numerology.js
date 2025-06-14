@@ -8,6 +8,27 @@ class NumerologyHandler {
     this.userSessions = new Map(); // Временное хранение сессий пользователей
   }
 
+  // Вспомогательный метод для надежной отправки сообщений
+  async sendMessage(ctx, message, options = {}) {
+    try {
+      // Если это callback-запрос, используем editMessageText
+      if (ctx.callbackQuery || ctx.editMessageText) {
+        await ctx.editMessageText(message, options);
+      } else {
+        // Иначе отправляем новое сообщение
+        await ctx.reply(message, options);
+      }
+    } catch (error) {
+      // Fallback - пробуем отправить новое сообщение если редактирование не удалось
+      try {
+        await ctx.reply(message, options);
+      } catch (fallbackError) {
+        console.error('Ошибка отправки сообщения:', fallbackError);
+        await ctx.reply('❌ Ошибка отображения результата. Попробуйте позже.');
+      }
+    }
+  }
+
   // Главное меню нумерологии
   async handleNumerologyMenu(ctx) {
     try {
@@ -24,6 +45,9 @@ class NumerologyHandler {
           { text: '📝 Анализ имени', callback_data: 'numerology_name' },
           { text: '🎯 Персональный год', callback_data: 'numerology_year' }
         ],
+        [
+          { text: '🌌 Кармические уроки', callback_data: 'numerology_karma' }
+        ],
         [{ text: '🏠 Главное меню', callback_data: 'main_menu' }]
       ]);
 
@@ -33,17 +57,10 @@ class NumerologyHandler {
 
 Выберите интересующий раздел:`;
 
-      if (ctx.callbackQuery) {
-        await ctx.editMessageText(message, { 
-          parse_mode: 'Markdown', 
-          reply_markup: keyboard 
-        });
-      } else {
-        await ctx.reply(message, { 
-          parse_mode: 'Markdown', 
-          reply_markup: keyboard 
-        });
-      }
+      await this.sendMessage(ctx, message, { 
+        parse_mode: 'Markdown', 
+        reply_markup: keyboard 
+      });
     } catch (error) {
       console.error('Ошибка в меню нумерологии:', error);
       await ctx.reply('Произошла ошибка. Попробуйте позже.');
@@ -74,7 +91,7 @@ class NumerologyHandler {
         [{ text: '❌ Отмена', callback_data: 'numerology_menu' }]
       ]);
 
-      await ctx.editMessageText(message, { 
+      await this.sendMessage(ctx, message, { 
         parse_mode: 'Markdown', 
         reply_markup: keyboard 
       });
@@ -198,45 +215,67 @@ class NumerologyHandler {
   // Отправка результата профиля
   async sendProfileResult(ctx, profile) {
     try {
-      let message = `🔢 *Ваш нумерологический профиль*\n\n`;
+      let message = `🔮 *Ваш мистический профиль души*\n\n`;
 
       // Основные числа
-      message += `🛤 *Число жизненного пути:* ${profile.lifePath.number}\n`;
-      message += `⭐ *Число судьбы:* ${profile.destiny.number}\n`;
-      message += `💫 *Число души:* ${profile.soul.number}\n`;
-      message += `👤 *Число личности:* ${profile.personality.number}\n\n`;
+      message += `🛤 *Путь Судьбы:* ${profile.lifePath.number}\n`;
+      message += `⭐ *Число Предназначения:* ${profile.destiny.number}\n`;
+      message += `💫 *Вибрация Сущности:* ${profile.soul.number}\n`;
+      message += `🎭 *Маска Личности:* ${profile.personality.number}\n\n`;
 
-      // Краткое описание
-      message += `💬 *Главное значение:*\n${profile.lifePath.meaning?.description || 'Ваш жизненный путь определяет основные уроки и задачи'}\n\n`;
+      // Используем ИИ-анализ если доступен
+      if (profile.aiEnhanced && profile.summary) {
+        message += `🌟 *Алхимия чисел:*\n${profile.summary}\n\n`;
+      } else {
+        // Fallback к базовому описанию
+        message += `💫 *Энергия пути:*\n${profile.lifePath.meaning?.description || 'Ваш путь ведет к мудрости и пониманию'}\n\n`;
+      }
 
-      // Сильные стороны
-      if (profile.lifePath.meaning?.positive && profile.lifePath.meaning.positive.length > 0) {
-        message += `💪 *Сильные стороны:*\n`;
+      // Показываем ИИ-инсайты для жизненного пути если есть
+      if (profile.lifePath.aiInsight) {
+        message += `🛤️ *Духовный урок:*\n${profile.lifePath.aiInsight}\n\n`;
+      } else if (profile.lifePath.meaning?.positive && profile.lifePath.meaning.positive.length > 0) {
+        // Fallback к базовым сильным сторонам
+        message += `💪 *Сильные стороны души:*\n`;
         profile.lifePath.meaning.positive.slice(0, 3).forEach(strength => {
           message += `• ${strength}\n`;
         });
         message += '\n';
       }
 
+      // Добавляем рекомендации от ИИ если есть
+      if (profile.recommendations && profile.recommendations.length > 0) {
+        message += `🔑 *Ключи трансформации:*\n`;
+        profile.recommendations.slice(0, 2).forEach(rec => {
+          message += `• ${rec.advice || rec}\n`;
+        });
+        message += '\n';
+      }
+
+      // Отмечаем если использовался ИИ
+      if (profile.aiEnhanced) {
+        message += `✨ *Анализ проведен с помощью духовного ИИ*`;
+      }
+
       const keyboard = createInlineKeyboard([
         [
-          { text: '📊 Подробный анализ', callback_data: 'numerology_detailed' },
-          { text: '👥 Совместимость', callback_data: 'numerology_compatibility' }
+          { text: '🌟 Подробный анализ', callback_data: 'numerology_detailed' },
+          { text: '💕 Совместимость', callback_data: 'numerology_compatibility' }
         ],
         [
-          { text: '🔮 Прогноз', callback_data: 'numerology_forecast' },
-          { text: '💎 Счастливые числа', callback_data: 'numerology_lucky' }
+          { text: '🔮 Прогноз года', callback_data: 'numerology_forecast' },
+          { text: '🌌 Кармические уроки', callback_data: 'numerology_karma' }
         ],
         [{ text: '🔙 Назад', callback_data: 'numerology_menu' }]
       ]);
 
-      await ctx.reply(message, { 
+      await this.sendMessage(ctx, message, { 
         parse_mode: 'Markdown', 
         reply_markup: keyboard 
       });
     } catch (error) {
       console.error('Ошибка отправки профиля:', error);
-      await ctx.reply('Ошибка отображения результата.');
+      await ctx.reply('❌ Ошибка отображения результата. Попробуйте позже.');
     }
   }
 
@@ -260,7 +299,7 @@ class NumerologyHandler {
         [{ text: '❌ Отмена', callback_data: 'numerology_menu' }]
       ]);
 
-      await ctx.editMessageText(message, { 
+      await this.sendMessage(ctx, message, { 
         parse_mode: 'Markdown', 
         reply_markup: keyboard 
       });
@@ -274,7 +313,7 @@ class NumerologyHandler {
   async handleDetailedAnalysis(ctx) {
     try {
       const userId = ctx.from.id;
-      const userProfile = this.getUserProfile(userId);
+      const userProfile = await this.getUserProfile(userId);
       
       if (!userProfile || !userProfile.profile) {
         await ctx.reply('❌ Профиль не найден. Необходимо создать профиль заново.');
@@ -291,55 +330,104 @@ class NumerologyHandler {
   // Отправка подробного анализа
   async sendDetailedAnalysis(ctx, profile) {
     try {
-      let message = `📊 *Подробный нумерологический анализ*\n\n`;
+      let message = `🌟 *Глубокий анализ души*\n\n`;
 
-      // Число жизненного пути
-      message += `🛤 *Число жизненного пути: ${profile.lifePath.number}*\n`;
-      message += `${profile.lifePath.meaning?.description || ''}\n\n`;
-      
-      if (profile.lifePath.meaning?.positive) {
-        message += `✅ *Сильные стороны:*\n`;
-        profile.lifePath.meaning.positive.forEach(strength => {
-          message += `• ${strength}\n`;
-        });
-        message += '\n';
-      }
+      // Если есть ИИ-анализ, показываем его
+      if (profile.aiEnhanced) {
+        
+        // Путь Судьбы с ИИ-инсайтом
+        message += `🛤️ *ПУТЬ СУДЬБЫ (${profile.lifePath.number})*\n`;
+        if (profile.lifePath.aiInsight) {
+          message += `${profile.lifePath.aiInsight}\n\n`;
+        } else {
+          message += `${profile.lifePath.meaning?.description || 'Основной урок воплощения'}\n\n`;
+        }
 
-      if (profile.lifePath.meaning?.negative) {
-        message += `⚠️ *Вызовы:*\n`;
-        profile.lifePath.meaning.negative.forEach(challenge => {
-          message += `• ${challenge}\n`;
-        });
-        message += '\n';
-      }
+        // Предназначение души
+        message += `⭐ *ПРЕДНАЗНАЧЕНИЕ ДУШИ (${profile.destiny.number})*\n`;
+        if (profile.destiny.aiInsight) {
+          message += `${profile.destiny.aiInsight}\n\n`;
+        } else {
+          message += `${profile.destiny.meaning?.description || 'Миссия души в этой жизни'}\n\n`;
+        }
 
-      // Рекомендации по карьере
-      if (profile.lifePath.meaning?.career) {
-        message += `💼 *Подходящие профессии:*\n`;
-        profile.lifePath.meaning.career.forEach(career => {
-          message += `• ${career}\n`;
-        });
-        message += '\n';
-      }
+        // Сущность души
+        message += `💎 *СУЩНОСТЬ ДУШИ (${profile.soul.number})*\n`;
+        if (profile.soul.aiInsight) {
+          message += `${profile.soul.aiInsight}\n\n`;
+        } else {
+          message += `${profile.soul.meaning?.description || 'Истинные желания души'}\n\n`;
+        }
 
-      // Отношения
-      if (profile.lifePath.meaning?.relationships) {
-        message += `💕 *В отношениях:*\n${profile.lifePath.meaning.relationships}\n\n`;
+        // Маска личности
+        message += `🎭 *МАСКА ЛИЧНОСТИ (${profile.personality.number})*\n`;
+        if (profile.personality.aiInsight) {
+          message += `${profile.personality.aiInsight}\n\n`;
+        } else {
+          message += `${profile.personality.meaning?.description || 'Как мир воспринимает вашу энергию'}\n\n`;
+        }
+
+        // ИИ-рекомендации
+        if (profile.recommendations && profile.recommendations.length > 0) {
+          message += `🔑 *КЛЮЧИ ТРАНСФОРМАЦИИ:*\n`;
+          profile.recommendations.forEach(rec => {
+            message += `• ${rec.advice || rec}\n`;
+          });
+          message += '\n';
+        }
+
+        message += `✨ *Анализ создан духовным ИИ*`;
+        
+      } else {
+        // Fallback к базовому анализу
+        message += `🛤 *Число жизненного пути: ${profile.lifePath.number}*\n`;
+        message += `${profile.lifePath.meaning?.description || 'Основной урок воплощения'}\n\n`;
+        
+        if (profile.lifePath.meaning?.positive) {
+          message += `✅ *Сильные стороны:*\n`;
+          profile.lifePath.meaning.positive.forEach(strength => {
+            message += `• ${strength}\n`;
+          });
+          message += '\n';
+        }
+
+        if (profile.lifePath.meaning?.negative) {
+          message += `⚠️ *Вызовы:*\n`;
+          profile.lifePath.meaning.negative.forEach(challenge => {
+            message += `• ${challenge}\n`;
+          });
+          message += '\n';
+        }
+
+        // Рекомендации по карьере
+        if (profile.lifePath.meaning?.career) {
+          message += `💼 *Подходящие профессии:*\n`;
+          profile.lifePath.meaning.career.forEach(career => {
+            message += `• ${career}\n`;
+          });
+          message += '\n';
+        }
+
+        // Отношения
+        if (profile.lifePath.meaning?.relationships) {
+          message += `💕 *В отношениях:*\n${profile.lifePath.meaning.relationships}\n\n`;
+        }
       }
 
       const keyboard = createInlineKeyboard([
-        [{ text: '👥 Совместимость', callback_data: 'numerology_compatibility' }],
+        [{ text: '💕 Совместимость', callback_data: 'numerology_compatibility' }],
         [{ text: '🔮 Прогноз', callback_data: 'numerology_forecast' }],
+        [{ text: '🌌 Кармические уроки', callback_data: 'numerology_karma' }],
         [{ text: '🔙 Назад', callback_data: 'numerology_menu' }]
       ]);
 
-      await ctx.editMessageText(message, { 
+      await this.sendMessage(ctx, message, { 
         parse_mode: 'Markdown', 
         reply_markup: keyboard 
       });
     } catch (error) {
       console.error('Ошибка отправки подробного анализа:', error);
-      await ctx.reply('Ошибка отображения анализа.');
+      await ctx.reply('❌ Ошибка отображения анализа. Попробуйте позже.');
     }
   }
 
@@ -374,7 +462,7 @@ class NumerologyHandler {
         [{ text: '❌ Отмена', callback_data: 'numerology_menu' }]
       ]);
 
-      await ctx.editMessageText(message, { 
+      await this.sendMessage(ctx, message, { 
         parse_mode: 'Markdown', 
         reply_markup: keyboard 
       });
@@ -426,7 +514,7 @@ class NumerologyHandler {
     
     try {
       // Получаем данные пользователя из профиля
-      const userProfile = this.getUserProfile(ctx.from.id);
+      const userProfile = await this.getUserProfile(ctx.from.id);
       if (!userProfile || !userProfile.birthDate) {
         // Если у пользователя нет профиля, запрашиваем его данные
         session.step = 'waiting_user_birthdate_for_compatibility';
@@ -462,20 +550,59 @@ class NumerologyHandler {
       const userLifePath = await numerologyService.calculateLifePath(session.data.userBirthDate);
       const partnerLifePath = await numerologyService.calculateLifePath(session.data.partnerBirthDate);
       
-      const compatibility = await numerologyService.calculateCompatibility(userLifePath, partnerLifePath);
+      const compatibility = await numerologyService.calculateCompatibility(
+        userLifePath, 
+        partnerLifePath,
+        session.data.userName || 'Пользователь',
+        session.data.partnerName || 'Партнер'
+      );
 
-      let message = `👥 *Анализ совместимости*\n\n`;
+      let message = `💕 *Анализ совместимости*\n\n`;
       message += `👤 *Ваше число жизненного пути:* ${userLifePath}\n`;
-      message += `💕 *Число партнера:* ${partnerLifePath}\n\n`;
+      message += `💝 *Число партнера:* ${partnerLifePath}\n\n`;
       message += `📊 *Совместимость:* ${compatibility.percentage}%\n`;
       message += `🎯 *Уровень:* ${this.getCompatibilityLevel(compatibility.level)}\n\n`;
-      message += `💬 *Описание:*\n${compatibility.description}\n\n`;
       
-      if (compatibility.advice && compatibility.advice.length > 0) {
-        message += `💡 *Рекомендации:*\n`;
-        compatibility.advice.forEach(advice => {
+      // Используем улучшенное описание от ИИ если доступно
+      if (compatibility.detailedAnalysis) {
+        message += `💫 *Энергетический анализ:*\n${compatibility.detailedAnalysis}\n\n`;
+      } else {
+        message += `💬 *Описание:*\n${compatibility.description}\n\n`;
+      }
+      
+      // Добавляем сильные стороны если есть ИИ-анализ
+      if (compatibility.strengths && compatibility.strengths.length > 0) {
+        message += `💎 *Сильные стороны союза:*\n`;
+        compatibility.strengths.slice(0, 3).forEach(strength => {
+          message += `• ${strength}\n`;
+        });
+        message += '\n';
+      }
+      
+      // Добавляем вызовы если есть ИИ-анализ
+      if (compatibility.challenges && compatibility.challenges.length > 0) {
+        message += `⚡ *Вызовы отношений:*\n`;
+        compatibility.challenges.slice(0, 3).forEach(challenge => {
+          message += `• ${challenge}\n`;
+        });
+        message += '\n';
+      }
+      
+      // Рекомендации (приоритет ИИ-рекомендациям)
+      const recommendations = compatibility.recommendations || compatibility.advice || [];
+      if (recommendations.length > 0) {
+        message += `🌱 *Пути гармонизации:*\n`;
+        recommendations.slice(0, 4).forEach(advice => {
           message += `• ${advice}\n`;
         });
+        message += '\n';
+      }
+
+      // Отмечаем источник анализа
+      if (compatibility.aiEnhanced) {
+        message += `✨ *Анализ создан духовным ИИ*`;
+      } else {
+        message += `🔮 *Расширенный нумерологический анализ*`;
       }
 
       const keyboard = createInlineKeyboard([
@@ -483,7 +610,7 @@ class NumerologyHandler {
         [{ text: '🔙 Назад', callback_data: 'numerology_menu' }]
       ]);
 
-      await ctx.reply(message, { 
+      await this.sendMessage(ctx, message, { 
         parse_mode: 'Markdown', 
         reply_markup: keyboard 
       });
@@ -497,31 +624,70 @@ class NumerologyHandler {
   async handleForecast(ctx) {
     try {
       const userId = ctx.from.id;
-      const userProfile = this.getUserProfile(userId);
+      const userProfile = await this.getUserProfile(userId);
       
       if (!userProfile || !userProfile.birthDate) {
         await ctx.reply('❌ Для прогноза нужны данные о дате рождения. Пожалуйста, сначала заполните профиль.');
         return;
       }
 
-      const forecast = await numerologyService.generatePersonalForecast(userProfile.birthDate);
+      const currentDate = new Date();
+      const forecast = await numerologyService.generatePersonalForecast(userProfile.birthDate, currentDate);
       
-      let message = `🔮 *Персональный нумерологический прогноз*\n\n`;
+      console.log('🗓️ Прогноз данные:', {
+        currentDate: currentDate.toISOString(),
+        currentYear: currentDate.getFullYear(),
+        personalYear: forecast.personalYear.number,
+        forecastYear: forecast.personalYear.year
+      });
       
-      message += `📅 *Персональный год ${forecast.personalYear.number}:*\n`;
-      message += `${forecast.personalYear.meaning}\n\n`;
+      let message = `🔮 *Персональный нумерологический прогноз ${forecast.personalYear.year} года*\n`;
+      message += `📅 Рассчитано: ${currentDate.toLocaleDateString('ru-RU', { 
+        day: 'numeric', 
+        month: 'long', 
+        year: 'numeric',
+        timeZone: 'Europe/Moscow'
+      })}\n\n`;
+      
+      // Используем ИИ-описание если доступно
+      if (forecast.aiEnhanced && forecast.personalYear.description) {
+        message += `📅 *Энергия года ${forecast.personalYear.number} (${forecast.personalYear.year}):*\n`;
+        message += `${forecast.personalYear.description}\n\n`;
+        
+        if (forecast.yearThemes && forecast.yearThemes.length > 0) {
+          message += `🎯 *Ключевые темы года:*\n`;
+          forecast.yearThemes.slice(0, 3).forEach(theme => {
+            message += `• ${theme}\n`;
+          });
+          message += '\n';
+        }
+      } else {
+        // Fallback к базовому описанию
+        message += `📅 *Персональный год ${forecast.personalYear.number} (${forecast.personalYear.year}):*\n`;
+        message += `${forecast.personalYear.meaning}\n\n`;
+      }
       
       message += `📆 *Персональный месяц ${forecast.personalMonth.number}:*\n`;
-      message += `${forecast.personalMonth.meaning}\n\n`;
+      message += `${forecast.personalMonth.meaning}\n`;
+      message += `⏰ Период: ${forecast.personalMonth.period}\n\n`;
       
       message += `📋 *Персональный день ${forecast.personalDay.number}:*\n`;
-      message += `${forecast.personalDay.meaning}\n\n`;
+      message += `${forecast.personalDay.meaning}\n`;
+      message += `📅 Дата: ${forecast.personalDay.period}\n\n`;
       
-      if (forecast.advice && forecast.advice.length > 0) {
+      // Используем улучшенные рекомендации от ИИ
+      if (forecast.aiEnhanced && forecast.yearAdvice) {
+        message += `🔮 *Мистические рекомендации года:*\n${forecast.yearAdvice}\n\n`;
+      } else if (forecast.advice && forecast.advice.length > 0) {
         message += `💡 *Рекомендации:*\n`;
         forecast.advice.slice(0, 3).forEach(advice => {
           message += `• ${advice}\n`;
         });
+        message += '\n';
+      }
+      
+      if (forecast.aiEnhanced) {
+        message += `✨ *Анализ создан духовным ИИ*`;
       }
 
       const keyboard = createInlineKeyboard([
@@ -529,7 +695,7 @@ class NumerologyHandler {
         [{ text: '🔙 Назад', callback_data: 'numerology_menu' }]
       ]);
 
-      await ctx.editMessageText(message, { 
+      await this.sendMessage(ctx, message, { 
         parse_mode: 'Markdown', 
         reply_markup: keyboard 
       });
@@ -583,7 +749,7 @@ class NumerologyHandler {
         [{ text: '🔙 Назад', callback_data: 'numerology_menu' }]
       ]);
 
-      await ctx.reply(message, { 
+      await this.sendMessage(ctx, message, { 
         parse_mode: 'Markdown', 
         reply_markup: keyboard 
       });
@@ -601,7 +767,7 @@ class NumerologyHandler {
   async handlePersonalYear(ctx) {
     try {
       // Получаем профиль пользователя
-      const userProfile = this.getUserProfile(ctx.from.id);
+      const userProfile = await this.getUserProfile(ctx.from.id);
       
       if (!userProfile || !userProfile.birthDate) {
         const message = `🎯 *Персональный год*
@@ -623,21 +789,46 @@ class NumerologyHandler {
       }
 
       // Используем сервис для правильного расчета
-      const forecast = await numerologyService.generatePersonalForecast(userProfile.birthDate);
-      const currentYear = new Date().getFullYear();
+      const currentDate = new Date();
+      const forecast = await numerologyService.generatePersonalForecast(userProfile.birthDate, currentDate);
+      
+      console.log('🎯 Персональный год данные:', {
+        currentDate: currentDate.toISOString(),
+        currentYear: currentDate.getFullYear(),
+        personalYear: forecast.personalYear.number,
+        forecastYear: forecast.personalYear.year
+      });
 
-      const message = `🎯 *Персональный год ${currentYear}*
+      let message = `🎯 *Персональный год ${forecast.personalYear.year}*\n`;
+      message += `📅 Период: ${currentDate.toLocaleDateString('ru-RU', { 
+        year: 'numeric',
+        timeZone: 'Europe/Moscow'
+      })} год\n\n`;
+      message += `📊 *Ваше число года:* ${forecast.personalYear.number}\n\n`;
 
-📊 *Ваше число года:* ${forecast.personalYear}
-
-💫 *Энергия года:*
-${forecast.yearDescription}
-
-🎯 *Ключевые темы:*
-${forecast.yearThemes.map(theme => `• ${theme}`).join('\n')}
-
-💡 *Рекомендации:*
-${forecast.yearAdvice}`;
+      if (forecast.aiEnhanced && forecast.personalYear.description) {
+        message += `💫 *Энергия года:*\n${forecast.personalYear.description}\n\n`;
+        
+        if (forecast.yearThemes && forecast.yearThemes.length > 0) {
+          message += `🎯 *Ключевые темы:*\n`;
+          forecast.yearThemes.slice(0, 5).forEach(theme => {
+            message += `• ${theme}\n`;
+          });
+          message += '\n';
+        }
+        
+        if (forecast.yearAdvice) {
+          message += `💡 *Мистические рекомендации:*\n${forecast.yearAdvice}`;
+        }
+      } else {
+        message += `💫 *Энергия года:*\n${forecast.personalYear.meaning}\n\n`;
+        message += `💡 *Основные рекомендации:*\n`;
+        if (forecast.advice && forecast.advice.length > 0) {
+          forecast.advice.slice(0, 3).forEach(advice => {
+            message += `• ${advice}\n`;
+          });
+        }
+      }
 
       const keyboard = createInlineKeyboard([
         [{ text: '📊 Полный прогноз', callback_data: 'numerology_forecast' }],
@@ -645,7 +836,7 @@ ${forecast.yearAdvice}`;
         [{ text: '🔙 Назад', callback_data: 'numerology_menu' }]
       ]);
 
-      await ctx.editMessageText(message, { 
+      await this.sendMessage(ctx, message, { 
         parse_mode: 'Markdown', 
         reply_markup: keyboard 
       });
@@ -665,7 +856,7 @@ ${forecast.yearAdvice}`;
     return levels[level] || '❓ Неопределенная';
   }
 
-  // Сохранение профиля пользователя (синхронизация с основным индексом)
+  // Сохранение профиля пользователя через HTTP API
   async saveUserProfile(userId, birthDate, fullName) {
     // Сохраняем в локальной сессии
     const session = this.userSessions.get(userId) || { data: {} };
@@ -674,38 +865,77 @@ ${forecast.yearAdvice}`;
     session.data.userBirthDate = birthDate; // Для совместимости
     this.userSessions.set(userId, session);
     
-    // Рассчитываем полный профиль
+    // Рассчитываем полный профиль и сохраняем в БД
     try {
       const numerologyService = require('../../../server/src/services/numerologyService');
       const profile = await numerologyService.generateFullAnalysis(birthDate, fullName);
       
-      // Синхронизируем с основным хранилищем через внешний обработчик
-      if (this.externalProfileHandler) {
-        this.externalProfileHandler.saveProfile(userId, {
-          profile,
-          birthDate,
-          fullName,
-          lastAnalysis: new Date()
+      const profileData = {
+        profile,
+        birthDate: birthDate.toISOString(),
+        fullName,
+        lastAnalysis: new Date().toISOString()
+      };
+
+      // Сохраняем в базу данных через HTTP API
+      try {
+        const database = require('../database');
+        await database.updateUser(userId, {
+          numerologyProfile: profileData
         });
+        console.log('✅ Нумерологический профиль сохранен в БД для пользователя:', userId);
+      } catch (dbError) {
+        console.error('❌ Ошибка сохранения нумерологического профиля в БД:', dbError.message);
+      }
+      
+      // Синхронизируем с основным хранилищем через внешний обработчик (если есть)
+      if (this.externalProfileHandler && this.externalProfileHandler.saveProfile) {
+        this.externalProfileHandler.saveProfile(userId, profileData);
       }
     } catch (error) {
       console.error('Ошибка сохранения профиля:', error);
     }
   }
 
-  // Получение профиля пользователя (с проверкой основного хранилища)
-  getUserProfile(userId) {
-    // Сначала проверяем основное хранилище
-    if (this.externalProfileHandler) {
-      const externalProfile = this.externalProfileHandler.getProfile(userId);
-      if (externalProfile) {
-        return externalProfile;
+  // Получение профиля пользователя через HTTP API
+  async getUserProfile(userId) {
+    try {
+      // Сначала проверяем внешнее хранилище (если настроено)
+      if (this.externalProfileHandler && this.externalProfileHandler.getProfile) {
+        try {
+          const externalProfile = await this.externalProfileHandler.getProfile(userId);
+          if (externalProfile) {
+            return externalProfile;
+          }
+        } catch (error) {
+          console.error('Ошибка получения профиля из внешнего хранилища:', error.message);
+        }
       }
+
+      // Загружаем из базы данных через HTTP API
+      const database = require('../database');
+      const userData = await database.getUserByTelegramId(userId);
+      
+      if (userData && userData.user && userData.user.numerologyProfile) {
+        const profile = userData.user.numerologyProfile;
+        return {
+          profile: profile.profile,
+          birthDate: profile.birthDate ? new Date(profile.birthDate) : null,
+          fullName: profile.fullName,
+          lastAnalysis: profile.lastAnalysis ? new Date(profile.lastAnalysis) : null
+        };
+      }
+
+      // Иначе берем из локальной сессии
+      const session = this.userSessions.get(userId);
+      return session?.data || null;
+    } catch (error) {
+      console.error('❌ Ошибка загрузки профиля из БД:', error.message);
+      
+      // Fallback к локальной сессии
+      const session = this.userSessions.get(userId);
+      return session?.data || null;
     }
-    
-    // Иначе берем из локальной сессии
-    const session = this.userSessions.get(userId);
-    return session?.data || null;
   }
 
   // Метод для установки внешнего обработчика профилей (для синхронизации)
@@ -797,6 +1027,124 @@ ${forecast.yearAdvice}`;
       console.error('Ошибка расчета совместимости:', error);
       await ctx.reply('❌ Ошибка расчета. Попробуйте позже.');
       this.userSessions.delete(ctx.from.id);
+    }
+  }
+
+  // Мой профиль (алиас для детального анализа)
+  async handleMyProfile(ctx) {
+    try {
+      await this.handleDetailedAnalysis(ctx);
+    } catch (error) {
+      console.error('Ошибка отображения профиля:', error);
+      await ctx.reply('❌ Ошибка отображения профиля. Попробуйте позже.');
+    }
+  }
+
+  // Кармический анализ
+  async handleKarmicAnalysis(ctx) {
+    try {
+      const userId = ctx.from.id;
+      const userProfile = await this.getUserProfile(userId);
+      
+      if (!userProfile || !userProfile.birthDate || !userProfile.fullName) {
+        const message = `🌌 *Кармические уроки души*
+
+❗ Для анализа кармических чисел нужны данные о дате рождения и полном имени.
+
+Создайте свой нумерологический профиль, чтобы узнать о своих кармических уроках.`;
+
+        const keyboard = createInlineKeyboard([
+          [{ text: '🔢 Создать профиль', callback_data: 'numerology_calculate' }],
+          [{ text: '🔙 Назад', callback_data: 'numerology_menu' }]
+        ]);
+
+        await ctx.editMessageText(message, { 
+          parse_mode: 'Markdown', 
+          reply_markup: keyboard 
+        });
+        return;
+      }
+
+      // Показываем загрузку
+      await ctx.editMessageText('🌌 *Анализирую кармические записи души...*', {
+        parse_mode: 'Markdown'
+      });
+
+      try {
+        const karmicAnalysis = await numerologyService.analyzeKarmicNumbers(
+          userProfile.birthDate, 
+          userProfile.fullName
+        );
+
+        await this.sendKarmicAnalysis(ctx, karmicAnalysis);
+
+      } catch (error) {
+        console.error('Ошибка кармического анализа:', error);
+        await ctx.editMessageText('❌ Ошибка анализа кармических чисел. Попробуйте позже.', {
+          reply_markup: createInlineKeyboard([
+            [{ text: '🔙 Назад', callback_data: 'numerology_menu' }]
+          ])
+        });
+      }
+
+    } catch (error) {
+      console.error('Ошибка обработки кармического анализа:', error);
+      await ctx.reply('❌ Ошибка. Попробуйте позже.');
+    }
+  }
+
+  // Отправка результата кармического анализа
+  async sendKarmicAnalysis(ctx, analysis) {
+    try {
+      let message = `🌌 *Кармические уроки души*\n\n`;
+
+      if (!analysis.hasKarmicNumbers) {
+        message += `✨ *У вас нет выраженных кармических чисел*\n\n`;
+        message += `Это означает, что ваша душа пришла в эту жизнь без особых кармических долгов из прошлых воплощений. `;
+        message += `Вы можете свободно фокусироваться на своем основном жизненном пути и предназначении.\n\n`;
+        message += `💫 Это дает вам возможность быстрее развиваться духовно и помогать другим в их кармических уроках.`;
+      } else {
+        message += `⚡ *Найдены кармические числа:* ${analysis.karmicNumbers.map(k => k.number).join(', ')}\n\n`;
+        
+        if (analysis.karmicLessons) {
+          message += `🎭 *Кармические вызовы:*\n${analysis.karmicLessons}\n\n`;
+        }
+
+        // Добавляем улучшенный ИИ-анализ если доступен
+        if (analysis.aiEnhanced && analysis.transformation) {
+          message += `🔮 *Кармическое предназначение:*\n${analysis.transformation}\n\n`;
+        }
+
+        if (analysis.spiritualGifts && analysis.spiritualGifts.length > 0) {
+          message += `💎 *Скрытые дары кармы:*\n`;
+          analysis.spiritualGifts.slice(0, 3).forEach(gift => {
+            message += `• ${gift}\n`;
+          });
+          message += '\n';
+        }
+
+        if (analysis.recommendations && analysis.recommendations.length > 0) {
+          message += `🌅 *Пути освобождения:*\n`;
+          analysis.recommendations.slice(0, 4).forEach(rec => {
+            message += `• ${rec}\n`;
+          });
+        }
+      }
+
+      const keyboard = createInlineKeyboard([
+        [{ text: '📊 Полный профиль', callback_data: 'numerology_detailed' }],
+        [{ text: '🔮 Прогноз', callback_data: 'numerology_forecast' }],
+        [{ text: '🔙 Назад', callback_data: 'numerology_menu' }]
+      ]);
+
+      await this.sendMessage(ctx, message, { 
+        parse_mode: 'Markdown', 
+        reply_markup: keyboard 
+      });
+
+    } catch (error) {
+      console.error('Ошибка отправки кармического анализа:', error);
+      await ctx.reply('❌ Ошибка отображения результата.');
     }
   }
 }

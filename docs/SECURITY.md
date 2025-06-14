@@ -96,7 +96,7 @@ ADMIN_USER_IDS=123456789,987654321
 
 ## Контакты безопасности
 
-Для сообщения об уязвимостях: security@mistika.app
+Для сообщения об уязвимостях: security@mystika.systems.cv
 
 **PGP ключ**: [mistika-security.asc](./mistika-security.asc)
 

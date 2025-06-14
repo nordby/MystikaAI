@@ -417,7 +417,7 @@ MIT License. Подробности в файле [LICENSE](LICENSE).
 
 ## 📞 Поддержка
 
-- **Email**: support@mistika.app
+- **Email**: support@mystika.systems.cv
 - **Telegram**: @mistika_support
 - **Discord**: [MISTIKA Community](https://discord.gg/mistika)
 - **Issues**: [GitHub Issues](https://github.com/your-org/mistika-app/issues)
@@ -435,6 +435,6 @@ MIT License. Подробности в файле [LICENSE](LICENSE).
 
 **🔮 Откройте тайны Вселенной с MISTIKA 🔮**
 
-[Веб-сайт](https://mistika.app) • [Telegram Bot](https://t.me/mistika_bot) • [Документация](https://docs.mistika.app)
+[Веб-сайт](https://mystika.systems.cv) • [Telegram Bot](https://t.me/mistika_bot) • [Документация](https://docs.mystika.systems.cv)
 
 </div>

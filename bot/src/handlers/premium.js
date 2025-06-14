@@ -36,14 +36,14 @@ async function handlePremium(bot, msg, userToken) {
                     inline_keyboard: [
                         [
                             {
-                                text: '🔮 Сделать гадание',
-                                web_app: { url: `${process.env.WEBAPP_URL || 'https://mistika.app'}/spreads` }
+                                text: '🔮 Открыть приложение',
+                                web_app: { url: `${process.env.WEBAPP_URL || 'https://mystika.systems.cv'}/spreads` }
                             }
                         ],
                         [
                             {
                                 text: '📊 Моя статистика',
-                                web_app: { url: `${process.env.WEBAPP_URL || 'https://mistika.app'}/profile` }
+                                web_app: { url: `${process.env.WEBAPP_URL || 'https://mystika.systems.cv'}/profile` }
                             }
                         ]
                     ]
@@ -380,8 +380,8 @@ async function handleSuccessfulPayment(bot, msg) {
                     inline_keyboard: [
                         [
                             {
-                                text: '🔮 Сделать гадание',
-                                web_app: { url: `${process.env.WEBAPP_URL || 'https://mistika.app'}/spreads` }
+                                text: '🔮 Открыть приложение',
+                                web_app: { url: `${process.env.WEBAPP_URL || 'https://mystika.systems.cv'}/spreads` }
                             }
                         ],
                         [
@@ -421,8 +421,26 @@ async function handleSuccessfulPayment(bot, msg) {
     }
 }
 
+/**
+ * Обработчик callback для премиум функций
+ */
+async function handlePremiumCallback(bot, query, api) {
+    const data = query.data;
+    
+    if (data === 'premium_info') {
+        await handlePremiumInfo(bot, query, api);
+    } else if (data === 'premium_plans') {
+        await showSubscriptionPlans(bot, query, api);
+    } else if (data.startsWith('buy_premium_')) {
+        await handleBuyPremium(bot, query, api);
+    } else if (data === 'how_to_get_stars') {
+        await handleHowToGetStars(bot, query, api);
+    }
+}
+
 module.exports = {
     handlePremium,
+    handlePremiumCallback,
     showSubscriptionPlans,
     handleBuyPremium,
     handleHowToGetStars,

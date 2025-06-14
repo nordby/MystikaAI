@@ -95,6 +95,11 @@ module.exports = (sequelize) => {
       type: DataTypes.JSON,
       defaultValue: {}
     },
+    numerologyProfile: {
+      type: DataTypes.JSON,
+      allowNull: true,
+      comment: 'Нумерологический профиль пользователя'
+    },
     lastSeenAt: {
       type: DataTypes.DATE,
       defaultValue: DataTypes.NOW

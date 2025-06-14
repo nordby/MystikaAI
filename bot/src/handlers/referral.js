@@ -386,7 +386,19 @@ async function handleClaimReferralRewards(bot, callbackQuery, api) {
     }
 }
 
+/**
+ * Основной обработчик команды /referral
+ */
+async function handleReferral(bot, msg, api) {
+    await handleReferralProgram(bot, {
+        message: msg,
+        from: msg.from,
+        id: 'fake_query_id'
+    }, api);
+}
+
 module.exports = {
+    handleReferral,
     handleReferralProgram,
     handleReferralStats,
     handleInviteFriends,
