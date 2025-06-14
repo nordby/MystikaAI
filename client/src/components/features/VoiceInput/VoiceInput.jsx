@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Mic, MicOff, Volume2, Square } from 'lucide-react';
+import { Mic, MicOff, Volume2, Square, Crown } from 'lucide-react';
 import { useAI } from '../../../hooks/useAI';
 import { useTelegram } from '../../../hooks/useTelegram';
+import { useAuth } from '../../../hooks/useAuth';
 import Button from '../../common/Button/Button';
 
 const VoiceInput = ({ onTranscript, placeholder = "Нажмите и говорите..." }) => {
@@ -15,6 +16,10 @@ const VoiceInput = ({ onTranscript, placeholder = "Нажмите и говор�
     const timerRef = useRef(null);
     const { speechToText } = useAI();
     const { hapticFeedback } = useTelegram();
+    const { user } = useAuth();
+    
+    // Проверяем премиум статус
+    const isPremium = user && (user.subscriptionType === 'premium' || user.subscriptionType === 'premium_plus');
 
     useEffect(() => {
         return () => {
@@ -25,6 +30,12 @@ const VoiceInput = ({ onTranscript, placeholder = "Нажмите и говор�
     }, []);
 
     const startRecording = async () => {
+        // Проверяем премиум статус перед началом записи
+        if (!isPremium) {
+            alert('Голосовой ввод доступен только в Premium версии. Обновитесь для получения этой функции!');
+            return;
+        }
+        
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
             
@@ -108,16 +119,37 @@ const VoiceInput = ({ onTranscript, placeholder = "Нажмите и говор�
     return (
         <div className="space-y-4">
             <div className="text-center">
-                <p className="text-purple-300 text-sm mb-4">{placeholder}</p>
+                <p className="text-purple-300 text-sm mb-4">
+                    {isPremium ? placeholder : "Голосовой ввод доступен в Premium версии"}
+                </p>
+                
+                {!isPremium && (
+                    <div className="mb-4 p-3 bg-yellow-500/20 border border-yellow-500/50 rounded-lg">
+                        <div className="flex items-center justify-center space-x-2 text-yellow-300 text-sm">
+                            <Crown size={16} />
+                            <span>Обновитесь до Premium для голосового ввода</span>
+                        </div>
+                    </div>
+                )}
                 
                 <div className="flex items-center justify-center space-x-4">
                     {!isRecording ? (
-                        <Button
-                            onClick={startRecording}
-                            className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 rounded-full p-4"
-                        >
-                            <Mic size={24} />
-                        </Button>
+                        <div className="relative">
+                            <Button
+                                onClick={startRecording}
+                                className={`${isPremium 
+                                    ? 'bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700' 
+                                    : 'bg-gray-600 hover:bg-gray-700'} rounded-full p-4`}
+                                disabled={!isPremium}
+                            >
+                                <Mic size={24} />
+                            </Button>
+                            {!isPremium && (
+                                <div className="absolute -top-1 -right-1 bg-yellow-500 rounded-full p-1">
+                                    <Crown size={12} className="text-white" />
+                                </div>
+                            )}
+                        </div>
                     ) : (
                         <div className="flex items-center space-x-4">
                             <motion.div

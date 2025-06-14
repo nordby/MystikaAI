@@ -73,6 +73,30 @@ class ReadingsController {
         });
       }
 
+      // Сбрасываем лимит если новый день
+      user.resetDailyLimit();
+      await user.save();
+
+      // Проверяем лимиты пользователя для бесплатных аккаунтов
+      if (!user.canMakeReading()) {
+        return res.status(429).json({
+          success: false,
+          message: 'Daily reading limit exceeded. Upgrade to Premium for unlimited readings.',
+          upgradeRequired: true
+        });
+      }
+
+      // Проверяем доступ к типу расклада для бесплатных пользователей
+      const { SPREAD_TYPES } = require('../../../shared/constants/tarot');
+      const spreadConfig = SPREAD_TYPES[type];
+      if (spreadConfig && spreadConfig.isPremium && !user.hasTierAccess('premium')) {
+        return res.status(403).json({
+          success: false,
+          message: 'This spread type is available only for Premium users.',
+          upgradeRequired: true
+        });
+      }
+
       // Получаем positions из req.body или создаем из cards если не предоставлены
       const { positions = null } = req.body;
       let readingPositions;
@@ -149,22 +173,53 @@ class ReadingsController {
       const { page = 1, limit = 10 } = req.query;
 
       const models = require('../models').getModels();
-      const { TarotReading } = models;
+      const { TarotReading, User } = models;
+
+      // Получаем пользователя для проверки лимитов
+      const user = await User.findByPk(userId);
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: 'User not found'
+        });
+      }
 
       const offset = (page - 1) * limit;
+      
+      // Применяем лимит истории для бесплатных пользователей
+      const historyLimit = user.getHistoryLimit();
+      const effectiveLimit = historyLimit ? Math.min(parseInt(limit), historyLimit - offset) : parseInt(limit);
+
+      if (historyLimit && offset >= historyLimit) {
+        return res.json({
+          success: true,
+          readings: [],
+          pagination: {
+            page: parseInt(page),
+            limit: parseInt(limit),
+            total: Math.min(historyLimit, await TarotReading.count({ where: { userId } })),
+            totalPages: Math.ceil(historyLimit / limit)
+          },
+          upgradeRequired: true,
+          message: 'История ограничена 10 записями для бесплатных пользователей'
+        });
+      }
 
       const readings = await TarotReading.findAndCountAll({
         where: { userId },
         order: [['createdAt', 'DESC']],
-        limit: parseInt(limit),
+        limit: Math.max(1, effectiveLimit),
         offset: parseInt(offset)
       });
+
+      const totalCount = historyLimit ? Math.min(historyLimit, readings.count) : readings.count;
 
       res.json({
         success: true,
         readings: readings.rows.map(reading => ({
           id: reading.id,
           type: reading.type,
+          spreadName: reading.spreadName || reading.type,
           question: reading.question,
           cards: reading.cards || [],
           interpretation: reading.interpretation,
@@ -173,9 +228,10 @@ class ReadingsController {
         pagination: {
           page: parseInt(page),
           limit: parseInt(limit),
-          total: readings.count,
-          totalPages: Math.ceil(readings.count / limit)
-        }
+          total: totalCount,
+          totalPages: Math.ceil(totalCount / limit)
+        },
+        upgradeRequired: historyLimit && readings.count > historyLimit
       });
 
     } catch (error) {
@@ -279,14 +335,12 @@ class ReadingsController {
         });
       }
 
-      // Проверяем лимиты пользователя (временно отключено для разработки)
-      // if (!user.isPremium && user.dailyReadingsUsed >= 10) { // увеличили лимит до 10
-      //   return res.status(429).json({
-      //     success: false,
-      //     message: 'Daily limit exceeded',
-      //     upgradeRequired: true
-      //   });
-      // }
+      // Сбрасываем лимит если новый день (для общих гаданий)
+      user.resetDailyLimit();
+      await user.save();
+
+      // Карта дня НЕ считается в лимит обычных гаданий
+      // У неё есть свой лимит - 1 раз в день (проверяется выше через existingDailyReading)
 
       // Генерируем случайную карту для дневного гадания
       const allCards = await Card.findAll();
@@ -301,8 +355,8 @@ class ReadingsController {
       const randomCard = allCards[Math.floor(Math.random() * allCards.length)];
       const isReversed = Math.random() < 0.5;
 
-      // Генерируем URL изображения карты
-      const imageUrl = generateCardImageUrl(randomCard, isReversed);
+      // Генерируем URL изображения карты (все пользователи)
+      const imageUrl = user.canGenerateImages() ? generateCardImageUrl(randomCard, isReversed) : null;
       
       const cardData = {
         id: randomCard.tarotId || randomCard.id,
@@ -385,7 +439,7 @@ class ReadingsController {
 
       // Обновляем счетчики пользователя
       await user.increment('totalReadings');
-      await user.increment('dailyReadingsUsed');
+      // НЕ инкрементируем dailyReadingsUsed для карты дня - у неё свой лимит
 
       logger.info('Daily reading created', {
         readingId: dailyReading.id,

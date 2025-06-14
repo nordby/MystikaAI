@@ -133,7 +133,7 @@ class BotDatabase {
   }
 
   async getUserReadings(userId, page = 1, limit = 10) {
-    return await this.makeRequest('GET', `/readings?userId=${userId}&page=${page}&limit=${limit}`);
+    return await this.makeRequest('GET', `/readings/user/${userId}?page=${page}&limit=${limit}`);
   }
 
   /**

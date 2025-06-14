@@ -1,6 +1,6 @@
 // server/src/controllers/spreads.js
 const { Spread, Reading, ReadingCard } = require('../models');
-const { TAROT_SPREADS } = require('../../../shared/constants/tarots');
+const { SPREAD_TYPES } = require('../../../shared/constants/tarot');
 const cardService = require('../services/cardService');
 const logger = require('../utils/logger');
 
@@ -9,19 +9,35 @@ const logger = require('../utils/logger');
  */
 const getAvailableSpreads = async (req, res) => {
     try {
-        const spreads = Object.values(TAROT_SPREADS).map(spread => ({
+        const userId = req.user?.id || req.query.userId;
+        let user = null;
+        
+        // Получаем пользователя если есть ID
+        if (userId) {
+            const { User } = require('../models');
+            user = await User.findByPk(userId);
+        }
+        
+        const allSpreads = Object.values(SPREAD_TYPES).map(spread => ({
             id: spread.id,
             name: spread.name,
             description: spread.description,
             cardCount: spread.positions.length,
             difficulty: spread.difficulty,
             category: spread.category,
-            isPremium: spread.isPremium || false
+            isPremium: spread.isPremium || false,
+            available: !spread.isPremium || (user && user.hasTierAccess('premium'))
         }));
+
+        // Фильтруем расклады для free пользователей
+        const spreads = user && user.hasTierAccess('premium') 
+            ? allSpreads 
+            : allSpreads.filter(spread => !spread.isPremium);
 
         res.json({
             success: true,
-            spreads
+            spreads,
+            userTier: user ? user.getUserTier() : 'basic'
         });
 
     } catch (error) {
@@ -40,7 +56,7 @@ const getSpreadDetails = async (req, res) => {
     try {
         const { spreadId } = req.params;
         
-        const spread = TAROT_SPREADS[spreadId];
+        const spread = SPREAD_TYPES[spreadId];
         if (!spread) {
             return res.status(404).json({
                 success: false,
@@ -77,7 +93,7 @@ const createSpreadReading = async (req, res) => {
             });
         }
 
-        const spread = TAROT_SPREADS[spreadId];
+        const spread = SPREAD_TYPES[spreadId];
         if (!spread) {
             return res.status(404).json({
                 success: false,

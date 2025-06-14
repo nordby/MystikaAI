@@ -29,33 +29,63 @@ class NumerologyHandler {
     }
   }
 
-  // Главное меню нумерологии
-  async handleNumerologyMenu(ctx) {
+  // Главное меню нумерологии (с проверкой premium статуса)
+  async handleNumerologyMenu(ctx, user) {
     try {
-      const keyboard = createInlineKeyboard([
-        [
-          { text: '🔢 Рассчитать профиль', callback_data: 'numerology_calculate' },
-          { text: '👥 Совместимость', callback_data: 'numerology_compatibility' }
-        ],
-        [
-          { text: '📊 Мой профиль', callback_data: 'numerology_profile' },
-          { text: '🔮 Прогноз', callback_data: 'numerology_forecast' }
-        ],
-        [
-          { text: '📝 Анализ имени', callback_data: 'numerology_name' },
-          { text: '🎯 Персональный год', callback_data: 'numerology_year' }
-        ],
-        [
-          { text: '🌌 Кармические уроки', callback_data: 'numerology_karma' }
-        ],
-        [{ text: '🏠 Главное меню', callback_data: 'main_menu' }]
-      ]);
+      console.log(`🔢 Numerology menu handler received:`, { ctx, user });
+      const isPremium = user && (user.isPremium || user.subscriptionType === 'premium' || user.subscriptionType === 'premium_plus');
+      console.log(`🔢 Numerology menu handler: isPremium=${isPremium}, user.isPremium=${user?.isPremium}, subscriptionType=${user?.subscriptionType}`);
+      
+      let keyboard;
+      if (isPremium) {
+        keyboard = createInlineKeyboard([
+          [
+            { text: '🔢 Рассчитать профиль', callback_data: 'numerology_calculate' },
+            { text: '👥 Совместимость', callback_data: 'numerology_compatibility' }
+          ],
+          [
+            { text: '📊 Мой профиль', callback_data: 'numerology_profile' },
+            { text: '🔮 Прогноз', callback_data: 'numerology_forecast' }
+          ],
+          [
+            { text: '📝 Анализ имени', callback_data: 'numerology_name' },
+            { text: '🎯 Персональный год', callback_data: 'numerology_year' }
+          ],
+          [
+            { text: '🌌 Кармические уроки', callback_data: 'numerology_karma' }
+          ],
+          [{ text: '🏠 Главное меню', callback_data: 'main_menu' }]
+        ]);
+      } else {
+        // Базовое меню для free пользователей
+        keyboard = createInlineKeyboard([
+          [
+            { text: '🔢 Число жизненного пути', callback_data: 'numerology_life_path' }
+          ],
+          [
+            { text: '💎 Разблокировать все функции', callback_data: 'premium_info' }
+          ],
+          [{ text: '🏠 Главное меню', callback_data: 'main_menu' }]
+        ]);
+      }
 
-      const message = `🔢 *Нумерология*
+      let message;
+      if (isPremium) {
+        message = `🔢 *Нумерология*
 
 Откройте тайны чисел и узнайте, что они говорят о вашей судьбе.
 
 Выберите интересующий раздел:`;
+      } else {
+        message = `🔢 *Нумерология*
+
+Откройте тайны чисел и узнайте, что они говорят о вашей судьбе.
+
+🆓 **Базовая версия:** Число жизненного пути
+💎 **Premium:** Полный профиль, совместимость, прогнозы, анализ имени и многое другое!
+
+Выберите интересующий раздел:`;
+      }
 
       await this.sendMessage(ctx, message, { 
         parse_mode: 'Markdown', 
@@ -67,9 +97,63 @@ class NumerologyHandler {
     }
   }
 
-  // Начало расчета профиля
-  async handleCalculateStart(ctx) {
+  // Базовый расчет числа жизненного пути для free пользователей
+  async handleLifePathCalculation(ctx, user) {
     try {
+      const userId = ctx.from.id;
+      
+      // Инициализируем сессию для базового расчета
+      this.userSessions.set(userId, {
+        step: 'waiting_birthdate_basic',
+        data: {}
+      });
+
+      const message = `🔢 *Число жизненного пути*
+
+Узнайте ваше основное число судьбы! Это одно из самых важных чисел в нумерологии.
+
+📅 Введите дату рождения в формате ДД.ММ.ГГГГ
+Например: 15.03.1990`;
+
+      const keyboard = createInlineKeyboard([
+        [{ text: '❌ Отмена', callback_data: 'numerology_menu' }]
+      ]);
+
+      await this.sendMessage(ctx, message, { 
+        parse_mode: 'Markdown', 
+        reply_markup: keyboard 
+      });
+    } catch (error) {
+      console.error('Ошибка базового расчета:', error);
+      await ctx.reply('Ошибка. Попробуйте позже.');
+    }
+  }
+
+  // Начало расчета профиля (только для Premium)
+  async handleCalculateStart(ctx, user) {
+    try {
+      const isPremium = user && (user.isPremium || user.subscriptionType === 'premium' || user.subscriptionType === 'premium_plus');
+      console.log(`🔢 Numerology check: isPremium=${isPremium}, user=${user?.telegramId}, subscriptionType=${user?.subscriptionType}`);
+      
+      if (!isPremium) {
+        await this.sendMessage(ctx, 
+          '💎 *Полный нумерологический профиль доступен только в Premium*\n\n' +
+          'Premium включает:\n' +
+          '• Полный анализ всех чисел\n' +
+          '• ИИ-интерпретации\n' +
+          '• Персональные рекомендации\n' +
+          '• Анализ совместимости\n' +
+          '• Прогнозы и многое другое!', {
+          parse_mode: 'Markdown',
+          reply_markup: createInlineKeyboard([
+            [{ text: '💎 Получить Premium', callback_data: 'premium_info' }],
+            [{ text: '🔢 Базовое число жизненного пути', callback_data: 'numerology_life_path' }],
+            [{ text: '🏠 Главное меню', callback_data: 'main_menu' }]
+          ])
+        });
+        return;
+      }
+
       const userId = ctx.from.id;
       
       // Инициализируем сессию
@@ -116,6 +200,10 @@ class NumerologyHandler {
           await this.processBirthDate(ctx, text, session);
           break;
           
+        case 'waiting_birthdate_basic':
+          await this.processBirthDateBasic(ctx, text, session);
+          break;
+          
         case 'waiting_fullname':
           await this.processFullName(ctx, text, session);
           break;
@@ -143,6 +231,73 @@ class NumerologyHandler {
     } catch (error) {
       console.error('Ошибка обработки текста:', error);
       await ctx.reply('Произошла ошибка. Попробуйте еще раз.');
+    }
+  }
+
+  // Обработка базового расчета числа жизненного пути
+  async processBirthDateBasic(ctx, dateText, session) {
+    try {
+      const dateRegex = /^(\d{1,2})\.(\d{1,2})\.(\d{4})$/;
+      const match = dateText.match(dateRegex);
+
+      if (!match) {
+        await ctx.reply('❌ Неверный формат даты. Используйте ДД.ММ.ГГГГ (например: 15.03.1990)');
+        return;
+      }
+
+      const day = parseInt(match[1]);
+      const month = parseInt(match[2]);
+      const year = parseInt(match[3]);
+
+      if (day < 1 || day > 31 || month < 1 || month > 12 || year < 1900 || year > new Date().getFullYear()) {
+        await ctx.reply('❌ Введите корректную дату рождения');
+        return;
+      }
+
+      // Рассчитываем число жизненного пути
+      const birthDate = new Date(year, month - 1, day); // month-1 потому что месяцы в Date начинаются с 0
+      const lifePathNumber = numerologyService.calculateLifePath(birthDate);
+      const lifePathMeaning = numerologyService.getLifePathMeaning(lifePathNumber);
+
+      // Очищаем сессию
+      this.userSessions.delete(ctx.from.id);
+
+      // Отправляем результат
+      const message = `🔢 *Ваше число жизненного пути: ${lifePathNumber}*
+*${lifePathMeaning.name}*
+
+${lifePathMeaning.description}
+
+✨ *Ваши сильные стороны:*
+${lifePathMeaning.positive.slice(0, 4).map(trait => `• ${trait}`).join('\n')}
+
+⚠️ *На что обратить внимание:*
+${lifePathMeaning.negative.slice(0, 2).map(trait => `• ${trait}`).join('\n')}
+
+💼 *Подходящие сферы:*
+${lifePathMeaning.career.slice(0, 3).map(career => `• ${career}`).join('\n')}
+
+💕 *В отношениях:*
+${lifePathMeaning.relationships}
+
+💎 *Хотите узнать больше?*
+Premium откроет полный нумерологический профиль, совместимость, прогнозы и персональные рекомендации!`;
+
+      const keyboard = createInlineKeyboard([
+        [{ text: '💎 Получить Premium', callback_data: 'premium_info' }],
+        [{ text: '🔄 Пересчитать', callback_data: 'numerology_life_path' }],
+        [{ text: '🏠 Главное меню', callback_data: 'main_menu' }]
+      ]);
+
+      await this.sendMessage(ctx, message, { 
+        parse_mode: 'Markdown', 
+        reply_markup: keyboard 
+      });
+
+    } catch (error) {
+      console.error('Ошибка базового расчета:', error);
+      await ctx.reply('❌ Ошибка расчета. Попробуйте позже.');
+      this.userSessions.delete(ctx.from.id);
     }
   }
 
@@ -1145,6 +1300,120 @@ class NumerologyHandler {
     } catch (error) {
       console.error('Ошибка отправки кармического анализа:', error);
       await ctx.reply('❌ Ошибка отображения результата.');
+    }
+  }
+
+  // Новые хендлеры для Premium функций
+
+  /**
+   * Анализ имени для Premium
+   */
+  async handleNameAnalysis(ctx, user) {
+    try {
+      const isPremium = user && (user.isPremium || user.subscriptionType === 'premium' || user.subscriptionType === 'premium_plus');
+      
+      if (!isPremium) {
+        await this.sendMessage(ctx,
+          '💎 *Анализ имени доступен только в Premium*\n\n' +
+          'Узнайте:\n' +
+          '• Число судьбы вашего имени\n' +
+          '• Скрытые желания души\n' +
+          '• Как вас видят окружающие\n' +
+          '• Рекомендации по использованию имени', {
+          parse_mode: 'Markdown',
+          reply_markup: createInlineKeyboard([
+            [{ text: '💎 Получить Premium', callback_data: 'premium_info' }],
+            [{ text: '🔙 Назад', callback_data: 'numerology_menu' }]
+          ])
+        });
+        return;
+      }
+
+      const userId = ctx.from.id;
+      this.userSessions.set(userId, {
+        step: 'waiting_name_analysis',
+        data: {}
+      });
+
+      await this.sendMessage(ctx,
+        '📝 *Анализ имени*\n\n' +
+        'Введите ваше полное имя (имя, отчество, фамилия):\n\n' +
+        'Пример: Анна Ивановна Петрова', {
+        parse_mode: 'Markdown',
+        reply_markup: createInlineKeyboard([
+          [{ text: '❌ Отмена', callback_data: 'numerology_menu' }]
+        ])
+      });
+
+    } catch (error) {
+      console.error('Ошибка анализа имени:', error);
+      await ctx.reply('Ошибка. Попробуйте позже.');
+    }
+  }
+
+  /**
+   * Персональный год для Premium
+   */
+  async handlePersonalYear(ctx, user) {
+    try {
+      const isPremium = user && (user.isPremium || user.subscriptionType === 'premium' || user.subscriptionType === 'premium_plus');
+      
+      if (!isPremium) {
+        await this.sendMessage(ctx,
+          '💎 *Персональный год доступен только в Premium*\n\n' +
+          'Узнайте:\n' +
+          '• Энергию текущего года\n' +
+          '• Лучшие периоды для действий\n' +
+          '• Что ожидать в разных сферах\n' +
+          '• Персональные рекомендации', {
+          parse_mode: 'Markdown',
+          reply_markup: createInlineKeyboard([
+            [{ text: '💎 Получить Premium', callback_data: 'premium_info' }],
+            [{ text: '🔙 Назад', callback_data: 'numerology_menu' }]
+          ])
+        });
+        return;
+      }
+
+      // Получаем профиль пользователя
+      const userProfile = this.getUserProfile(ctx.from.id);
+      if (!userProfile) {
+        await this.sendMessage(ctx,
+          '📋 *Сначала создайте нумерологический профиль*\n\n' +
+          'Для расчета персонального года нужна ваша дата рождения.', {
+          parse_mode: 'Markdown',
+          reply_markup: createInlineKeyboard([
+            [{ text: '🔢 Создать профиль', callback_data: 'numerology_calculate' }],
+            [{ text: '🔙 Назад', callback_data: 'numerology_menu' }]
+          ])
+        });
+        return;
+      }
+
+      // Рассчитываем персональный год
+      const currentYear = new Date().getFullYear();
+      const personalYear = numerologyService.calculatePersonalYear(userProfile.birthDate, currentYear);
+      const yearMeaning = numerologyService.getNumberMeaning(personalYear);
+
+      await this.sendMessage(ctx,
+        `🎯 *Ваш персональный год ${currentYear}: ${personalYear}*\n\n` +
+        `${yearMeaning.description}\n\n` +
+        `✨ *Ключевые темы года:*\n` +
+        `${yearMeaning.keywords.map(k => `• ${k}`).join('\n')}\n\n` +
+        `🎭 *Рекомендации:*\n` +
+        `${yearMeaning.positive.map(p => `• ${p}`).join('\n')}\n\n` +
+        `⚠️ *Избегайте:*\n` +
+        `${yearMeaning.negative.map(n => `• ${n}`).join('\n')}`, {
+        parse_mode: 'Markdown',
+        reply_markup: createInlineKeyboard([
+          [{ text: '📅 Другой год', callback_data: 'numerology_year_custom' }],
+          [{ text: '🔙 Назад', callback_data: 'numerology_menu' }]
+        ])
+      });
+
+    } catch (error) {
+      console.error('Ошибка персонального года:', error);
+      await ctx.reply('Ошибка. Попробуйте позже.');
     }
   }
 }

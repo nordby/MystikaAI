@@ -1,34 +1,71 @@
 // bot/src/handlers/lunar.js
-const { lunarService } = require('../../../server/src/services/lunarService');
+const lunarService = require('../../../server/src/services/lunarService');
+const enhancedLunarService = require('../../../server/src/services/enhancedLunarService');
 const { createInlineKeyboard, createReplyKeyboard } = require('../utils/keyboards');
-const { formatDate, formatMoonPhase } = require('../utils/formatters');
+// Простые форматтеры для дат
+const formatDate = (date) => {
+  return new Date(date).toLocaleDateString('ru-RU', {
+    day: '2-digit',
+    month: '2-digit', 
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+};
 const { getMysticalLoadingMessage } = require('../utils/messages');
 
 class LunarHandler {
   // Главное меню лунного календаря
-  async handleLunarMenu(ctx) {
+  async handleLunarMenu(ctx, user) {
     try {
-      const keyboard = createInlineKeyboard([
-        [
-          { text: '🌙 Текущая фаза', callback_data: 'lunar_current' },
-          { text: '📅 Календарь', callback_data: 'lunar_calendar' }
-        ],
-        [
-          { text: '💡 Рекомендации', callback_data: 'lunar_recommendations' },
-          { text: '🔮 Ритуалы', callback_data: 'lunar_rituals' }
-        ],
-        [
-          { text: '📊 Мой лунный дневник', callback_data: 'lunar_diary' },
-          { text: '⚡ Следующее событие', callback_data: 'lunar_next_event' }
-        ],
-        [{ text: '🏠 Главное меню', callback_data: 'main_menu' }]
-      ]);
+      const isPremium = user && (user.isPremium || user.subscriptionType === 'premium' || user.subscriptionType === 'premium_plus');
+      
+      let keyboard;
+      if (isPremium) {
+        keyboard = createInlineKeyboard([
+          [
+            { text: '🌙 Текущая фаза', callback_data: 'lunar_current' },
+            { text: '📅 Календарь', callback_data: 'lunar_calendar' }
+          ],
+          [
+            { text: '💡 Рекомендации', callback_data: 'lunar_recommendations' },
+            { text: '🔮 Ритуалы', callback_data: 'lunar_rituals' }
+          ],
+          [
+            { text: '📊 Мой лунный дневник', callback_data: 'lunar_diary' },
+            { text: '⚡ Следующее событие', callback_data: 'lunar_next_event' }
+          ],
+          [{ text: '🏠 Главное меню', callback_data: 'main_menu' }]
+        ]);
+      } else {
+        keyboard = createInlineKeyboard([
+          [
+            { text: '🌙 Текущая фаза', callback_data: 'lunar_current' }
+          ],
+          [
+            { text: '💎 Разблокировать все функции', callback_data: 'premium_info' }
+          ],
+          [{ text: '🏠 Главное меню', callback_data: 'main_menu' }]
+        ]);
+      }
 
-      const message = `🌙 *Лунный календарь*
+      let message;
+      if (isPremium) {
+        message = `🌙 *Лунный календарь*
 
 Изучайте влияние лунных фаз на вашу жизнь и получайте персональные рекомендации.
 
 Выберите интересующий раздел:`;
+      } else {
+        message = `🌙 *Лунный календарь*
+
+Изучайте влияние лунных фаз на вашу жизнь и получайте персональные рекомендации.
+
+🆓 **Базовая версия:** Текущая фаза луны
+💎 **Premium:** Полный календарь, рекомендации, ритуалы, личный дневник
+
+Выберите интересующий раздел:`;
+      }
 
       if (ctx.callbackQuery) {
         await ctx.editMessageText(message, { 
@@ -48,44 +85,59 @@ class LunarHandler {
   }
 
   // Текущая фаза луны
-  async handleCurrentPhase(ctx) {
+  async handleCurrentPhase(ctx, user) {
     try {
       // Показываем мистическое сообщение загрузки
       const loadingMsg = await ctx.editMessageText ? 
         ctx.editMessageText(getMysticalLoadingMessage('lunar'), { parse_mode: 'Markdown' }) :
         ctx.reply(getMysticalLoadingMessage('lunar'), { parse_mode: 'Markdown' });
 
-      const currentPhase = await lunarService.getCurrentMoonPhase();
+      // Получаем расширенные данные с ИИ (для премиум) или базовые
+      const isPremium = user && (user.isPremium || user.subscriptionType === 'premium' || user.subscriptionType === 'premium_plus');
+      const userContext = this.buildUserContext(user);
       
-      const phaseEmojis = {
-        'new_moon': '🌑',
-        'waxing_crescent': '🌒',
-        'first_quarter': '🌓',
-        'waxing_gibbous': '🌔',
-        'full_moon': '🌕',
-        'waning_gibbous': '🌖',
-        'last_quarter': '🌗',
-        'waning_crescent': '🌘'
-      };
-
-      const emoji = phaseEmojis[currentPhase.phase] || '🌙';
+      const todayData = isPremium 
+        ? await enhancedLunarService.getEnhancedDailyRecommendations(new Date(), userContext)
+        : await lunarService.getDailyRecommendations();
       
-      const message = `${emoji} *${currentPhase.name}*
+      let message = `${todayData.moonPhase.emoji} *${todayData.moonPhase.name}*
 
-📊 *Освещенность:* ${currentPhase.illumination}%
-📆 *Возраст луны:* ${currentPhase.age} дней
-⚡ *Энергия:* ${currentPhase.energy}%
+📊 *Лунный день:* ${todayData.lunarDay}
+📆 *Дата:* ${new Date().toLocaleDateString('ru-RU')}
+⚡ *Энергия фазы:* ${todayData.moonPhase.energy}
 
 💫 *Описание:*
-${currentPhase.description}
+${todayData.moonPhase.description}
 
-Хотите получить персональные рекомендации?`;
+🔮 *Астрологическое влияние:*
+${todayData.zodiacSign.emoji} ${todayData.zodiacSign.name} - ${todayData.zodiacSign.energy}`;
 
-      const keyboard = createInlineKeyboard([
-        [{ text: '💡 Рекомендации', callback_data: 'lunar_recommendations' }],
-        [{ text: '🔮 Ритуалы', callback_data: 'lunar_rituals' }],
-        [{ text: '🔙 Назад', callback_data: 'lunar_menu' }]
-      ]);
+      // Добавляем ИИ-анализ для премиум пользователей
+      if (isPremium && todayData.aiEnhanced && todayData.personalizedAdvice) {
+        message += `
+
+✨ *Персональный совет дня:*
+${todayData.personalizedAdvice}
+
+🎯 *Прогноз энергии:*
+${todayData.energyForecast || 'Энергия дня благоприятна для внутреннего роста'}`;
+      }
+
+      message += '\n\nХотите получить персональные рекомендации?';
+      
+      let keyboard;
+      if (isPremium) {
+        keyboard = createInlineKeyboard([
+          [{ text: '💡 Рекомендации', callback_data: 'lunar_recommendations' }],
+          [{ text: '🔮 Ритуалы', callback_data: 'lunar_rituals' }],
+          [{ text: '🔙 Назад', callback_data: 'lunar_menu' }]
+        ]);
+      } else {
+        keyboard = createInlineKeyboard([
+          [{ text: '💎 Получить рекомендации и ритуалы', callback_data: 'premium_info' }],
+          [{ text: '🔙 Назад', callback_data: 'lunar_menu' }]
+        ]);
+      }
 
       await ctx.editMessageText(message, { 
         parse_mode: 'Markdown', 
@@ -98,13 +150,44 @@ ${currentPhase.description}
   }
 
   // Лунный календарь на месяц
-  async handleCalendar(ctx) {
+  async handleCalendar(ctx, user) {
+    // Проверяем премиум статус
+    const isPremium = user && (user.isPremium || user.subscriptionType === 'premium' || user.subscriptionType === 'premium_plus');
+    console.log(`🌙 Lunar calendar check: isPremium=${isPremium}, user.isPremium=${user?.isPremium}, subscriptionType=${user?.subscriptionType}`);
+    
+    if (!isPremium) {
+      const message = `📅 *Лунный календарь*
+
+🔒 Полный календарь доступен только в Premium версии.
+
+💎 **С Premium вы получите:**
+• Полный лунный календарь на любой месяц
+• Навигация между месяцами
+• Подробные данные каждого дня
+• Важные лунные события
+
+🆓 **Сейчас доступно:** Только текущая фаза луны`;
+
+      const keyboard = createInlineKeyboard([
+        [{ text: '💎 Получить Premium', callback_data: 'premium_info' }],
+        [{ text: '🌙 Текущая фаза', callback_data: 'lunar_current' }],
+        [{ text: '🔙 Назад', callback_data: 'lunar_menu' }]
+      ]);
+
+      await ctx.editMessageText(message, { 
+        parse_mode: 'Markdown', 
+        reply_markup: keyboard 
+      });
+      return;
+    }
     try {
       const today = new Date();
-      const calendar = await lunarService.generateCalendar(
-        today.getFullYear(), 
-        today.getMonth()
-      );
+      const endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+      const userContext = this.buildUserContext(user);
+      
+      const calendarData = isPremium 
+        ? await enhancedLunarService.getEnhancedLunarCalendar(today, endDate, userContext)
+        : await lunarService.getLunarCalendar(today, endDate);
 
       const monthNames = [
         'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
@@ -113,27 +196,40 @@ ${currentPhase.description}
 
       let calendarText = `📅 *Лунный календарь - ${monthNames[today.getMonth()]} ${today.getFullYear()}*\n\n`;
       
-      // Группируем дни по неделям
-      const weeks = [];
-      let currentWeek = [];
-      
-      calendar.forEach(day => {
-        currentWeek.push(day);
-        if (day.date.getDay() === 0 || day === calendar[calendar.length - 1]) {
-          weeks.push([...currentWeek]);
-          currentWeek = [];
-        }
-      });
-
-      weeks.forEach((week, weekIndex) => {
-        if (weekIndex < 2) { // Показываем только первые 2 недели для краткости
-          week.forEach(day => {
-            const emoji = this.getPhaseEmoji(day.phase);
-            const dayStr = day.isToday ? `*${day.day}*` : day.day;
-            calendarText += `${dayStr}${emoji} `;
+      // Для премиум показываем ИИ-анализ месяца
+      if (isPremium && calendarData.aiEnhanced && calendarData.monthlyInsight) {
+        calendarText += `🌟 *Астрологический прогноз месяца:*\n${calendarData.monthlyInsight}\n\n`;
+        
+        if (calendarData.keyRecommendations && calendarData.keyRecommendations.length > 0) {
+          calendarText += `🎯 *Ключевые рекомендации:*\n`;
+          calendarData.keyRecommendations.slice(0, 3).forEach(rec => {
+            calendarText += `• ${rec}\n`;
           });
           calendarText += '\n';
         }
+      } else {
+        // Базовая сводка для бесплатных пользователей
+        calendarText += `📊 *Сводка периода:*\n${calendarData.summary}\n\n`;
+      }
+      
+      // Показываем ключевые дни
+      calendarText += `🌟 *Ключевые дни этого месяца:*\n`;
+      const keyDays = calendarData.calendar.filter(day => 
+        [1, 8, 15, 22].includes(day.lunarDay)
+      ).slice(0, 4);
+      
+      keyDays.forEach(day => {
+        const date = new Date(day.date);
+        calendarText += `${day.moonPhase.emoji} ${date.getDate()}.${date.getMonth() + 1} - ${day.moonPhase.name}`;
+        
+        // Для премиум добавляем ИИ-советы
+        if (isPremium && calendarData.enhancedDays) {
+          const enhancedDay = calendarData.enhancedDays.find(d => d.date === day.date);
+          if (enhancedDay && enhancedDay.aiAdvice) {
+            calendarText += `\n   💡 ${enhancedDay.aiAdvice.substring(0, 60)}...`;
+          }
+        }
+        calendarText += '\n';
       });
 
       calendarText += '\n🌑 Новолуние  🌓 Четверти  🌕 Полнолуние';
@@ -158,24 +254,109 @@ ${currentPhase.description}
   }
 
   // Рекомендации для текущей фазы
-  async handleRecommendations(ctx) {
+  async handleRecommendations(ctx, user) {
+    // Проверяем премиум статус
+    const isPremium = user && (user.isPremium || user.subscriptionType === 'premium' || user.subscriptionType === 'premium_plus');
+    
+    if (!isPremium) {
+      const message = `💡 *Лунные рекомендации*
+
+🔒 Персональные рекомендации доступны только в Premium версии.
+
+💎 **С Premium вы получите:**
+• Подробные рекомендации для каждой фазы
+• Что благоприятно делать сегодня
+• Чего стоит избегать
+• Энергетические советы
+• Практические рекомендации
+
+🆓 **Сейчас доступно:** Только просмотр текущей фазы`;
+
+      const keyboard = createInlineKeyboard([
+        [{ text: '💎 Получить Premium', callback_data: 'premium_info' }],
+        [{ text: '🌙 Текущая фаза', callback_data: 'lunar_current' }],
+        [{ text: '🔙 Назад', callback_data: 'lunar_menu' }]
+      ]);
+
+      await ctx.editMessageText(message, { 
+        parse_mode: 'Markdown', 
+        reply_markup: keyboard 
+      });
+      return;
+    }
     try {
-      const currentPhase = await lunarService.getCurrentMoonPhase();
-      const recommendations = await lunarService.getPhaseRecommendations(currentPhase.phase);
+      const userContext = this.buildUserContext(user);
+      const recommendations = isPremium 
+        ? await enhancedLunarService.getEnhancedDailyRecommendations(new Date(), userContext)
+        : await lunarService.getDailyRecommendations();
 
-      let message = `💡 *Рекомендации для фазы "${currentPhase.name}"*\n\n`;
+      let message = `💡 *Рекомендации для фазы "${recommendations.moonPhase.name}"*\n\n`;
       
-      message += `✅ *Благоприятно:*\n`;
-      recommendations.favorable.forEach(item => {
-        message += `• ${item}\n`;
-      });
+      // Для премиум пользователей показываем расширенные рекомендации
+      if (isPremium && recommendations.aiEnhanced) {
+        message += `🌟 *Детальная интерпретация:*\n${recommendations.detailedInterpretation}\n\n`;
+        
+        if (recommendations.practicalTips && recommendations.practicalTips.length > 0) {
+          message += `🎯 *Практические советы:*\n`;
+          recommendations.practicalTips.slice(0, 5).forEach(tip => {
+            message += `• ${tip}\n`;
+          });
+          message += '\n';
+        }
 
-      message += `\n❌ *Избегать:*\n`;
-      recommendations.avoid.forEach(item => {
-        message += `• ${item}\n`;
-      });
+        if (recommendations.manifestationAdvice && recommendations.manifestationAdvice.length > 0) {
+          message += `✨ *Советы по проявлению:*\n`;
+          recommendations.manifestationAdvice.slice(0, 3).forEach(advice => {
+            message += `• ${advice}\n`;
+          });
+          message += '\n';
+        }
 
-      message += `\n⚡ *Энергетика дня:*\n${recommendations.energy}`;
+        // Добавляем дополнительные разделы для премиум
+        if (recommendations.relationships && recommendations.relationships.length > 0) {
+          message += `💕 *Отношения:*\n`;
+          recommendations.relationships.slice(0, 2).forEach(rel => {
+            message += `• ${rel}\n`;
+          });
+          message += '\n';
+        }
+
+        if (recommendations.career && recommendations.career.length > 0) {
+          message += `💼 *Карьера:*\n`;
+          recommendations.career.slice(0, 2).forEach(career => {
+            message += `• ${career}\n`;
+          });
+          message += '\n';
+        }
+
+        if (recommendations.health && recommendations.health.length > 0) {
+          message += `🌿 *Здоровье:*\n`;
+          recommendations.health.slice(0, 2).forEach(health => {
+            message += `• ${health}\n`;
+          });
+          message += '\n';
+        }
+      } else {
+        // Расширенные базовые рекомендации для бесплатных пользователей
+        message += `✅ *Благоприятно сегодня:*\n`;
+        recommendations.activities.recommended.slice(0, 6).forEach(item => {
+          message += `• ${item}\n`;
+        });
+
+        message += `\n❌ *Стоит избегать:*\n`;
+        recommendations.activities.avoid.slice(0, 4).forEach(item => {
+          message += `• ${item}\n`;
+        });
+
+        message += `\n⚡ *Энергетика дня:*\n${recommendations.energy}`;
+        
+        if (recommendations.specialAdvice && recommendations.specialAdvice.length > 0) {
+          message += `\n\n💫 *Особые советы:*\n`;
+          recommendations.specialAdvice.slice(0, 2).forEach(advice => {
+            message += `• ${advice}\n`;
+          });
+        }
+      }
 
       const keyboard = createInlineKeyboard([
         [{ text: '🔮 Ритуалы', callback_data: 'lunar_rituals' }],
@@ -194,31 +375,95 @@ ${currentPhase.description}
   }
 
   // Лунные ритуалы
-  async handleRituals(ctx) {
-    try {
-      const currentPhase = await lunarService.getCurrentMoonPhase();
-      const rituals = await lunarService.getRitualsForPhase(currentPhase.phase);
+  async handleRituals(ctx, user) {
+    // Проверяем премиум статус
+    const isPremium = user && (user.isPremium || user.subscriptionType === 'premium' || user.subscriptionType === 'premium_plus');
+    
+    if (!isPremium) {
+      const message = `🔮 *Лунные ритуалы*
 
-      if (rituals.length === 0) {
-        await ctx.editMessageText('🔮 Для текущей фазы луны особых ритуалов не предусмотрено.', {
-          reply_markup: createInlineKeyboard([
-            [{ text: '🔙 Назад', callback_data: 'lunar_menu' }]
-          ])
-        });
-        return;
-      }
+🔒 Ритуалы доступны только в Premium версии.
 
-      let message = `🔮 *Ритуалы для фазы "${currentPhase.name}"*\n\n`;
+💎 **С Premium вы получите:**
+• Специальные ритуалы для каждой фазы
+• Пошаговые инструкции
+• Необходимые материалы
+• Время проведения
+• Мистические практики
 
-      rituals.forEach((ritual, index) => {
-        message += `${index + 1}. *${ritual.name}*\n`;
-        message += `📖 ${ritual.description}\n`;
-        message += `⏰ Время: ${ritual.duration}\n`;
-        message += `🛠 Необходимо: ${ritual.items.join(', ')}\n\n`;
-      });
+🆓 **Сейчас доступно:** Только просмотр текущей фазы`;
 
       const keyboard = createInlineKeyboard([
-        [{ text: '📱 Открыть в приложении', url: `${process.env.WEBAPP_URL}/lunar` }],
+        [{ text: '💎 Получить Premium', callback_data: 'premium_info' }],
+        [{ text: '🌙 Текущая фаза', callback_data: 'lunar_current' }],
+        [{ text: '🔙 Назад', callback_data: 'lunar_menu' }]
+      ]);
+
+      await ctx.editMessageText(message, { 
+        parse_mode: 'Markdown', 
+        reply_markup: keyboard 
+      });
+      return;
+    }
+    try {
+      const userContext = this.buildUserContext(user);
+      let message;
+      
+      if (isPremium) {
+        // Получаем ИИ-ритуалы для премиум пользователей
+        const ritualsData = await enhancedLunarService.getEnhancedRituals(new Date(), userContext);
+        
+        message = `🔮 *Ритуалы для фазы "${ritualsData.phase}"*\n\n`;
+        message += `⚡ *Энергия:* ${ritualsData.energy}\n\n`;
+        message += `💫 *Что такое лунные ритуалы?*\nЭто простые духовные практики, которые помогают настроиться на энергию луны и улучшить свою жизнь. Выполняйте их дома в спокойной обстановке.\n\n`;
+        
+        if (ritualsData.aiGenerated) {
+          message += `✨ *Персональные ритуалы от духовного ИИ:*\n\n`;
+        }
+        
+        ritualsData.rituals.forEach((ritual, index) => {
+          message += `${index + 1}. **${ritual.name}**\n`;
+          message += `📖 ${ritual.description}\n`;
+          message += `⏰ Время: ${ritual.time}\n`;
+          
+          if (ritual.items && ritual.items.length > 0) {
+            message += `🛠 Понадобится: ${ritual.items.join(', ')}\n`;
+          }
+          
+          if (ritual.steps && ritual.steps.length > 0) {
+            message += `📋 *Как выполнить:*\n`;
+            ritual.steps.slice(0, 3).forEach((step, stepIndex) => {
+              if (step && step.trim()) {
+                message += `   ${stepIndex + 1}. ${step.trim()}\n`;
+              }
+            });
+          }
+          
+          if (ritual.affirmation) {
+            message += `🙏 *Аффирмация:* "${ritual.affirmation}"\n`;
+          }
+          message += '\n';
+        });
+      } else {
+        // Базовые рекомендации для бесплатных пользователей
+        const recommendations = await lunarService.getDailyRecommendations();
+        
+        message = `🔮 *Ритуалы для фазы "${recommendations.moonPhase.name}"*\n\n`;
+        message += `${recommendations.moonPhase.emoji} *Энергия фазы:* ${recommendations.moonPhase.energy}\n\n`;
+        message += `💫 *Что такое лунные ритуалы?*\nЭто простые духовные практики для настройки на лунную энергию. Доступны базовые рекомендации.\n\n`;
+        
+        message += `🕯️ *Рекомендуемые практики:*\n`;
+        recommendations.activities.recommended.slice(0, 5).forEach((activity, index) => {
+          message += `${index + 1}. ${activity}\n`;
+        });
+        
+        message += `\n✨ *Специальный совет дня:*\n${recommendations.specialAdvice?.[0] || 'Следуйте энергии луны и доверьтесь интуиции'}\n\n`;
+        message += `💫 *Астрологическое влияние:* ${recommendations.zodiacSign.name} ${recommendations.zodiacSign.emoji}\n\n`;
+        message += `💎 *Хотите персональные ритуалы с пошаговыми инструкциями?* Получите Premium для доступа к ИИ-ритуалам!`;
+      }
+
+      const keyboard = createInlineKeyboard([
+        [{ text: '📱 Открыть в приложении', url: `${process.env.WEBAPP_URL || 'https://mystika.systems.cv'}/lunar` }],
         [{ text: '🔙 Назад', callback_data: 'lunar_menu' }]
       ]);
 
@@ -233,7 +478,36 @@ ${currentPhase.description}
   }
 
   // Лунный дневник
-  async handleDiary(ctx) {
+  async handleDiary(ctx, user) {
+    // Проверяем премиум статус
+    const isPremium = user && (user.isPremium || user.subscriptionType === 'premium' || user.subscriptionType === 'premium_plus');
+    
+    if (!isPremium) {
+      const message = `📊 *Лунный дневник*
+
+🔒 Лунный дневник доступен только в Premium версии.
+
+💎 **С Premium вы получите:**
+• Ведение личного лунного дневника
+• Отслеживание настроения по фазам
+• Анализ лунных циклов
+• Персональная статистика
+• Напоминания о записях
+
+🆓 **Сейчас доступно:** Только просмотр текущей фазы`;
+
+      const keyboard = createInlineKeyboard([
+        [{ text: '💎 Получить Premium', callback_data: 'premium_info' }],
+        [{ text: '🌙 Текущая фаза', callback_data: 'lunar_current' }],
+        [{ text: '🔙 Назад', callback_data: 'lunar_menu' }]
+      ]);
+
+      await ctx.editMessageText(message, { 
+        parse_mode: 'Markdown', 
+        reply_markup: keyboard 
+      });
+      return;
+    }
     try {
       const message = `📊 *Лунный дневник*
 
@@ -259,9 +533,39 @@ ${currentPhase.description}
   }
 
   // Следующее лунное событие
-  async handleNextEvent(ctx) {
+  async handleNextEvent(ctx, user) {
+    // Проверяем премиум статус
+    const isPremium = user && (user.isPremium || user.subscriptionType === 'premium' || user.subscriptionType === 'premium_plus');
+    
+    if (!isPremium) {
+      const message = `⚡ *Лунные события*
+
+🔒 Отслеживание лунных событий доступно только в Premium версии.
+
+💎 **С Premium вы получите:**
+• Уведомления о важных лунных событиях
+• Подготовка к особым дням
+• Напоминания о ритуалах
+• Календарь событий
+• Персональные рекомендации
+
+🆓 **Сейчас доступно:** Только просмотр текущей фазы`;
+
+      const keyboard = createInlineKeyboard([
+        [{ text: '💎 Получить Premium', callback_data: 'premium_info' }],
+        [{ text: '🌙 Текущая фаза', callback_data: 'lunar_current' }],
+        [{ text: '🔙 Назад', callback_data: 'lunar_menu' }]
+      ]);
+
+      await ctx.editMessageText(message, { 
+        parse_mode: 'Markdown', 
+        reply_markup: keyboard 
+      });
+      return;
+    }
     try {
-      const nextEvent = await lunarService.getNextSignificantEvent();
+      const upcomingEventsData = await lunarService.getUpcomingLunarEvents();
+      const nextEvent = upcomingEventsData.events[0]; // Берем первое событие
 
       if (!nextEvent) {
         await ctx.editMessageText('⚡ Не удалось определить следующее лунное событие.', {
@@ -272,20 +576,20 @@ ${currentPhase.description}
         return;
       }
 
-      const emoji = this.getPhaseEmoji(nextEvent.phase);
       const message = `⚡ *Следующее лунное событие*
 
-${emoji} *${nextEvent.name}*
-📅 ${formatDate(nextEvent.date)}
-⏰ Через ${nextEvent.daysUntil} дн.
+${nextEvent.emoji} *${nextEvent.name}*
+📅 ${nextEvent.date}
+⏰ Через ${nextEvent.daysFromNow} дн.
 
 💫 *Значимость:* ${nextEvent.significance}
+⚡ *Энергия:* ${nextEvent.energy}
 
 Подготовьтесь к этому дню заранее!`;
 
       const keyboard = createInlineKeyboard([
-        [{ text: '🔔 Напомнить', callback_data: `lunar_remind_${nextEvent.phase}` }],
-        [{ text: '💡 Подготовка', callback_data: `lunar_prepare_${nextEvent.phase}` }],
+        [{ text: '🔔 Напомнить', callback_data: `lunar_remind_${nextEvent.phase || nextEvent.type || 'event'}` }],
+        [{ text: '💡 Подготовка', callback_data: `lunar_prepare_${nextEvent.phase || nextEvent.type || 'event'}` }],
         [{ text: '🔙 Назад', callback_data: 'lunar_menu' }]
       ]);
 
@@ -323,6 +627,17 @@ ${emoji} *${nextEvent.name}*
       console.error('Ошибка настройки уведомления:', error);
       await ctx.answerCallbackQuery('Ошибка настройки уведомления');
     }
+  }
+
+  // Создание контекста пользователя для ИИ
+  buildUserContext(user) {
+    return {
+      subscriptionType: user?.subscriptionType || 'basic',
+      isPremium: user?.isPremium || false,
+      totalReadings: user?.totalReadings || 0,
+      interests: [], // Можно добавить из профиля пользователя
+      lifeArea: 'general' // По умолчанию
+    };
   }
 }
 

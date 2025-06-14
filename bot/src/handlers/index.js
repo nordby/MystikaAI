@@ -3,6 +3,7 @@ const database = require('../database');
 const config = require('../config');
 const { TAROT_CARDS } = require('../data/tarot');
 const NumerologyHandler = require('./numerology');
+const LunarHandler = require('./lunar');
 const premiumHandlers = require('./premium');
 const referralHandlers = require('./referral');
 const { getMysticalLoadingMessage, getMysticalLoadingSequence } = require('../utils/messages');
@@ -22,6 +23,9 @@ class BotHandlers {
     
     // Инициализация обработчика нумерологии
     this.numerologyHandler = new NumerologyHandler();
+    
+    // Инициализация обработчика лунного календаря
+    this.lunarHandler = new LunarHandler();
     
     // Устанавливаем связь для синхронизации профилей
     this.numerologyHandler.setProfileHandler({
@@ -280,22 +284,44 @@ class BotHandlers {
   async handleReadingCommand(bot, msg) {
     try {
       const user = await this.ensureUser(msg.from);
+      
+      // Проверяем премиум статус для отображения меню
+      const isPremium = user && (user.isPremium || user.subscriptionType === 'premium' || user.subscriptionType === 'premium_plus');
+      
+      let keyboard;
+      let message;
+      
+      if (isPremium) {
+        message = '🔮 *Создание нового гадания*\n\nВыберите тип расклада:\n\n💡 *Совет:* Для более точного гадания сначала задайте свой вопрос в сообщении, а затем выберите расклад.';
+        keyboard = [
+          [
+            { text: '🃏 Одна карта', callback_data: 'reading_single' },
+            { text: '🃏🃏🃏 Три карты', callback_data: 'reading_three' }
+          ],
+          [
+            { text: '🌟 Кельтский крест', callback_data: 'reading_celtic' },
+            { text: '💕 Отношения', callback_data: 'reading_relationship' }
+          ],
+          [{ text: '❓ Задать вопрос сначала', callback_data: 'ask_question_first' }],
+          [{ text: '⬅️ Назад', callback_data: 'back_to_menu' }]
+        ];
+      } else {
+        message = '🔮 *Создание нового гадания*\n\nВыберите тип расклада:\n\n🆓 **Базовая версия:** Одна карта и Три карты\n💎 **Premium:** Кельтский крест, Отношения и другие расклады\n\n💡 *Совет:* Для более точного гадания сначала задайте свой вопрос в сообщении, а затем выберите расклад.';
+        keyboard = [
+          [
+            { text: '🃏 Одна карта', callback_data: 'reading_single' },
+            { text: '🃏🃏🃏 Три карты', callback_data: 'reading_three' }
+          ],
+          [{ text: '💎 Разблокировать все расклады', callback_data: 'premium_info' }],
+          [{ text: '❓ Задать вопрос сначала', callback_data: 'ask_question_first' }],
+          [{ text: '⬅️ Назад', callback_data: 'back_to_menu' }]
+        ];
+      }
 
-      await bot.sendMessage(msg.chat.id, '🔮 *Создание нового гадания*\n\nВыберите тип расклада:\n\n💡 *Совет:* Для более точного гадания сначала задайте свой вопрос в сообщении, а затем выберите расклад.', {
+      await bot.sendMessage(msg.chat.id, message, {
         parse_mode: 'Markdown',
         reply_markup: {
-          inline_keyboard: [
-            [
-              { text: '🃏 Одна карта', callback_data: 'reading_single' },
-              { text: '🃏🃏🃏 Три карты', callback_data: 'reading_three' }
-            ],
-            [
-              { text: '🌟 Кельтский крест', callback_data: 'reading_celtic' },
-              { text: '💕 Отношения', callback_data: 'reading_relationship' }
-            ],
-            [{ text: '❓ Задать вопрос сначала', callback_data: 'ask_question_first' }],
-            [{ text: '⬅️ Назад', callback_data: 'back_to_menu' }]
-          ]
+          inline_keyboard: keyboard
         }
       });
 
@@ -495,86 +521,13 @@ class BotHandlers {
     try {
       const user = await this.ensureUser(msg.from);
 
-      await bot.sendChatAction(msg.chat.id, 'typing');
-
-      // Определяем текущую фазу луны
-      const moonPhase = this.getCurrentMoonPhase();
-      
-      // Получаем AI рекомендации для лунной фазы
-      let lunarRecommendations = null;
-      try {
-        await bot.sendChatAction(msg.chat.id, 'typing');
-        
-        const aiResponse = await this.getLunarRecommendations(moonPhase, user);
-        lunarRecommendations = aiResponse;
-        console.log('Lunar AI recommendations received:', JSON.stringify(aiResponse, null, 2));
-      } catch (error) {
-        console.log('Lunar AI recommendations failed:', error.message);
-      }
-
-      // Формируем текст рекомендаций
-      let recommendationsText;
-      let practices;
-      let avoid;
-      
-      if (lunarRecommendations && lunarRecommendations.success) {
-        recommendationsText = lunarRecommendations.interpretation.interpretation || lunarRecommendations.interpretation.main;
-        practices = lunarRecommendations.interpretation.practices || ['Медитация и размышления', 'Работа с интуицией'];
-        avoid = lunarRecommendations.interpretation.avoid || ['Конфликтов и споров', 'Поспешных решений'];
-      } else {
-        // Fallback рекомендации
-        recommendationsText = this.getBasicLunarRecommendation(moonPhase);
-        practices = this.getBasicLunarPractices(moonPhase);
-        avoid = this.getBasicLunarAvoid(moonPhase);
-      }
-
-      const practicesText = Array.isArray(practices) ? practices.map(p => `• ${p}`).join('\n') : `• ${practices}`;
-      const avoidText = Array.isArray(avoid) ? avoid.map(a => `• ${a}`).join('\n') : `• ${avoid}`;
-
-      const text = `🌙 <b>Лунные рекомендации</b>\n\n<b>${moonPhase.emoji} ${moonPhase.name}</b>\n\n${recommendationsText}\n\n<b>Рекомендуется:</b>\n${practicesText}\n\n<b>Избегайте:</b>\n${avoidText}`;
-
-      await bot.sendMessage(msg.chat.id, text, {
-        parse_mode: 'HTML',
-        reply_markup: {
-          inline_keyboard: [
-            [{ text: '📅 Полный календарь', callback_data: 'lunar_calendar' }],
-            [{ text: '🔮 Гадание по фазе', callback_data: 'lunar_reading' }]
-          ]
-        }
-      });
-
-      // Сохраняем лунную консультацию
-      try {
-        const lunarData = {
-          userId: user.id,
-          type: 'lunar_calendar',
-          spreadName: 'Лунный календарь',
-          cards: [{ 
-            name: `Луна в фазе "${moonPhase.name}"`, 
-            description: moonPhase.description 
-          }],
-          positions: [{ 
-            name: 'Лунная энергия', 
-            description: `Влияние фазы ${moonPhase.name}` 
-          }],
-          question: 'Лунные рекомендации',
-          interpretation: recommendationsText,
-          metadata: {
-            moonPhase: moonPhase.name,
-            date: new Date().toISOString()
-          }
-        };
-        
-        await database.createReading(lunarData);
-      } catch (error) {
-        console.log('Failed to save lunar reading to database:', error.message);
-      }
-
-      await database.trackEvent({
-        type: 'command_lunar',
-        userId: user.id,
-        metadata: { moonPhase: moonPhase.name }
-      });
+      // Используем новый лунный обработчик с премиум проверками
+      await this.lunarHandler.handleLunarMenu({
+        editMessageText: (text, options) => bot.sendMessage(msg.chat.id, text, options),
+        reply: (text, options) => bot.sendMessage(msg.chat.id, text, options),
+        callbackQuery: false,
+        from: { id: msg.from.id }
+      }, user);
 
     } catch (error) {
       console.error('Error in /lunar command:', error);
@@ -653,7 +606,7 @@ class BotHandlers {
       }
 
       // Маршрутизация по типу callback data
-      if (data.startsWith('reading_')) {
+      if (data.startsWith('reading_') && data !== 'reading_history') {
         await this.handleReadingCallback(bot, chatId, messageId, data, from);
       } else if (data.startsWith('premium_') && data !== 'premium_menu') {
         await this.handlePremiumCallback(bot, chatId, messageId, data, from, query.id);
@@ -796,6 +749,106 @@ class BotHandlers {
   }
 
   /**
+   * Показать меню выбора расклада
+   */
+  async showReadingMenu(bot, chatId, messageId, user) {
+    try {
+      // Проверяем премиум статус для отображения меню
+      const isPremium = user && (user.isPremium || user.subscriptionType === 'premium' || user.subscriptionType === 'premium_plus');
+      
+      // Проверяем лимиты для бесплатных пользователей
+      if (!isPremium) {
+        const today = new Date().toISOString().split('T')[0];
+        let dailyUsed = user.dailyReadingsUsed || 0;
+        
+        // Сбрасываем счетчик если новый день
+        if (user.lastDailyReset !== today) {
+          dailyUsed = 0;
+        }
+        
+        if (dailyUsed >= 3) {
+          const limitMessage = `🔮 *Лимит гаданий исчерпан*\n\n🆓 **Бесплатная версия:** 3 гадания в день\n💎 **Premium:** Безлимитные гадания\n\nИспользовано сегодня: ${dailyUsed}/3\n\n💡 Лимит обновится завтра или получите Premium для безлимитного доступа!`;
+          
+          const limitKeyboard = [
+            [{ text: '💎 Получить Premium', callback_data: 'premium_info' }],
+            [{ text: '🌅 Карта дня', callback_data: 'daily_card' }],
+            [{ text: '🏠 Главное меню', callback_data: 'back_to_menu' }]
+          ];
+          
+          await bot.editMessageText(limitMessage, {
+            chat_id: chatId,
+            message_id: messageId,
+            parse_mode: 'Markdown',
+            reply_markup: {
+              inline_keyboard: limitKeyboard
+            }
+          });
+          return;
+        }
+      }
+      
+      let keyboard;
+      let message;
+      
+      if (isPremium) {
+        message = '🔮 *Создание нового гадания*\n\nВыберите тип расклада:\n\n💡 *Совет:* Для более точного гадания сначала задайте свой вопрос в сообщении, а затем выберите расклад.';
+        keyboard = [
+          [
+            { text: '🃏 Одна карта', callback_data: 'reading_single' },
+            { text: '🃏🃏🃏 Три карты', callback_data: 'reading_three' }
+          ],
+          [
+            { text: '🌟 Кельтский крест', callback_data: 'reading_celtic' },
+            { text: '💕 Отношения', callback_data: 'reading_relationship' }
+          ],
+          [{ text: '❓ Задать вопрос сначала', callback_data: 'ask_question_first' }],
+          [{ text: '🏠 Главное меню', callback_data: 'back_to_menu' }]
+        ];
+      } else {
+        const today = new Date().toISOString().split('T')[0];
+        let dailyUsed = user.dailyReadingsUsed || 0;
+        
+        // Сбрасываем счетчик если новый день
+        if (user.lastDailyReset !== today) {
+          dailyUsed = 0;
+        }
+        
+        message = `🔮 *Создание нового гадания*\n\nВыберите тип расклада:\n\n🆓 **Базовая версия:** Одна карта и Три карты (${dailyUsed}/3 использовано сегодня)\n💎 **Premium:** Кельтский крест, Отношения и другие расклады\n\n💡 *Совет:* Для более точного гадания сначала задайте свой вопрос в сообщении, а затем выберите расклад.`;
+        keyboard = [
+          [
+            { text: '🃏 Одна карта', callback_data: 'reading_single' },
+            { text: '🃏🃏🃏 Три карты', callback_data: 'reading_three' }
+          ],
+          [{ text: '💎 Разблокировать все расклады', callback_data: 'premium_info' }],
+          [{ text: '❓ Задать вопрос сначала', callback_data: 'ask_question_first' }],
+          [{ text: '🏠 Главное меню', callback_data: 'back_to_menu' }]
+        ];
+      }
+
+      if (messageId) {
+        await bot.editMessageText(message, {
+          chat_id: chatId,
+          message_id: messageId,
+          parse_mode: 'Markdown',
+          reply_markup: {
+            inline_keyboard: keyboard
+          }
+        });
+      } else {
+        await bot.sendMessage(chatId, message, {
+          parse_mode: 'Markdown',
+          reply_markup: {
+            inline_keyboard: keyboard
+          }
+        });
+      }
+    } catch (error) {
+      console.error('Error showing reading menu:', error);
+      await bot.sendMessage(chatId, '❌ Произошла ошибка. Попробуйте позже.');
+    }
+  }
+
+  /**
    * Показать главное меню
    */
   async showMainMenu(bot, chatId, messageId = null) {
@@ -816,7 +869,7 @@ class BotHandlers {
           { text: '🌅 Карта дня', callback_data: 'daily_card' }
         ],
         [
-          { text: '🌙 Лунный календарь', callback_data: 'lunar_reading' },
+          { text: '🌙 Лунный календарь', callback_data: 'lunar_menu' },
           { text: '🔢 Нумерология', callback_data: 'numerology' }
         ],
         [
@@ -848,6 +901,13 @@ class BotHandlers {
       let userResponse = await database.getUserByTelegramId(telegramUser.id);
       let user = userResponse?.user;
       let token = userResponse?.token;
+      
+      console.log(`🔍 ensureUser for ${telegramUser.id}:`, {
+        userFound: !!user,
+        subscriptionType: user?.subscriptionType,
+        isPremium: user?.isPremium,
+        premiumExpiresAt: user?.premiumExpiresAt
+      });
       
       if (!user) {
         const userData = {
@@ -920,7 +980,7 @@ class BotHandlers {
         reply: (text, options) => bot.sendMessage(msg.chat.id, text, options),
         callbackQuery: false,
         from: { id: msg.from.id }
-      });
+      }, user);
 
       await database.trackEvent({
         type: 'command_numerology',
@@ -943,7 +1003,7 @@ class BotHandlers {
         `<b>Статус:</b> ${user.isPremium ? '💎 Premium' : '🆓 Базовый'}\n` +
         `<b>Всего гаданий:</b> ${user.totalReadings || 0}\n` +
         `<b>Использовано сегодня:</b> ${user.dailyReadingsUsed || 0}\n` +
-        `<b>Дата регистрации:</b> ${new Date(user.createdAt || Date.now()).toLocaleDateString('ru-RU')}\n`;
+        `<b>Дата регистрации:</b> ${user.createdAt ? new Date(user.createdAt).toLocaleDateString('ru-RU') : 'Не определена'}\n`;
 
       await bot.sendMessage(msg.chat.id, profileText, {
         parse_mode: 'HTML',
@@ -971,7 +1031,8 @@ class BotHandlers {
       });
 
       // Получаем историю гаданий пользователя
-      const history = await database.getUserReadings(user.id, 10); // Последние 10 гаданий
+      const response = await database.getUserReadings(user.id, 1, 10); // Последние 10 гаданий
+      const history = response?.readings || [];
       
       // Удаляем сообщение загрузки
       try {
@@ -1000,6 +1061,11 @@ class BotHandlers {
       // Формируем сообщение с историей
       let historyText = '📋 <b>Ваша история гаданий</b>\n\n';
       
+      // Показываем информацию об ограничениях для бесплатных пользователей
+      if (response?.upgradeRequired) {
+        historyText += '💎 <i>Показаны последние 10 записей. Полная история доступна в Premium</i>\n\n';
+      }
+      
       history.forEach((reading, index) => {
         const date = new Date(reading.createdAt).toLocaleDateString('ru-RU');
         const time = new Date(reading.createdAt).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
@@ -1018,13 +1084,21 @@ class BotHandlers {
 
       historyText += '💡 <i>Для подробного просмотра используйте веб-приложение</i>';
 
+      const keyboard = [
+        [{ text: '📱 Открыть в приложении', web_app: { url: `${process.env.WEBAPP_URL}/history` } }]
+      ];
+      
+      // Добавляем кнопку Premium для пользователей с ограничениями
+      if (response?.upgradeRequired) {
+        keyboard.push([{ text: '💎 Получить Premium', callback_data: 'premium_info' }]);
+      }
+      
+      keyboard.push([{ text: '🏠 Главное меню', callback_data: 'back_to_menu' }]);
+
       await bot.sendMessage(msg.chat.id, historyText, {
         parse_mode: 'HTML',
         reply_markup: {
-          inline_keyboard: [
-            [{ text: '📱 Открыть в приложении', web_app: { url: `${process.env.WEBAPP_URL}/history` } }],
-            [{ text: '🏠 Главное меню', callback_data: 'back_to_menu' }]
-          ]
+          inline_keyboard: keyboard
         }
       });
 
@@ -1083,7 +1157,9 @@ class BotHandlers {
       
       // Логируем пользователя и его настройки для диагностики
       console.log(`🔍 Bot: User ${user.telegramId} data:`, {
-        deckType: user.deckType,
+        subscriptionType: user.subscriptionType,
+        isPremium: user.isPremium,
+        premiumExpiresAt: user.premiumExpiresAt,
         preferences: JSON.stringify(user.preferences, null, 2)
       });
       
@@ -1108,6 +1184,66 @@ class BotHandlers {
         }
       } else {
         readingType = data.replace('reading_', '');
+      }
+
+      // Проверяем премиум статус для премиум раскладов
+      const isPremium = user && (user.isPremium || user.subscriptionType === 'premium' || user.subscriptionType === 'premium_plus');
+      console.log(`🔒 Premium check for reading ${readingType}: isPremium=${isPremium}, user.isPremium=${user?.isPremium}, subscriptionType=${user?.subscriptionType}`);
+      
+      // Проверяем лимиты для бесплатных пользователей ПЕРЕД созданием гадания
+      if (!isPremium) {
+        const today = new Date().toISOString().split('T')[0];
+        let dailyUsed = user.dailyReadingsUsed || 0;
+        
+        // Сбрасываем счетчик если новый день
+        if (user.lastDailyReset !== today) {
+          dailyUsed = 0;
+        }
+        
+        if (dailyUsed >= 3) {
+          const limitMessage = `🔮 *Лимит гаданий исчерпан*\n\n🆓 **Бесплатная версия:** 3 гадания в день\n💎 **Premium:** Безлимитные гадания\n\nИспользовано сегодня: ${dailyUsed}/3\n\n💡 Лимит обновится завтра или получите Premium для безлимитного доступа!`;
+          
+          await bot.editMessageText(limitMessage, {
+            chat_id: chatId,
+            message_id: messageId,
+            parse_mode: 'Markdown',
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: '💎 Получить Premium', callback_data: 'premium_info' }],
+                [{ text: '🌅 Карта дня', callback_data: 'daily_card' }],
+                [{ text: '🏠 Главное меню', callback_data: 'back_to_menu' }]
+              ]
+            }
+          });
+          return;
+        }
+      }
+      
+      if ((readingType === 'celtic' || readingType === 'relationship') && !isPremium) {
+        const spreadName = readingType === 'celtic' ? 'Кельтский крест' : 'Отношения';
+        await bot.editMessageText(
+          `🔒 *Расклад "${spreadName}" доступен только в Premium*\n\n` +
+          `💎 **С Premium вы получите:**\n` +
+          `• Все премиум расклады Таро\n` +
+          `• Глубокий анализ отношений\n` +
+          `• Детальные интерпретации ИИ\n` +
+          `• Безлимитные гадания\n\n` +
+          `🆓 **Сейчас доступно:** Одна карта и Три карты`, {
+          chat_id: chatId,
+          message_id: messageId,
+          parse_mode: 'Markdown',
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '💎 Получить Premium', callback_data: 'premium_info' }],
+              [
+                { text: '🃏 Одна карта', callback_data: 'reading_single' },
+                { text: '🃏🃏🃏 Три карты', callback_data: 'reading_three' }
+              ],
+              [{ text: '🏠 Главное меню', callback_data: 'back_to_menu' }]
+            ]
+          }
+        });
+        return;
       }
 
       // Начинаем ритуал с правильной последовательности
@@ -1196,7 +1332,7 @@ class BotHandlers {
       try {
         // Получаем настройки генерации карт пользователя
         console.log(`🔍 Bot: User ${user.telegramId} data:`, {
-          deckType: user.deckType,
+          preferences: user.preferences,
           preferences: typeof user.preferences === 'string' ? user.preferences : JSON.stringify(user.preferences)
         });
         
@@ -1273,7 +1409,32 @@ class BotHandlers {
       }
 
       // Сохраняем гадание в базу данных
-      await this.saveReadingToDatabase(cardsWithReverse, spread, readingType, userQuestion, user, aiInterpretation);
+      try {
+        await this.saveReadingToDatabase(cardsWithReverse, spread, readingType, userQuestion, user, aiInterpretation);
+      } catch (saveError) {
+        // Если ошибка лимита - прерываем процесс и показываем сообщение
+        if (saveError.message === 'DAILY_LIMIT_EXCEEDED' || saveError.message.includes('429')) {
+          await bot.editMessageText(
+            '🔮 *Лимит гаданий исчерпан*\n\n' +
+            '🆓 **Бесплатная версия:** 3 гадания в день\n' +
+            '💎 **Premium:** Безлимитные гадания\n\n' +
+            '💡 Лимит обновится завтра или получите Premium для безлимитного доступа!', {
+            chat_id: chatId,
+            message_id: messageId,
+            parse_mode: 'Markdown',
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: '💎 Получить Premium', callback_data: 'premium_info' }],
+                [{ text: '🌅 Карта дня', callback_data: 'daily_card' }],
+                [{ text: '🏠 Главное меню', callback_data: 'back_to_menu' }]
+              ]
+            }
+          });
+          return; // Прерываем выполнение
+        }
+        // Для других ошибок просто логируем
+        console.log('Non-critical database save error:', saveError.message);
+      }
 
       // Этап 6: Начинаем раскрытие карт
       await this.startCardRevelation(bot, chatId, messageId, cardsWithReverse, cardImages, spread, aiInterpretation, userQuestion);
@@ -1509,16 +1670,72 @@ class BotHandlers {
 
   async handleLunarCallback(bot, chatId, messageId, data, from) {
     try {
+      // Получаем пользователя для проверки премиум статуса
+      const user = await this.ensureUser(from);
+      console.log(`🌙 Lunar callback ${data}: user=${user?.telegramId}, subscriptionType=${user?.subscriptionType}, isPremium=${user?.isPremium}`);
+      
       switch (data) {
         case 'lunar_calendar':
-          await bot.editMessageText('🌙 *Лунный календарь*\n\nЗагружаю полный календарь фаз луны...', {
-            chat_id: chatId,
-            message_id: messageId,
-            parse_mode: 'Markdown'
-          });
+          await this.lunarHandler.handleCalendar({
+            editMessageText: (text, options) => bot.editMessageText(text, { ...options, chat_id: chatId, message_id: messageId }),
+            reply: (text, options) => bot.sendMessage(chatId, text, options),
+            callbackQuery: true,
+            from: { id: from.id }
+          }, user);
+          break;
           
-          // Показываем календарь фаз луны
-          await this.showLunarCalendar(bot, chatId, messageId);
+        case 'lunar_current':
+          await this.lunarHandler.handleCurrentPhase({
+            editMessageText: (text, options) => bot.editMessageText(text, { ...options, chat_id: chatId, message_id: messageId }),
+            reply: (text, options) => bot.sendMessage(chatId, text, options),
+            callbackQuery: true,
+            from: { id: from.id }
+          }, user);
+          break;
+          
+        case 'lunar_recommendations':
+          await this.lunarHandler.handleRecommendations({
+            editMessageText: (text, options) => bot.editMessageText(text, { ...options, chat_id: chatId, message_id: messageId }),
+            reply: (text, options) => bot.sendMessage(chatId, text, options),
+            callbackQuery: true,
+            from: { id: from.id }
+          }, user);
+          break;
+          
+        case 'lunar_rituals':
+          await this.lunarHandler.handleRituals({
+            editMessageText: (text, options) => bot.editMessageText(text, { ...options, chat_id: chatId, message_id: messageId }),
+            reply: (text, options) => bot.sendMessage(chatId, text, options),
+            callbackQuery: true,
+            from: { id: from.id }
+          }, user);
+          break;
+          
+        case 'lunar_diary':
+          await this.lunarHandler.handleDiary({
+            editMessageText: (text, options) => bot.editMessageText(text, { ...options, chat_id: chatId, message_id: messageId }),
+            reply: (text, options) => bot.sendMessage(chatId, text, options),
+            callbackQuery: true,
+            from: { id: from.id }
+          }, user);
+          break;
+          
+        case 'lunar_next_event':
+          await this.lunarHandler.handleNextEvent({
+            editMessageText: (text, options) => bot.editMessageText(text, { ...options, chat_id: chatId, message_id: messageId }),
+            reply: (text, options) => bot.sendMessage(chatId, text, options),
+            callbackQuery: true,
+            from: { id: from.id }
+          }, user);
+          break;
+          
+        case 'lunar_menu':
+          await this.lunarHandler.handleLunarMenu({
+            editMessageText: (text, options) => bot.editMessageText(text, { ...options, chat_id: chatId, message_id: messageId }),
+            reply: (text, options) => bot.sendMessage(chatId, text, options),
+            callbackQuery: true,
+            from: { id: from.id }
+          }, user);
           break;
           
         case 'lunar_reading':
@@ -1530,8 +1747,145 @@ class BotHandlers {
           
           await this.handleLunarCommand(bot, { chat: { id: chatId }, from });
           break;
-          
+
+        case 'lunar_add_entry':
+          await bot.editMessageText('📝 *Добавление записи в лунный дневник*\n\nНапишите вашу запись о состоянии и настроении сегодня:', {
+            chat_id: chatId,
+            message_id: messageId,
+            parse_mode: 'Markdown',
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: '🔙 Назад', callback_data: 'lunar_diary' }]
+              ]
+            }
+          });
+          break;
+
+        case 'lunar_add_diary':
+          await bot.editMessageText('📝 *Добавление записи в лунный дневник*\n\nНапишите вашу запись о состоянии и настроении сегодня:', {
+            chat_id: chatId,
+            message_id: messageId,
+            parse_mode: 'Markdown',
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: '🔙 Назад', callback_data: 'lunar_recommendations' }]
+              ]
+            }
+          });
+          break;
+
+        case 'lunar_view_entries':
+          await bot.editMessageText('📖 *Просмотр записей дневника*\n\nЗдесь будут отображаться ваши записи в лунном дневнике.', {
+            chat_id: chatId,
+            message_id: messageId,
+            parse_mode: 'Markdown',
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: '➕ Добавить запись', callback_data: 'lunar_add_entry' }],
+                [{ text: '🔙 Назад', callback_data: 'lunar_diary' }]
+              ]
+            }
+          });
+          break;
+
+        case 'lunar_mood_analysis':
+          await bot.editMessageText('📊 *Анализ настроения*\n\nАнализ ваших записей и настроения в зависимости от лунных фаз.', {
+            chat_id: chatId,
+            message_id: messageId,
+            parse_mode: 'Markdown',
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: '🔙 Назад', callback_data: 'lunar_diary' }]
+              ]
+            }
+          });
+          break;
+
+        case 'lunar_prev_month':
+          await bot.editMessageText('🗓️ *Предыдущий месяц*\n\nНавигация по лунному календарю - предыдущий месяц.', {
+            chat_id: chatId,
+            message_id: messageId,
+            parse_mode: 'Markdown',
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: '🔙 Назад к календарю', callback_data: 'lunar_calendar' }]
+              ]
+            }
+          });
+          break;
+
+        case 'lunar_next_month':
+          await bot.editMessageText('🗓️ *Следующий месяц*\n\nНавигация по лунному календарю - следующий месяц.', {
+            chat_id: chatId,
+            message_id: messageId,
+            parse_mode: 'Markdown',
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: '🔙 Назад к календарю', callback_data: 'lunar_calendar' }]
+              ]
+            }
+          });
+          break;
+
+        case 'lunar_detailed_calendar':
+          await bot.editMessageText('📊 *Подробный календарь*\n\nДетальная информация о лунных фазах и событиях.', {
+            chat_id: chatId,
+            message_id: messageId,
+            parse_mode: 'Markdown',
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: '🔙 Назад к календарю', callback_data: 'lunar_calendar' }]
+              ]
+            }
+          });
+          break;
+
+        case 'lunar_today':
+          // Redirect to lunar_current which shows current moon phase
+          await this.lunarHandler.handleCurrentPhase({
+            editMessageText: (text, options) => bot.editMessageText(text, { ...options, chat_id: chatId, message_id: messageId }),
+            reply: (text, options) => bot.sendMessage(chatId, text, options),
+            callbackQuery: true,
+            from: { id: from.id }
+          }, user);
+          break;
+
         default:
+          // Обработка remind и prepare callbacks
+          if (data.startsWith('lunar_remind_') || data.startsWith('lunar_prepare_')) {
+            const action = data.startsWith('lunar_remind_') ? 'Напоминание' : 'Подготовка';
+            const phase = data.replace('lunar_remind_', '').replace('lunar_prepare_', '');
+            
+            // Handle undefined phase values
+            if (phase === 'undefined' || !phase) {
+              await bot.editMessageText(`❌ *Ошибка настройки ${action.toLowerCase()}*\n\nНе удалось определить лунное событие для уведомления.\n\n💡 Попробуйте выбрать событие из календаря.`, {
+                chat_id: chatId,
+                message_id: messageId,
+                parse_mode: 'Markdown',
+                reply_markup: {
+                  inline_keyboard: [
+                    [{ text: '📅 Открыть календарь', callback_data: 'lunar_calendar' }],
+                    [{ text: '🔙 Назад к событиям', callback_data: 'lunar_next_event' }],
+                    [{ text: '🏠 Главное меню', callback_data: 'back_to_menu' }]
+                  ]
+                }
+              });
+              break;
+            }
+            
+            await bot.editMessageText(`🔔 *${action} настроен*\n\nМы напомним вам о важном лунном событии "${phase}" ближе к дате.\n\n💡 Следите за уведомлениями в боте!`, {
+              chat_id: chatId,
+              message_id: messageId,
+              parse_mode: 'Markdown',
+              reply_markup: {
+                inline_keyboard: [
+                  [{ text: '🔙 Назад к событиям', callback_data: 'lunar_next_event' }],
+                  [{ text: '🏠 Главное меню', callback_data: 'back_to_menu' }]
+                ]
+              }
+            });
+            break;
+          }
           await this.handleLunarCommand(bot, { chat: { id: chatId }, from });
       }
     } catch (error) {
@@ -1551,6 +1905,9 @@ class BotHandlers {
 
   async handleGeneralCallback(bot, chatId, messageId, data, from) {
     try {
+      // Получаем пользователя для всех операций
+      const user = await this.ensureUser(from);
+      
       // Обработка открытия карт
       if (data.startsWith('reveal_card_')) {
         const cardIndex = parseInt(data.replace('reveal_card_', ''));
@@ -1577,8 +1934,8 @@ class BotHandlers {
 
       switch (data) {
         case 'new_reading':
-          // Возвращаемся в главное меню вместо создания меню гадания
-          await this.showMainMenu(bot, chatId, messageId);
+          // Показываем меню выбора расклада с премиум проверками
+          await this.showReadingMenu(bot, chatId, messageId, user);
           break;
 
         case 'ask_question_first':
@@ -1596,7 +1953,6 @@ class BotHandlers {
 
         case 'reading_history':
           try {
-            const user = await this.ensureUser(from);
             
             // Показываем загрузку
             await bot.editMessageText('📋 *Загружаю вашу историю гаданий...*', {
@@ -1606,7 +1962,8 @@ class BotHandlers {
             });
 
             // Получаем историю гаданий пользователя
-            const history = await database.getUserReadings(user.id, 10); // Последние 10 гаданий
+            const response = await database.getUserReadings(user.id, 1, 10); // Последние 10 гаданий
+            const history = response?.readings || [];
 
             if (!history || history.length === 0) {
               await bot.editMessageText(
@@ -1630,6 +1987,11 @@ class BotHandlers {
             // Формируем сообщение с историей
             let historyText = '📋 <b>Ваша история гаданий</b>\n\n';
             
+            // Показываем информацию об ограничениях для бесплатных пользователей
+            if (response?.upgradeRequired) {
+              historyText += '💎 <i>Показаны последние 10 записей. Полная история доступна в Premium</i>\n\n';
+            }
+            
             history.forEach((reading, index) => {
               const date = new Date(reading.createdAt).toLocaleDateString('ru-RU');
               const time = new Date(reading.createdAt).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
@@ -1648,15 +2010,23 @@ class BotHandlers {
 
             historyText += '💡 <i>Для подробного просмотра используйте веб-приложение</i>';
 
+            const keyboard = [
+              [{ text: '📱 Открыть в приложении', web_app: { url: `${process.env.WEBAPP_URL}/history` } }]
+            ];
+            
+            // Добавляем кнопку Premium для пользователей с ограничениями
+            if (response?.upgradeRequired) {
+              keyboard.push([{ text: '💎 Получить Premium', callback_data: 'premium_info' }]);
+            }
+            
+            keyboard.push([{ text: '🏠 Главное меню', callback_data: 'back_to_menu' }]);
+
             await bot.editMessageText(historyText, {
               chat_id: chatId,
               message_id: messageId,
               parse_mode: 'HTML',
               reply_markup: {
-                inline_keyboard: [
-                  [{ text: '📱 Открыть в приложении', web_app: { url: `${process.env.WEBAPP_URL}/history` } }],
-                  [{ text: '🏠 Главное меню', callback_data: 'back_to_menu' }]
-                ]
+                inline_keyboard: keyboard
               }
             });
 
@@ -1707,16 +2077,94 @@ class BotHandlers {
         case 'premium_menu':
           // Очищаем активные сессии нумерологии
           // Используем новый обработчик премиум
-          const user = await this.ensureUser(from);
           const userToken = user.token;
           const premiumHandlers = require('./premium');
           await premiumHandlers.handlePremium(bot, { chat: { id: chatId }, from }, userToken);
           break;
 
         case 'back_to_menu':
+        case 'main_menu':
           // Очищаем активные сессии нумерологии
           await this.showMainMenu(bot, chatId, messageId);
           break;
+
+        // Лунные обработчики
+        case 'lunar_add_entry':
+        case 'lunar_add_diary':
+          await bot.editMessageText('📝 *Добавление записи в лунный дневник*\n\n🔧 Функция в разработке. Скоро будет доступна!', {
+            chat_id: chatId,
+            message_id: messageId,
+            parse_mode: 'Markdown',
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: '🔙 Назад к дневнику', callback_data: 'lunar_diary' }],
+                [{ text: '🏠 Главное меню', callback_data: 'main_menu' }]
+              ]
+            }
+          });
+          break;
+
+        case 'lunar_view_entries':
+          await bot.editMessageText('📖 *Просмотр записей дневника*\n\n🔧 Функция в разработке. Скоро будет доступна!', {
+            chat_id: chatId,
+            message_id: messageId,
+            parse_mode: 'Markdown',
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: '🔙 Назад к дневнику', callback_data: 'lunar_diary' }],
+                [{ text: '🏠 Главное меню', callback_data: 'main_menu' }]
+              ]
+            }
+          });
+          break;
+
+        case 'lunar_mood_analysis':
+          await bot.editMessageText('📊 *Анализ настроения по лунным циклам*\n\n🔧 Функция в разработке. Скоро будет доступна!', {
+            chat_id: chatId,
+            message_id: messageId,
+            parse_mode: 'Markdown',
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: '🔙 Назад к дневнику', callback_data: 'lunar_diary' }],
+                [{ text: '🏠 Главное меню', callback_data: 'main_menu' }]
+              ]
+            }
+          });
+          break;
+
+        case 'lunar_prev_month':
+        case 'lunar_next_month':
+          await bot.answerCallbackQuery(data, { text: '🔧 Навигация по месяцам в разработке' });
+          break;
+
+        case 'lunar_detailed_calendar':
+          await bot.editMessageText('📅 *Подробный лунный календарь*\n\n🔧 Функция в разработке. Скоро будет доступна!', {
+            chat_id: chatId,
+            message_id: messageId,
+            parse_mode: 'Markdown',
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: '🔙 Назад к календарю', callback_data: 'lunar_calendar' }],
+                [{ text: '🏠 Главное меню', callback_data: 'main_menu' }]
+              ]
+            }
+          });
+          break;
+
+        case 'reminder_settings':
+          await bot.editMessageText('⚙️ *Настройки напоминаний*\n\n🔧 Функция детальных настроек напоминаний в разработке.\n\nСейчас доступны базовые напоминания о лунных событиях.', {
+            chat_id: chatId,
+            message_id: messageId,
+            parse_mode: 'Markdown',
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: '🔙 Назад к событиям', callback_data: 'lunar_next_event' }],
+                [{ text: '🏠 Главное меню', callback_data: 'main_menu' }]
+              ]
+            }
+          });
+          break;
+
 
         case 'back_to_profile':
           // Очищаем активные сессии нумерологии
@@ -1743,12 +2191,23 @@ class BotHandlers {
 
         case 'numerology':
         case 'numerology_menu':
+          console.log(`🔢 Numerology menu called: user=${user?.telegramId}, isPremium=${user?.isPremium}, subscriptionType=${user?.subscriptionType}`);
+          console.log(`🔢 About to pass user object:`, user);
           await this.numerologyHandler.handleNumerologyMenu({
             editMessageText: (text, options) => bot.editMessageText(text, { ...options, chat_id: chatId, message_id: messageId }),
             reply: (text, options) => bot.sendMessage(chatId, text, options),
             callbackQuery: true,
             from: { id: from.id }
-          });
+          }, user);
+          break;
+          
+        case 'numerology_life_path':
+          await this.numerologyHandler.handleLifePathCalculation({
+            editMessageText: (text, options) => bot.editMessageText(text, { ...options, chat_id: chatId, message_id: messageId }),
+            reply: (text, options) => bot.sendMessage(chatId, text, options),
+            callbackQuery: true,
+            from: { id: from.id }
+          }, user);
           break;
 
         case 'numerology_create_profile':
@@ -1757,7 +2216,7 @@ class BotHandlers {
             editMessageText: (text, options) => bot.editMessageText(text, { ...options, chat_id: chatId, message_id: messageId }),
             reply: (text, options) => bot.sendMessage(chatId, text, options),
             from: { id: from.id }
-          });
+          }, user);
           break;
 
         case 'numerology_my_profile':
@@ -1765,11 +2224,40 @@ class BotHandlers {
             editMessageText: (text, options) => bot.editMessageText(text, { ...options, chat_id: chatId, message_id: messageId }),
             reply: (text, options) => bot.sendMessage(chatId, text, options),
             from: { id: from.id }
-          });
+          }, user);
           break;
 
         case 'numerology_personal_reading':
           await bot.editMessageText('🔮 Персональное нумерологическое гадание в разработке...', { chat_id: chatId, message_id: messageId });
+          break;
+
+        case 'numerology_karma':
+          // Проверяем премиум статус
+          const isPremiumKarma = user && (user.isPremium || user.subscriptionType === 'premium' || user.subscriptionType === 'premium_plus');
+          if (!isPremiumKarma) {
+            await bot.editMessageText('🔮 *Кармические уроки*\n\n🔒 Эта функция доступна только в Premium версии.\n\n💎 **С Premium вы получите:**\n• Анализ кармических уроков\n• Персональные рекомендации\n• Глубокий анализ жизненного пути', {
+              chat_id: chatId,
+              message_id: messageId,
+              parse_mode: 'Markdown',
+              reply_markup: {
+                inline_keyboard: [
+                  [{ text: '💎 Получить Premium', callback_data: 'premium_info' }],
+                  [{ text: '🔙 Назад', callback_data: 'numerology_menu' }]
+                ]
+              }
+            });
+          } else {
+            await bot.editMessageText('🔮 *Кармические уроки*\n\n🔧 Функция в разработке. Скоро будет доступна!', {
+              chat_id: chatId,
+              message_id: messageId,
+              parse_mode: 'Markdown',
+              reply_markup: {
+                inline_keyboard: [
+                  [{ text: '🔙 Назад', callback_data: 'numerology_menu' }]
+                ]
+              }
+            });
+          }
           break;
 
         case 'numerology_cancel':
@@ -1778,7 +2266,7 @@ class BotHandlers {
             editMessageText: (text, options) => bot.editMessageText(text, { ...options, chat_id: chatId, message_id: messageId }),
             reply: (text, options) => bot.sendMessage(chatId, text, options),
             from: { id: from.id }
-          });
+          }, user);
           break;
 
         case 'numerology_detailed':
@@ -1786,7 +2274,7 @@ class BotHandlers {
             editMessageText: (text, options) => bot.editMessageText(text, { ...options, chat_id: chatId, message_id: messageId }),
             reply: (text, options) => bot.sendMessage(chatId, text, options),
             from: { id: from.id }
-          });
+          }, user);
           break;
 
         case 'numerology_compatibility':
@@ -1794,7 +2282,7 @@ class BotHandlers {
             editMessageText: (text, options) => bot.editMessageText(text, { ...options, chat_id: chatId, message_id: messageId }),
             reply: (text, options) => bot.sendMessage(chatId, text, options),
             from: { id: from.id }
-          });
+          }, user);
           break;
 
         case 'numerology_forecast':
@@ -1802,7 +2290,7 @@ class BotHandlers {
             editMessageText: (text, options) => bot.editMessageText(text, { ...options, chat_id: chatId, message_id: messageId }),
             reply: (text, options) => bot.sendMessage(chatId, text, options),
             from: { id: from.id }
-          });
+          }, user);
           break;
 
         case 'numerology_name':
@@ -1810,7 +2298,7 @@ class BotHandlers {
             editMessageText: (text, options) => bot.editMessageText(text, { ...options, chat_id: chatId, message_id: messageId }),
             reply: (text, options) => bot.sendMessage(chatId, text, options),
             from: { id: from.id }
-          });
+          }, user);
           break;
 
         case 'numerology_year':
@@ -1818,7 +2306,7 @@ class BotHandlers {
             editMessageText: (text, options) => bot.editMessageText(text, { ...options, chat_id: chatId, message_id: messageId }),
             reply: (text, options) => bot.sendMessage(chatId, text, options),
             from: { id: from.id }
-          });
+          }, user);
           break;
 
         case 'numerology_profile':
@@ -1826,7 +2314,26 @@ class BotHandlers {
             editMessageText: (text, options) => bot.editMessageText(text, { ...options, chat_id: chatId, message_id: messageId }),
             reply: (text, options) => bot.sendMessage(chatId, text, options),
             from: { id: from.id }
+          }, user);
+          break;
+
+        case 'numerology_karma':
+          await bot.editMessageText('🌌 *Кармические уроки*\n\nАнализ кармических уроков в разработке. Эта функция будет доступна в обновлениях Premium версии.', {
+            chat_id: chatId,
+            message_id: messageId,
+            parse_mode: 'Markdown',
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: '💎 Получить Premium', callback_data: 'premium_info' }],
+                [{ text: '🔙 Назад', callback_data: 'numerology_menu' }]
+              ]
+            }
           });
+          break;
+
+        case 'invite_friends':
+          // Handle friend invitation - redirect to referral handler
+          await referralHandlers.handleReferral(bot, { chat: { id: chatId }, from }, user.token);
           break;
 
         case 'help':
@@ -1868,10 +2375,52 @@ class BotHandlers {
           break;
 
         default:
-          await bot.editMessageText('⏳ Обработка запроса...', {
-            chat_id: chatId,
-            message_id: messageId
-          });
+          // Обработка динамических callback'ов
+          if (data.startsWith('lunar_remind_')) {
+            const eventType = data.replace('lunar_remind_', '');
+            await bot.editMessageText(`🔔 *Напоминание о лунном событии*\n\n✅ Напоминание настроено!\n\nМы уведомим вас за день до события "${eventType}".\n\n💫 Вы можете настроить дополнительные напоминания в настройках профиля.`, {
+              chat_id: chatId,
+              message_id: messageId,
+              parse_mode: 'Markdown',
+              reply_markup: {
+                inline_keyboard: [
+                  [{ text: '⚙️ Настройки напоминаний', callback_data: 'reminder_settings' }],
+                  [{ text: '🔙 Назад к событиям', callback_data: 'lunar_next_event' }],
+                  [{ text: '🏠 Главное меню', callback_data: 'main_menu' }]
+                ]
+              }
+            });
+          } else if (data.startsWith('lunar_prepare_')) {
+            const eventType = data.replace('lunar_prepare_', '');
+            await bot.editMessageText(`💡 *Подготовка к лунному событию*\n\n🔧 Персональные рекомендации по подготовке в разработке.\n\nСкоро вы получите детальные советы по подготовке к событию "${eventType}".`, {
+              chat_id: chatId,
+              message_id: messageId,
+              parse_mode: 'Markdown',
+              reply_markup: {
+                inline_keyboard: [
+                  [{ text: '🔙 Назад к событиям', callback_data: 'lunar_next_event' }],
+                  [{ text: '🏠 Главное меню', callback_data: 'main_menu' }]
+                ]
+              }
+            });
+          } else if (data.startsWith('invite_') || data === 'invite_friends') {
+            // Обработка приглашений друзей
+            await bot.editMessageText('👥 *Пригласить друзей*\n\n🔧 Функция приглашения друзей в разработке.\n\nСкоро вы сможете приглашать друзей и получать бонусы!', {
+              chat_id: chatId,
+              message_id: messageId,
+              parse_mode: 'Markdown',
+              reply_markup: {
+                inline_keyboard: [
+                  [{ text: '🔙 Назад', callback_data: 'main_menu' }]
+                ]
+              }
+            });
+          } else {
+            await bot.editMessageText('⏳ Обработка запроса...', {
+              chat_id: chatId,
+              message_id: messageId
+            });
+          }
           break;
       }
     } catch (error) {
@@ -2715,6 +3264,12 @@ ${phases.map(phase => `${phase.emoji} ${phase.date} - ${phase.name}`).join('\n')
       console.log('Reading saved to database successfully');
     } catch (error) {
       console.log('Failed to save reading to database:', error.message);
+      // Проверяем если это ошибка лимита (статус 429)
+      if (error.response?.status === 429 || error.message.includes('429')) {
+        console.log('❌ Reading not saved: Daily limit exceeded');
+        throw new Error('DAILY_LIMIT_EXCEEDED');
+      }
+      // Для других ошибок не останавливаем процесс
     }
   }
 
@@ -3236,10 +3791,33 @@ ${phases.map(phase => `${phase.emoji} ${phase.date} - ${phase.name}`).join('\n')
   async handleSettingsDeck(bot, chatId, messageId, from) {
     try {
       const user = await this.ensureUser(from);
+      
+      // Проверяем премиум статус для выбора стиля
+      const isPremium = user && (user.isPremium || user.subscriptionType === 'premium' || user.subscriptionType === 'premium_plus');
+      
+      if (!isPremium) {
+        const text = `🔮 *Настройки стиля колоды*\n\n🔒 Выбор стиля генерации изображений доступен только в Premium версии.\n\n💎 **С Premium вы получите:**\n• Более 10 уникальных стилей карт\n• Мистический, классический, готический стили\n• Персонализация всех изображений\n• Высокое качество генерации\n\n🆓 **Сейчас доступно:** Базовая генерация изображений`;
+        
+        const keyboard = {
+          inline_keyboard: [
+            [{ text: '💎 Получить Premium', callback_data: 'premium_info' }],
+            [{ text: '⬅️ Назад к настройкам', callback_data: 'settings' }]
+          ]
+        };
+
+        await bot.editMessageText(text, {
+          chat_id: chatId,
+          message_id: messageId,
+          parse_mode: 'Markdown',
+          reply_markup: keyboard
+        });
+        return;
+      }
+      
       // Получаем текущий стиль из новой структуры настроек
       const userPreferences = user.preferences || {};
       const cardGeneration = userPreferences.cardGeneration || {};
-      const currentDeck = cardGeneration.defaultStyle || user.deckType || 'mystic';
+      const currentDeck = cardGeneration.defaultStyle || 'mystic';
       
       console.log(`🎨 Bot: Showing deck settings for user ${user.telegramId}, current style: ${currentDeck}`);
       
@@ -3310,6 +3888,30 @@ ${phases.map(phase => `${phase.emoji} ${phase.date} - ${phase.name}`).join('\n')
   async handleDeckSelection(bot, chatId, messageId, data, from) {
     try {
       const user = await this.ensureUser(from);
+      
+      // Проверяем премиум статус для выбора стиля
+      const isPremium = user && (user.isPremium || user.subscriptionType === 'premium' || user.subscriptionType === 'premium_plus');
+      console.log(`🎨 Deck selection check: isPremium=${isPremium}, user.isPremium=${user?.isPremium}, subscriptionType=${user?.subscriptionType}`);
+      
+      if (!isPremium) {
+        const text = `🔒 *Выбор стиля недоступен*\n\nВыбор стиля генерации изображений доступен только в Premium версии.\n\n💎 **Обновитесь до Premium для:**\n• Выбора из 10+ уникальных стилей\n• Персонализации всех изображений\n• Высокого качества генерации\n\n🆓 **Сейчас доступно:** Базовая генерация изображений`;
+        
+        const keyboard = {
+          inline_keyboard: [
+            [{ text: '💎 Получить Premium', callback_data: 'premium_info' }],
+            [{ text: '⬅️ Назад к настройкам', callback_data: 'settings' }]
+          ]
+        };
+
+        await bot.editMessageText(text, {
+          chat_id: chatId,
+          message_id: messageId,
+          parse_mode: 'Markdown',
+          reply_markup: keyboard
+        });
+        return;
+      }
+      
       const selectedStyle = data.replace('deck_', '');
       
       // Получаем описание стиля
@@ -3343,7 +3945,7 @@ ${phases.map(phase => `${phase.emoji} ${phase.date} - ${phase.name}`).join('\n')
       const currentCardGeneration = currentPreferences.cardGeneration || {};
       
       const updateData = { 
-        deckType: selectedStyle, // для обратной совместимости
+        selectedStyle: selectedStyle,
         preferences: {
           ...currentPreferences,
           cardDeck: selectedStyle, // для обратной совместимости
@@ -3370,7 +3972,7 @@ ${phases.map(phase => `${phase.emoji} ${phase.date} - ${phase.name}`).join('\n')
         try {
           const updatedUser = await database.getUserByTelegramId(user.telegramId);
           console.log(`🔍 Bot: User after update check:`, {
-            deckType: updatedUser?.user?.deckType,
+            preferences: updatedUser?.user?.preferences,
             preferences: JSON.stringify(updatedUser?.user?.preferences, null, 2)
           });
         } catch (error) {

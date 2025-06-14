@@ -3,6 +3,18 @@ const apiService = require('../services/api');
 const logger = require('../utils/logger');
 
 /**
+ * Получение читаемого названия плана подписки
+ */
+function getSubscriptionPlanName(planId) {
+    const planNames = {
+        'monthly_premium': 'Месячный Premium',
+        'yearly_premium': 'Годовой Premium',
+        'yearly_premium_plus': 'Годовой Premium Plus'
+    };
+    return planNames[planId] || planId;
+}
+
+/**
  * Обработчик команды /premium - показ планов подписки
  */
 async function handlePremium(bot, msg, userToken) {
@@ -18,19 +30,32 @@ async function handlePremium(bot, msg, userToken) {
             // Пользователь уже имеет премиум
             const daysLeft = subscription.daysLeft;
             const expiresAt = new Date(subscription.endDate).toLocaleDateString('ru-RU');
+            const tier = subscription.tier || 'premium';
+            const isPremiumPlus = tier === 'premium_plus';
             
-            await bot.sendMessage(chatId,
-                '💎 <b>У вас активна Премиум подписка!</b>\n\n' +
-                `📅 <b>Действует до:</b> ${expiresAt}\n` +
-                `⏰ <b>Осталось дней:</b> ${daysLeft}\n` +
-                `📦 <b>План:</b> ${subscription.planId === 'monthly_premium' ? 'Месячный' : 'Годовой'}\n\n` +
-                '✨ <b>Ваши возможности:</b>\n' +
+            let featuresText = '✨ <b>Ваши возможности:</b>\n' +
                 '• Безлимитные гадания\n' +
                 '• Все расклады Таро\n' +
                 '• ИИ-анализ карт\n' +
                 '• Генерация изображений\n' +
-                '• Персональные рекомендации\n' +
-                '• Приоритетная поддержка', {
+                '• Экспорт раскладов в PDF\n' +
+                '• Расширенная нумерология\n' +
+                '• Голосовой ввод вопросов';
+            
+            if (isPremiumPlus) {
+                featuresText += '\n• Приоритетная поддержка\n' +
+                    '• Эксклюзивные расклады\n' +
+                    '• Анализ фотографий\n' +
+                    '• NFT коллекционные карты\n' +
+                    '• Детальная аналитика';
+            }
+            
+            await bot.sendMessage(chatId,
+                `💎 <b>У вас активна ${isPremiumPlus ? 'Premium Plus' : 'Premium'} подписка!</b>\n\n` +
+                `📅 <b>Действует до:</b> ${expiresAt}\n` +
+                `⏰ <b>Осталось дней:</b> ${daysLeft}\n` +
+                `📦 <b>План:</b> ${getSubscriptionPlanName(subscription.planId)}\n\n` +
+                featuresText, {
                 parse_mode: 'HTML',
                 reply_markup: {
                     inline_keyboard: [
@@ -87,8 +112,15 @@ async function showSubscriptionPlans(bot, chatId, userId) {
         const keyboards = [];
 
         plans.forEach((plan, index) => {
-            const isYearly = plan.id === 'yearly_premium';
-            const savings = isYearly ? ' 🔥 СКИДКА 40%' : '';
+            const isYearly = plan.id.includes('yearly');
+            const isPremiumPlus = plan.id.includes('premium_plus');
+            let savings = '';
+            
+            if (isYearly && !isPremiumPlus) {
+                savings = ' 🔥 СКИДКА 40%';
+            } else if (isPremiumPlus) {
+                savings = ' ⭐ VIP';
+            }
             
             plansText += `${index + 1}. <b>${plan.name}</b>${savings}\n`;
             plansText += `   💰 ${plan.price} ⭐ Stars\n`;
@@ -96,7 +128,7 @@ async function showSubscriptionPlans(bot, chatId, userId) {
             plansText += `   📝 ${plan.description}\n\n`;
 
             keyboards.push([{
-                text: `${isYearly ? '🔥 ' : ''}${plan.name} - ${plan.price} ⭐`,
+                text: `${isPremiumPlus ? '⭐ ' : isYearly ? '🔥 ' : ''}${plan.name} - ${plan.price} ⭐`,
                 callback_data: `buy_premium_${plan.id}`
             }]);
         });
@@ -381,7 +413,7 @@ async function handleSuccessfulPayment(bot, msg) {
                         [
                             {
                                 text: '🔮 Открыть приложение',
-                                web_app: { url: `${process.env.WEBAPP_URL || 'https://mystika.systems.cv'}/spreads` }
+                                web_app: { url: `${process.env.WEBAPP_URL || 'https://mystika.systems.cv'}` }
                             }
                         ],
                         [

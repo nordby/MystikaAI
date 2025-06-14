@@ -83,6 +83,49 @@ class AIService {
   /**
    * Получение интерпретации от Claude API
    */
+  /**
+   * Универсальный метод генерации текста
+   */
+  async generateText(prompt, options = {}) {
+    const {
+      temperature = 0.7,
+      maxTokens = 1000,
+      model = this.defaultModel
+    } = options;
+
+    try {
+      if (!prompt || typeof prompt !== 'string') {
+        return 'Энергия дня благоприятна для внутреннего роста и духовного развития.';
+      }
+      
+      if (model.startsWith('claude')) {
+        const result = await this.getClaudeInterpretation(prompt, model);
+        // Проверяем что результат корректный
+        if (result && typeof result === 'object' && result.main) {
+          return result.main;
+        } else if (typeof result === 'string') {
+          return result;
+        }
+        throw new Error('Invalid Claude response format');
+      } else if (model.startsWith('gpt')) {
+        const result = await this.getOpenAIInterpretation(prompt, model);
+        if (result && typeof result === 'object' && result.main) {
+          return result.main;
+        } else if (typeof result === 'string') {
+          return result;
+        }
+        throw new Error('Invalid OpenAI response format');
+      } else {
+        // Fallback - возвращаем базовый ответ
+        return 'Следуйте энергии луны и доверьтесь своей интуиции.';
+      }
+    } catch (error) {
+      logger.error('Error generating text', { error: error.message, prompt: prompt?.substring(0, 100) });
+      // Fallback для лунных рекомендаций
+      return 'Энергия дня благоприятна для внутреннего роста и духовного развития.';
+    }
+  }
+
   async getClaudeInterpretation(prompt, model) {
     if (!this.claudeApiKey) {
       throw new Error('Claude API key is not configured');

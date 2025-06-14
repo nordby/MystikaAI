@@ -340,6 +340,169 @@ class NumerologyService {
   }
 
   /**
+   * Расширенный анализ совместимости для Premium
+   */
+  async calculateAdvancedCompatibility(person1, person2) {
+    try {
+      const { birthDate: date1, name: name1 } = person1;
+      const { birthDate: date2, name: name2 } = person2;
+
+      // Базовая совместимость
+      const lifePath1 = this.calculateLifePath(date1);
+      const lifePath2 = this.calculateLifePath(date2);
+      const baseCompatibility = await this.calculateCompatibility(lifePath1, lifePath2);
+
+      // Дополнительные числа для расширенного анализа
+      const destiny1 = this.calculateDestinyNumber(name1);
+      const destiny2 = this.calculateDestinyNumber(name2);
+      const soul1 = this.calculateSoulNumber(date1);
+      const soul2 = this.calculateSoulNumber(date2);
+
+      // Совместимость по числам судьбы
+      const destinyCompatibility = await this.calculateCompatibility(destiny1, destiny2);
+      
+      // Совместимость душ
+      const soulCompatibility = await this.calculateCompatibility(soul1, soul2);
+
+      // Общий результат
+      const overallPercentage = Math.round(
+        (baseCompatibility.percentage + destinyCompatibility.percentage + soulCompatibility.percentage) / 3
+      );
+
+      return {
+        overall: {
+          percentage: overallPercentage,
+          level: this.getCompatibilityLevel(overallPercentage),
+          description: `Общая совместимость ${overallPercentage}% - ${this.getCompatibilityLevel(overallPercentage)}`
+        },
+        lifePath: baseCompatibility,
+        destiny: destinyCompatibility,
+        soul: soulCompatibility,
+        recommendations: this.generateCompatibilityRecommendations(overallPercentage),
+        person1: {
+          lifePath: lifePath1,
+          destiny: destiny1,
+          soul: soul1
+        },
+        person2: {
+          lifePath: lifePath2,
+          destiny: destiny2,
+          soul: soul2
+        }
+      };
+
+    } catch (error) {
+      logger.error('Error in advanced compatibility calculation', { error: error.message });
+      throw error;
+    }
+  }
+
+  /**
+   * Анализ имени для Premium
+   */
+  async analyzeNameNumerology(fullName) {
+    try {
+      const destiny = this.calculateDestinyNumber(fullName);
+      const vowels = this.calculateVowelNumber(fullName);
+      const consonants = this.calculateConsonantNumber(fullName);
+
+      const analysis = {
+        destiny: {
+          number: destiny,
+          meaning: this.getNumberMeaning(destiny),
+          description: 'Число судьбы показывает вашу жизненную миссию и цель'
+        },
+        vowels: {
+          number: vowels,
+          meaning: this.getNumberMeaning(vowels),
+          description: 'Число гласных раскрывает ваши внутренние желания и мотивы'
+        },
+        consonants: {
+          number: consonants,
+          meaning: this.getNumberMeaning(consonants),
+          description: 'Число согласных показывает, как вас воспринимают окружающие'
+        },
+        recommendations: this.generateNameRecommendations(destiny, vowels, consonants)
+      };
+
+      // Добавляем ИИ-анализ если доступен
+      if (this.aiService && typeof this.aiService.analyzeNameNumerology === 'function') {
+        try {
+          const aiAnalysis = await this.aiService.analyzeNameNumerology(fullName, analysis);
+          if (aiAnalysis) {
+            analysis.aiInsights = aiAnalysis;
+            analysis.aiEnhanced = true;
+          }
+        } catch (error) {
+          logger.warn('AI name analysis failed', { error: error.message });
+        }
+      }
+
+      return analysis;
+
+    } catch (error) {
+      logger.error('Error in name analysis', { error: error.message, fullName });
+      throw error;
+    }
+  }
+
+  /**
+   * Персональный год для Premium
+   */
+  calculatePersonalYear(birthDate, targetYear = new Date().getFullYear()) {
+    try {
+      const date = new Date(birthDate);
+      const month = date.getMonth() + 1;
+      const day = date.getDate();
+
+      const sum = this.reduceToSingleDigit(month) + 
+                  this.reduceToSingleDigit(day) + 
+                  this.reduceToSingleDigit(targetYear);
+
+      return this.reduceToSingleDigit(sum);
+
+    } catch (error) {
+      logger.error('Error calculating personal year', { error: error.message, birthDate, targetYear });
+      throw error;
+    }
+  }
+
+  /**
+   * Кармические уроки для Premium Plus
+   */
+  calculateKarmicLessons(fullName, birthDate) {
+    try {
+      const nameNumbers = this.getNameNumbers(fullName);
+      const missingNumbers = [];
+      
+      // Находим отсутствующие числа от 1 до 9
+      for (let i = 1; i <= 9; i++) {
+        if (!nameNumbers.includes(i)) {
+          missingNumbers.push(i);
+        }
+      }
+
+      const karmicLessons = missingNumbers.map(number => ({
+        number,
+        lesson: this.getKarmicLesson(number),
+        challenge: this.getKarmicChallenge(number),
+        solution: this.getKarmicSolution(number)
+      }));
+
+      return {
+        missingNumbers,
+        lessons: karmicLessons,
+        totalLessons: karmicLessons.length,
+        description: `У вас ${karmicLessons.length} кармических урока для проработки`
+      };
+
+    } catch (error) {
+      logger.error('Error calculating karmic lessons', { error: error.message });
+      throw error;
+    }
+  }
+
+  /**
    * Персональный нумерологический прогноз
    */
   async generatePersonalForecast(birthDate, currentDate = new Date()) {
@@ -682,6 +845,142 @@ class NumerologyService {
       logger.error('Error calculating name number', { error: error.message, name });
       throw error;
     }
+  }
+
+  // Вспомогательные методы для расширенной нумерологии
+
+  /**
+   * Вычисление числа гласных
+   */
+  calculateVowelNumber(fullName) {
+    const vowels = 'аеёиоуыэюяaeiouy';
+    let sum = 0;
+    const name = fullName.toLowerCase();
+
+    for (let char of name) {
+      if (vowels.includes(char)) {
+        sum += this.getLetterValue(char);
+      }
+    }
+
+    return this.reduceToSingleDigitWithMaster(sum);
+  }
+
+  /**
+   * Вычисление числа согласных
+   */
+  calculateConsonantNumber(fullName) {
+    const vowels = 'аеёиоуыэюяaeiouy ';
+    let sum = 0;
+    const name = fullName.toLowerCase();
+
+    for (let char of name) {
+      if (!vowels.includes(char) && this.getLetterValue(char) > 0) {
+        sum += this.getLetterValue(char);
+      }
+    }
+
+    return this.reduceToSingleDigitWithMaster(sum);
+  }
+
+  /**
+   * Получение всех чисел в имени
+   */
+  getNameNumbers(fullName) {
+    const numbers = new Set();
+    const name = fullName.toLowerCase().replace(/[^а-яёa-z]/g, '');
+
+    for (let char of name) {
+      const value = this.getLetterValue(char);
+      if (value > 0) {
+        numbers.add(value);
+      }
+    }
+
+    return Array.from(numbers);
+  }
+
+  /**
+   * Получение значения буквы
+   */
+  getLetterValue(char) {
+    const letterValues = {
+      'а': 1, 'б': 2, 'в': 3, 'г': 4, 'д': 5, 'е': 6, 'ё': 6, 'ж': 7, 'з': 8, 'и': 9,
+      'й': 1, 'к': 2, 'л': 3, 'м': 4, 'н': 5, 'о': 6, 'п': 7, 'р': 8, 'с': 9, 'т': 1,
+      'у': 2, 'ф': 3, 'х': 4, 'ц': 5, 'ч': 6, 'ш': 7, 'щ': 8, 'ъ': 9, 'ы': 1, 'ь': 2,
+      'э': 3, 'ю': 4, 'я': 5,
+      'a': 1, 'b': 2, 'c': 3, 'd': 4, 'e': 5, 'f': 6, 'g': 7, 'h': 8, 'i': 9,
+      'j': 1, 'k': 2, 'l': 3, 'm': 4, 'n': 5, 'o': 6, 'p': 7, 'q': 8, 'r': 9,
+      's': 1, 't': 2, 'u': 3, 'v': 4, 'w': 5, 'x': 6, 'y': 7, 'z': 8
+    };
+    return letterValues[char] || 0;
+  }
+
+  /**
+   * Генерация рекомендаций для анализа имени
+   */
+  generateNameRecommendations(destiny, vowels, consonants) {
+    const recommendations = [];
+
+    recommendations.push(`Ваше число судьбы ${destiny} указывает на ${this.getNumberMeaning(destiny).keywords.join(', ')}`);
+    recommendations.push(`Внутренние желания (${vowels}) направлены на ${this.getNumberMeaning(vowels).keywords[0]}`);
+    recommendations.push(`Окружающие видят в вас ${this.getNumberMeaning(consonants).keywords.join(' и ')}`);
+
+    return recommendations;
+  }
+
+  /**
+   * Получение кармического урока
+   */
+  getKarmicLesson(number) {
+    const lessons = {
+      1: 'Развитие лидерских качеств и независимости',
+      2: 'Обучение сотрудничеству и дипломатии',
+      3: 'Развитие творческого самовыражения',
+      4: 'Формирование дисциплины и практичности',
+      5: 'Принятие перемен и свободы',
+      6: 'Развитие заботы и ответственности',
+      7: 'Поиск духовной мудрости и знаний',
+      8: 'Балансирование материального и духовного',
+      9: 'Служение человечеству и развитие сострадания'
+    };
+    return lessons[number] || 'Универсальное развитие';
+  }
+
+  /**
+   * Получение кармического вызова
+   */
+  getKarmicChallenge(number) {
+    const challenges = {
+      1: 'Преодоление эгоизма и упрямства',
+      2: 'Избегание чрезмерной зависимости',
+      3: 'Контроль рассеянности и поверхностности',
+      4: 'Преодоление негибкости и консерватизма',
+      5: 'Борьба с непостоянством и безответственностью',
+      6: 'Избегание навязчивости и критичности',
+      7: 'Преодоление замкнутости и отчужденности',
+      8: 'Балансирование амбиций и человечности',
+      9: 'Контроль эмоциональности и импульсивности'
+    };
+    return challenges[number] || 'Поиск гармонии';
+  }
+
+  /**
+   * Получение решения кармического урока
+   */
+  getKarmicSolution(number) {
+    const solutions = {
+      1: 'Практикуйте умеренное лидерство и помощь другим',
+      2: 'Развивайте здоровые границы в отношениях',
+      3: 'Фокусируйтесь на глубоком творческом развитии',
+      4: 'Добавьте гибкость в свои планы и методы',
+      5: 'Найдите баланс между свободой и обязательствами',
+      6: 'Заботьтесь о других, не забывая о себе',
+      7: 'Делитесь своей мудростью с окружающими',
+      8: 'Используйте успех для служения высшим целям',
+      9: 'Направляйте эмоции на конструктивные действия'
+    };
+    return solutions[number] || 'Стремитесь к балансу во всем';
   }
 
   /**
@@ -1396,6 +1695,28 @@ class NumerologyService {
     };
 
     return karmicNumbers.map(k => karmicMeanings[k.number] || 'Особый кармический урок').join('; ');
+  }
+
+  /**
+   * Получение значения числа (универсальный метод)
+   */
+  getNumberMeaning(number) {
+    return this.numberMeanings[number] || {
+      name: `Число ${number}`,
+      keywords: ['особая энергия', 'уникальный путь'],
+      description: 'Особое нумерологическое число с уникальной энергетикой.',
+      positive: ['особые способности', 'уникальность'],
+      negative: ['сложности понимания', 'особые вызовы'],
+      career: ['особый путь'],
+      relationships: 'Уникальный подход к отношениям.'
+    };
+  }
+
+  /**
+   * Получение значения числа жизненного пути (алиас для совместимости)
+   */
+  getLifePathMeaning(number) {
+    return this.getNumberMeaning(number);
   }
 }
 

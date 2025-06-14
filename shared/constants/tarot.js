@@ -100,7 +100,8 @@ const SPREAD_TYPES = {
     description: 'Простое гадание на одну карту',
     positions: [{ name: 'Ваша карта', meaning: 'Основной ответ на вопрос' }],
     minCards: 1,
-    maxCards: 1
+    maxCards: 1,
+    isPremium: false
   },
   three: {
     id: 'three',
@@ -113,7 +114,8 @@ const SPREAD_TYPES = {
       { name: 'Будущее', meaning: 'Что ждет в ближайшем будущем' }
     ],
     minCards: 3,
-    maxCards: 3
+    maxCards: 3,
+    isPremium: false
   },
   celtic: {
     id: 'celtic',
@@ -133,7 +135,8 @@ const SPREAD_TYPES = {
       { name: 'Финальный исход', meaning: 'Окончательный результат' }
     ],
     minCards: 10,
-    maxCards: 10
+    maxCards: 10,
+    isPremium: true
   },
   relationship: {
     id: 'relationship',
@@ -148,7 +151,8 @@ const SPREAD_TYPES = {
       { name: 'Совет', meaning: 'Как улучшить отношения' }
     ],
     minCards: 5,
-    maxCards: 5
+    maxCards: 5,
+    isPremium: true
   }
 };
 

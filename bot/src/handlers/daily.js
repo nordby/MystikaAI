@@ -206,7 +206,11 @@ async function handleDailyHistory(bot, callbackQuery, api) {
                 historyText += '\n';
             });
 
-            historyText += '\n💡 <i>Посмотрите полную историю в приложении</i>';
+            if (response.data.upgradeRequired) {
+                historyText += '\n💎 <i>Полная история доступна только в Premium</i>';
+            } else {
+                historyText += '\n💡 <i>Посмотрите полную историю в приложении</i>';
+            }
 
             await bot.sendMessage(chatId, historyText, {
                 parse_mode: 'HTML',

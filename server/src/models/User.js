@@ -166,7 +166,7 @@ module.exports = (sequelize) => {
   };
 
   User.prototype.canMakeReading = function() {
-    if (this.isPremium) return true;
+    if (this.subscriptionType === 'premium' || this.subscriptionType === 'premium_plus') return true;
     
     const today = new Date().toISOString().split('T')[0];
     if (this.lastDailyReset !== today) {
@@ -190,9 +190,33 @@ module.exports = (sequelize) => {
   };
 
   User.prototype.isPremiumActive = function() {
-    if (!this.isPremium) return false;
+    if (this.subscriptionType === 'basic') return false;
     if (!this.premiumExpiresAt) return true; // Вечная подписка
     return new Date() < new Date(this.premiumExpiresAt);
+  };
+
+  User.prototype.getUserTier = function() {
+    if (!this.isPremiumActive()) return 'basic';
+    return this.subscriptionType;
+  };
+
+  User.prototype.hasTierAccess = function(requiredTier) {
+    const userTier = this.getUserTier();
+    const tierHierarchy = { basic: 0, premium: 1, premium_plus: 2 };
+    return tierHierarchy[userTier] >= tierHierarchy[requiredTier];
+  };
+
+  User.prototype.canGenerateImages = function() {
+    return true; // Все пользователи могут генерировать изображения
+  };
+
+  User.prototype.canChooseImageStyle = function() {
+    return this.hasTierAccess('premium'); // Только Premium могут выбирать стиль
+  };
+
+  User.prototype.getHistoryLimit = function() {
+    if (this.hasTierAccess('premium')) return null; // Без ограничений
+    return 10; // Лимит для бесплатных пользователей
   };
 
   User.prototype.generateReferralCode = function() {

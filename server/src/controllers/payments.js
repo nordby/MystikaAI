@@ -18,31 +18,50 @@ const getSubscriptionPlans = async (req, res) => {
                 id: 'monthly_premium',
                 name: 'Премиум месяц',
                 description: 'Полный доступ ко всем функциям на месяц',
-                price: 50, // Telegram Stars
+                price: 100, // Telegram Stars
                 currency: 'XTR',
                 duration: 30, // дней
+                tier: 'premium',
                 features: [
                     'Безлимитные гадания',
                     'Все расклады Таро',
                     'ИИ-анализ карт',
                     'Генерация изображений',
-                    'Персональные рекомендации',
-                    'Приоритетная поддержка'
+                    'Экспорт раскладов в PDF',
+                    'Расширенная нумерология'
                 ]
             },
             {
                 id: 'yearly_premium',
                 name: 'Премиум год',
                 description: 'Полный доступ на год со скидкой 40%',
-                price: 360, // Telegram Stars (вместо 600)
+                price: 600, // Telegram Stars (вместо 600)
                 currency: 'XTR',
                 duration: 365, // дней
+                tier: 'premium',
                 features: [
                     'Все возможности месячного плана',
                     'Скидка 40%',
-                    'Эксклюзивные расклады',
+                    'Голосовой ввод вопросов',
                     'Персональный таролог-ИИ',
-                    'Расширенная статистика'
+                    'Полная история раскладов'
+                ]
+            },
+            {
+                id: 'yearly_premium_plus',
+                name: 'Premium Plus год',
+                description: 'VIP доступ с эксклюзивными возможностями',
+                price: 1000, // Telegram Stars
+                currency: 'XTR',
+                duration: 365, // дней
+                tier: 'premium_plus',
+                features: [
+                    'Все возможности Premium',
+                    'Приоритетная поддержка',
+                    'Эксклюзивные расклады',
+                    'Анализ фотографий',
+                    'NFT коллекционные карты',
+                    'Детальная аналитика точности'
                 ]
             }
         ];
@@ -89,13 +108,22 @@ const createStarsInvoice = async (req, res) => {
                 name: 'Премиум месяц',
                 description: 'Полный доступ ко всем функциям на месяц',
                 price: 100,
-                duration: 30
+                duration: 30,
+                tier: 'premium'
             },
             'yearly_premium': {
                 name: 'Премиум год', 
                 description: 'Полный доступ на год со скидкой 40%',
-                price: 300,
-                duration: 365
+                price: 600,
+                duration: 365,
+                tier: 'premium'
+            },
+            'yearly_premium_plus': {
+                name: 'Premium Plus год',
+                description: 'VIP доступ с эксклюзивными возможностями',
+                price: 1000,
+                duration: 365,
+                tier: 'premium_plus'
             }
         };
 
@@ -181,8 +209,9 @@ const handlePreCheckout = async (req, res) => {
 
         // Проверяем план
         const plans = {
-            'monthly_premium': { price: 100, duration: 30 },
-            'yearly_premium': { price: 300, duration: 365 }
+            'monthly_premium': { price: 100, duration: 30, tier: 'premium' },
+            'yearly_premium': { price: 600, duration: 365, tier: 'premium' },
+            'yearly_premium_plus': { price: 1000, duration: 365, tier: 'premium_plus' }
         };
 
         const plan = plans[payloadData.planId];
@@ -308,11 +337,18 @@ const handleSuccessfulPayment = async (req, res) => {
         
         const created = true;
 
+        // Получаем план для определения tier
+        const planTiers = {
+            'monthly_premium': 'premium',
+            'yearly_premium': 'premium', 
+            'yearly_premium_plus': 'premium_plus'
+        };
+        
         // Обновляем статус пользователя
         await user.update({
             isPremium: true,
-            premiumUntil: expiresAt,
-            subscriptionPlan: payloadData.planId
+            premiumExpiresAt: expiresAt,
+            subscriptionType: planTiers[payloadData.planId] || 'premium'
         });
 
         logger.info('Premium subscription activated', {
@@ -401,7 +437,8 @@ const getSubscriptionStatus = async (req, res) => {
                     status: subscription.status,
                     startDate: subscription.startDate,
                     endDate: subscription.endDate,
-                    daysLeft: Math.ceil((subscription.endDate - now) / (1000 * 60 * 60 * 24))
+                    daysLeft: Math.ceil((subscription.endDate - now) / (1000 * 60 * 60 * 24)),
+                    tier: user.subscriptionType || 'premium'
                 }
             });
         } else {
